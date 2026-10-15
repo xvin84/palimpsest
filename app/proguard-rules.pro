@@ -23,3 +23,6 @@
 
 -dontwarn org.slf4j.**
 -dontwarn org.jspecify.**
+
+# Navigation type-safe routes look enum argument classes up by name.
+-keep enum dev.xvin.palimpsest.** { *; }
