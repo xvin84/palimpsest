@@ -72,9 +72,9 @@ class AppGraph(val app: Application) {
     val db = AppDatabase.create(app)
     val settings = Settings(app, appScope)
 
-    /** Optional proxy used only for YouTube hosts (YouTube is often unreachable directly). */
+    /** Optional proxy used only for YouTube/Spotify hosts (often unreachable directly). */
     private val proxySelector = object : ProxySelector() {
-        private val hosts = listOf("youtube.com", "googlevideo.com", "ytimg.com", "youtu.be", "ggpht.com", "googleapis.com", "googleusercontent.com")
+        private val hosts = listOf("youtube.com", "googlevideo.com", "ytimg.com", "youtu.be", "ggpht.com", "googleapis.com", "googleusercontent.com", "spotify.com", "scdn.co", "spotifycdn.com")
 
         override fun select(uri: URI?): List<Proxy> {
             val proxy = settings.state.value?.proxy
@@ -129,6 +129,7 @@ class AppGraph(val app: Application) {
 
     val remote = RemoteRepository(db, settings, yandexAuth, yandex, providers)
     val lyrics = LyricsRepository(db, yandex, LrcLibClient(http))
+    val spotify = dev.xvin.palimpsest.core.spotify.SpotifyImporter(http)
     val downloads = Downloads(app, db, settings, http, remote, versions)
 
     val player = PlayerConnection(app, mainScope) { settings.loadQueue() }

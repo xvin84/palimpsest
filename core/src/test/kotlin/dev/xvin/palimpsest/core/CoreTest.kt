@@ -220,3 +220,22 @@ class StreamInfoTest {
         assertEquals("mp3", ext("mp3"))
     }
 }
+
+class SpotifyTest {
+    @Test fun parsesLinks() {
+        val s = dev.xvin.palimpsest.core.spotify.SpotifyImporter
+        assertEquals("playlist" to "37i9dQZF1DXcBWIGoYBM5M", s.parse("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M?si=abc"))
+        assertEquals("album" to "4m2880jivSbbyEGAKfITCa", s.parse("https://open.spotify.com/intl-de/album/4m2880jivSbbyEGAKfITCa"))
+        assertEquals("playlist" to "37i9dQZF1DXcBWIGoYBM5M", s.parse("spotify:playlist:37i9dQZF1DXcBWIGoYBM5M"))
+        assertNull(s.parse("https://open.spotify.com/track/xyz"))
+    }
+
+    @Test fun parsesEmbedPage() {
+        val html = javaClass.getResource("/spotify_embed_playlist.html")!!.readText()
+        val c = dev.xvin.palimpsest.core.spotify.SpotifyImporter.parseEmbed(html, "playlist", "37i9dQZF1DXcBWIGoYBM5M")
+        assertEquals("Today’s Top Hits", c.name)
+        assertEquals(50, c.items.size)
+        assertTrue(c.items.all { it.title.isNotBlank() && it.durationMs > 0 })
+        assertTrue(c.coverUrl!!.startsWith("https://"))
+    }
+}

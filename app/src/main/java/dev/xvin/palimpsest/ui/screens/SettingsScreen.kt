@@ -140,7 +140,7 @@ fun SettingsScreen() {
 
         SectionHeader("Сеть")
         Text(
-            "Прокси только для YouTube (например, 127.0.0.1:10808 или socks://host:port). Остальные сервисы ходят напрямую.",
+            "Прокси только для YouTube и Spotify (например, 127.0.0.1:10808 или socks://host:port). Яндекс и остальное ходят напрямую.",
             Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = Ink.Muted,
         )
         Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {

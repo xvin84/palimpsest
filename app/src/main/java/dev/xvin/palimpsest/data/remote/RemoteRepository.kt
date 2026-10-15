@@ -1,6 +1,8 @@
 package dev.xvin.palimpsest.data.remote
 
 import dev.xvin.palimpsest.core.library.Versions
+import dev.xvin.palimpsest.core.match.TrackMatcher
+import dev.xvin.palimpsest.core.spotify.SpotifyImporter
 import dev.xvin.palimpsest.core.model.MusicProvider
 import dev.xvin.palimpsest.core.model.RemoteTrack
 import dev.xvin.palimpsest.core.model.Service
@@ -175,6 +177,43 @@ class RemoteRepository(
         } catch (e: Exception) {
             _status.value = SyncStatus(false, error = e.message ?: e.toString())
             0
+        }
+    }
+
+    /**
+     * Imports a public Spotify playlist/album: each song is looked up on Yandex (if logged in)
+     * and YouTube, the best match by title/artist/duration wins. Returns (matched, total).
+     */
+    suspend fun importSpotify(url: String, importer: SpotifyImporter): Pair<Int, Int> = withContext(Dispatchers.IO) {
+        _status.value = SyncStatus(true, "Читаю Spotify…")
+        try {
+            val c = importer.fetch(url)
+            val sources = listOfNotNull(yandex.takeIf { it.isReady }, providers[Service.YOUTUBE])
+            val ids = ArrayList<Long>()
+            c.items.forEachIndexed { i, item ->
+                _status.value = SyncStatus(true, "Ищу ${i + 1}/${c.items.size}: ${item.artists} — ${item.title}")
+                val match = sources.firstNotNullOfOrNull { p ->
+                    runCatching { p.search("${item.artists} ${item.title}") }.getOrNull().orEmpty().take(8)
+                        .map { it to TrackMatcher.score(item.title, item.artists, item.durationMs, it.title, it.artistLine, it.durationMs) }
+                        .maxByOrNull { it.second }
+                        ?.takeIf { it.second >= 0.6 }?.first
+                }
+                if (match != null) ids += ensureTrack(match).id
+            }
+            val existing = db.playlists().byRemote(Service.SPOTIFY, c.id)
+            val pid = existing?.id ?: db.playlists().insert(
+                PlaylistEntity(name = c.name, service = Service.SPOTIFY, remoteId = c.id, coverUrl = c.coverUrl),
+            )
+            db.playlists().replace(pid, ids)
+            val missed = c.items.size - ids.size
+            _status.value = SyncStatus(
+                false,
+                "«${c.name}»: найдено ${ids.size} из ${c.items.size}" + if (missed > 0) " (не нашлось: $missed)" else "",
+            )
+            ids.size to c.items.size
+        } catch (e: Exception) {
+            _status.value = SyncStatus(false, error = e.message ?: e.toString())
+            0 to 0
         }
     }
 

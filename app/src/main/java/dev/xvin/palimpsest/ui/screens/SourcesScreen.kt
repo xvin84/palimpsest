@@ -66,6 +66,15 @@ fun SourcesScreen() {
 
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { Text("Сервисы", style = MaterialTheme.typography.displayMedium, modifier = Modifier.padding(start = 16.dp, top = 12.dp)) }
+        // One status line for sync, update checks and imports.
+        if (status.running || status.message != null || status.error != null) item {
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                (status.error ?: status.message)?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = if (status.error != null) MaterialTheme.colorScheme.error else Ink.Muted)
+                }
+                if (status.running) LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 6.dp))
+            }
+        }
 
         item {
             Card("Яндекс.Музыка") {
@@ -92,14 +101,6 @@ fun SourcesScreen() {
                         TextButton(onClick = { scope.launch { graph.remote.logoutYandex() } }) { Text("Выйти", color = Ink.Muted) }
                     }
                 }
-                if (status.running) {
-                    Spacer(Modifier.height(8.dp))
-                    LinearProgressIndicator(Modifier.fillMaxWidth())
-                }
-                (status.error ?: status.message)?.let {
-                    Spacer(Modifier.height(6.dp))
-                    Text(it, style = MaterialTheme.typography.bodySmall, color = if (status.error != null) MaterialTheme.colorScheme.error else Ink.Muted)
-                }
                 if (updates.isNotEmpty()) {
                     Spacer(Modifier.height(8.dp))
                     TextButton(onClick = { nav.openList(TrackListKind.UPDATES, "updates") }) {
@@ -121,10 +122,19 @@ fun SourcesScreen() {
 
         item {
             Card("Spotify") {
+                var link by remember { mutableStateOf("") }
                 Text(
-                    "Spotify не отдаёт аудио сторонним приложениям. Планирую импорт плейлистов: треки будут находиться и играть через Яндекс или YouTube.",
+                    "Spotify не отдаёт звук сторонним приложениям, поэтому импортирую плейлисты: вставь ссылку на публичный " +
+                        "плейлист или альбом — каждый трек найдётся в Яндексе (если вошёл) или на YouTube.",
                     color = Ink.Muted,
                 )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(link, { link = it }, Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text("https://open.spotify.com/playlist/…") })
+                Spacer(Modifier.height(8.dp))
+                Button(
+                    enabled = !status.running && dev.xvin.palimpsest.core.spotify.SpotifyImporter.parse(link) != null,
+                    onClick = { graph.appScope.launch { graph.remote.importSpotify(link, graph.spotify) } },
+                ) { Text("Импортировать") }
             }
         }
 
