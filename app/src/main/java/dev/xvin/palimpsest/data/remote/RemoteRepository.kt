@@ -3,6 +3,7 @@ package dev.xvin.palimpsest.data.remote
 import dev.xvin.palimpsest.core.library.Versions
 import dev.xvin.palimpsest.core.match.TrackMatcher
 import dev.xvin.palimpsest.core.spotify.SpotifyImporter
+import dev.xvin.palimpsest.core.model.AuthRequiredException
 import dev.xvin.palimpsest.core.model.MusicProvider
 import dev.xvin.palimpsest.core.model.RemoteTrack
 import dev.xvin.palimpsest.core.model.Service
@@ -72,6 +73,26 @@ class RemoteRepository(
 
     suspend fun logoutYandex() = settings.setYandexAuth(null, null, null)
 
+    /**
+     * Runs a Yandex call; if the token was rejected and we have a refresh token, renews the
+     * token once and retries. Tokens live about a year, so this is rare but keeps sync silent.
+     */
+    private suspend fun <T> yandexCall(block: suspend () -> T): T = try {
+        block()
+    } catch (e: AuthRequiredException) {
+        val refresh = settings.state.value?.yandexRefreshToken ?: throw e
+        val t = yandexAuth.refresh(refresh)
+        settings.setYandexAuth(t.access_token, t.refresh_token ?: refresh, settings.state.value?.yandexLogin)
+        withRetryForToken { block() }
+    }
+
+    /** Likes locally and, for Yandex tracks, in the Yandex library too. */
+    suspend fun setLiked(track: TrackEntity, liked: Boolean): Result<Unit> = withContext(Dispatchers.IO) {
+        db.tracks().setLiked(track.id, liked)
+        if (track.service != Service.YANDEX || track.remoteId == null || !yandex.isReady) return@withContext Result.success(Unit)
+        runCatching { yandexCall { yandex.setLiked(track.remoteId, liked) } }
+    }
+
     // --- Library rows for remote tracks ---------------------------------------------------------
 
     /** Finds or creates the library row for a service track. */
@@ -119,7 +140,7 @@ class RemoteRepository(
         if (!yandex.isReady) return@withContext
         _status.value = SyncStatus(true, "Загружаю лайки…")
         try {
-            val liked = yandex.likedTracks()
+            val liked = yandexCall { yandex.likedTracks() }
             val likedIds = HashSet<Long>()
             liked.forEachIndexed { i, r ->
                 if (i % 50 == 0) _status.value = SyncStatus(true, "Лайки: $i / ${liked.size}")
@@ -129,7 +150,7 @@ class RemoteRepository(
             db.tracks().linkedTo(Service.YANDEX).filter { it.liked && it.id !in likedIds }.forEach { db.tracks().setLiked(it.id, false) }
 
             _status.value = SyncStatus(true, "Загружаю плейлисты…")
-            val playlists = yandex.playlists()
+            val playlists = yandexCall { yandex.playlists() }
             for (p in playlists) {
                 _status.value = SyncStatus(true, "Плейлист «${p.title}»")
                 val tracks = runCatching { yandex.playlistTracks(p.id) }.getOrElse { continue }
@@ -162,7 +183,7 @@ class RemoteRepository(
         try {
             val linked = db.tracks().linkedTo(Service.YANDEX).filter { it.path != null }
             val ids = linked.map { t -> t.remoteAlbumId?.let { "${t.remoteId}:$it" } ?: t.remoteId!! }
-            val remote = yandex.tracksByIds(ids).associateBy { it.id }
+            val remote = yandexCall { yandex.tracksByIds(ids) }.associateBy { it.id }
             var changed = 0
             for (t in linked) {
                 val r = remote[t.remoteId] ?: continue

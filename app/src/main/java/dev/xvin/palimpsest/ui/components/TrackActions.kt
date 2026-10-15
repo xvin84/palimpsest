@@ -79,7 +79,9 @@ fun TrackActionsSheet(initial: TrackEntity, onDismiss: () -> Unit) {
             Action(Icons.AutoMirrored.Rounded.QueueMusic, "Добавить в очередь") { act { graph.player.enqueue(listOf(t)) } }
             Action(Icons.AutoMirrored.Rounded.PlaylistAdd, "Добавить в плейлист…") { pickPlaylist = true }
             Action(if (t.liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, if (t.liked) "Убрать из любимых" else "В любимые") {
-                scope.launch { graph.db.tracks().setLiked(t.id, !t.liked) }
+                scope.launch {
+                    graph.remote.setLiked(t, !t.liked).onFailure { nav.toast("В Яндексе не сохранилось: ${it.message}") }
+                }
             }
             if (t.remoteId != null && (t.path == null || t.updateAvailable)) {
                 Action(Icons.Rounded.Download, if (t.updateAvailable) "Скачать новую версию (старая сохранится)" else "Скачать") {

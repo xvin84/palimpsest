@@ -71,4 +71,14 @@ class YandexTest {
         assertEquals("42:1003", pls.single().id)
         assertEquals("Дорога", pls.single().title)
     }
+
+    @Test fun likeUsesAddMultiple() = runBlocking {
+        server.enqueue(json("""{"result":{"account":{"uid":7}}}"""))
+        server.enqueue(json("""{"result":{"revision":12}}"""))
+        yandex.setLiked("555", liked = true)
+        server.takeRequest()
+        val r = server.takeRequest()
+        assertEquals("/users/7/likes/tracks/add-multiple", r.url.encodedPath)
+        assertEquals("track-ids=555", r.body!!.utf8())
+    }
 }

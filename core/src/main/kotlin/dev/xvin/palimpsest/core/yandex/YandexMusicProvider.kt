@@ -88,6 +88,13 @@ class YandexMusicProvider(
 
     override suspend fun track(id: String): RemoteTrack? = tracksByIds(listOf(id)).firstOrNull()
 
+    /** Likes or un-likes a track in the user's Yandex library ("Мне нравится"). */
+    suspend fun setLiked(trackId: String, liked: Boolean) {
+        val action = if (liked) "add-multiple" else "remove"
+        val form = FormBody.Builder().add("track-ids", trackId).build()
+        post<JsonElement>("/users/${uid()}/likes/tracks/$action", form)
+    }
+
     suspend fun tracksByIds(ids: List<String>): List<RemoteTrack> {
         val out = ArrayList<RemoteTrack>(ids.size)
         for (chunk in ids.chunked(200)) {

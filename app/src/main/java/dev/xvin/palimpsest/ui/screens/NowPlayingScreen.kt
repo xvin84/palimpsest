@@ -227,7 +227,9 @@ fun NowPlayingScreen(onClose: () -> Unit) {
                     )
                 }
                 track?.let { t ->
-                    IconButton(onClick = { scope.launch { graph.db.tracks().setLiked(t.id, !t.liked) } }) {
+                    IconButton(onClick = {
+                        scope.launch { graph.remote.setLiked(t, !t.liked).onFailure { nav.toast("В Яндексе не сохранилось: ${it.message}") } }
+                    }) {
                         Icon(if (t.liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, "Любимое", tint = if (t.liked) accent else Ink.Muted)
                     }
                 }
