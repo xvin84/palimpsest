@@ -256,3 +256,52 @@ fun EmptyState(title: String, body: String, modifier: Modifier = Modifier, actio
         }
     }
 }
+
+/** Seek bar drawn as the track's loudness envelope; played part in the accent colour. */
+@Composable
+fun WaveSeekBar(
+    wave: FloatArray,
+    positionMs: Long,
+    durationMs: Long,
+    onSeek: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+    color: Color = LocalAccent.current,
+) {
+    var dragFraction by remember { mutableStateOf<Float?>(null) }
+    val fraction = dragFraction ?: if (durationMs > 0) (positionMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
+    Column(modifier) {
+        androidx.compose.foundation.Canvas(
+            Modifier
+                .fillMaxWidth()
+                .height(44.dp)
+                .pointerInput(durationMs) { detectTapGestures { o -> if (durationMs > 0) onSeek((o.x / size.width * durationMs).toLong()) } }
+                .pointerInput(durationMs) {
+                    detectHorizontalDragGestures(
+                        onDragStart = { o -> dragFraction = (o.x / size.width).coerceIn(0f, 1f) },
+                        onDragEnd = { dragFraction?.let { onSeek((it * durationMs).toLong()) }; dragFraction = null },
+                        onDragCancel = { dragFraction = null },
+                    ) { change, _ -> dragFraction = (change.position.x / size.width).coerceIn(0f, 1f) }
+                },
+        ) {
+            val n = wave.size
+            val slot = size.width / n
+            val w = slot * 0.62f
+            val mid = size.height / 2
+            for (i in 0 until n) {
+                val h = (0.12f + wave[i] * 0.88f) * size.height / 2
+                val x = i * slot + (slot - w) / 2
+                val played = (i + 0.5f) / n <= fraction
+                drawRoundRect(
+                    color = if (played) color else Ink.Faint.copy(alpha = 0.55f),
+                    topLeft = androidx.compose.ui.geometry.Offset(x, mid - h),
+                    size = androidx.compose.ui.geometry.Size(w, h * 2),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(w / 2, w / 2),
+                )
+            }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(formatDuration(dragFraction?.let { (it * durationMs).toLong() } ?: positionMs), style = MaterialTheme.typography.labelSmall, color = Ink.Muted)
+            Text(formatDuration(durationMs), style = MaterialTheme.typography.labelSmall, color = Ink.Muted)
+        }
+    }
+}

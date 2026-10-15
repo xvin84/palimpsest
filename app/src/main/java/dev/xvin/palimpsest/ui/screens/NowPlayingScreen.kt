@@ -96,6 +96,7 @@ import dev.xvin.palimpsest.ui.components.Artwork
 import dev.xvin.palimpsest.ui.components.LocalGraph
 import dev.xvin.palimpsest.ui.components.SeekBar
 import dev.xvin.palimpsest.ui.components.Visualizer
+import dev.xvin.palimpsest.ui.components.WaveSeekBar
 import dev.xvin.palimpsest.ui.components.formatDuration
 import dev.xvin.palimpsest.ui.components.techLine
 import dev.xvin.palimpsest.ui.theme.Ink
@@ -220,7 +221,14 @@ fun NowPlayingScreen(onClose: () -> Unit) {
                 }
             }
             Spacer(Modifier.height(8.dp))
-            SeekBar(position.first, position.second, np.durationMs, onSeek = { graph.player.seekTo(it) })
+            val wave by produceState<FloatArray?>(null, track?.id, track?.path, track?.modifiedAt) {
+                value = null
+                val t = track
+                if (t?.path != null) value = graph.waveform.get(t.id, java.io.File(t.path))
+            }
+            val w = wave
+            if (w != null) WaveSeekBar(w, position.first, np.durationMs, onSeek = { graph.player.seekTo(it) })
+            else SeekBar(position.first, position.second, np.durationMs, onSeek = { graph.player.seekTo(it) })
 
             Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { graph.player.toggleShuffle() }) {

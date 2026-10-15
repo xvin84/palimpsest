@@ -96,6 +96,7 @@ class AppGraph(val app: Application) {
         .build()
 
     val effects = AudioEffects()
+    val waveform = dev.xvin.palimpsest.playback.Waveform(app.cacheDir)
     val scanner = LibraryScanner(db, settings)
     val versions = VersionRepository(db, settings, scanner)
 
