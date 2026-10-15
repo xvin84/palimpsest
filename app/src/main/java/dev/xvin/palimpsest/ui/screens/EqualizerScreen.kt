@@ -60,14 +60,30 @@ fun EqualizerScreen() {
     val scope = rememberCoroutineScope()
     val s by graph.settings.flow.collectAsStateWithLifecycle(null)
     val settings = s ?: return
-    val profile = settings.eqProfile
+    val device by graph.outputs.current.collectAsStateWithLifecycle()
+    val deviceProfileName = settings.deviceEq[device.key]
+    val profile = settings.eqFor(device.key)
     var importing by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
     val isGraphic = profile.filters.size == EqProfile.GRAPHIC_BANDS.size &&
         profile.filters.all { it.type == FilterType.PEAK } &&
         profile.filters.map { it.freqHz }.toDoubleArray().contentEquals(EqProfile.GRAPHIC_BANDS)
 
-    fun set(p: EqProfile) = scope.launch { graph.settings.setEqProfile(p); if (!settings.eqEnabled) graph.settings.setEqEnabled(true) }
+    fun set(p: EqProfile) = scope.launch {
+        // Editing while a device has its own profile edits that device's profile.
+        if (deviceProfileName != null) {
+            // An untouched preset is referenced by name; anything edited becomes this device's own profile.
+            val pristine = EqProfile.PRESETS.contains(p) || settings.customEqProfiles.contains(p)
+            val custom = if (pristine) p else p.copy(name = "Профиль · ${device.label}")
+            if (!pristine) {
+                graph.settings.setCustomEqProfiles(settings.customEqProfiles.filter { it.name != custom.name } + custom)
+            }
+            graph.settings.setDeviceEq(settings.deviceEq + (device.key to custom.name))
+        } else {
+            graph.settings.setEqProfile(p)
+        }
+        if (!settings.eqEnabled) graph.settings.setEqEnabled(true)
+    }
 
     Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -79,6 +95,23 @@ fun EqualizerScreen() {
             profile.name, style = MaterialTheme.typography.titleMedium, color = if (settings.eqEnabled) LocalAccent.current else Ink.Muted,
             modifier = Modifier.padding(horizontal = 16.dp),
         )
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Сейчас: ${device.label}", style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
+                Text(
+                    if (deviceProfileName != null) "Свой профиль для этого устройства" else "Общий профиль",
+                    style = MaterialTheme.typography.bodySmall, color = Ink.Faint,
+                )
+            }
+            Switch(
+                deviceProfileName != null,
+                { on ->
+                    scope.launch {
+                        graph.settings.setDeviceEq(if (on) settings.deviceEq + (device.key to profile.name) else settings.deviceEq - device.key)
+                    }
+                },
+            )
+        }
         EqCurve(profile, settings.eqEnabled, Modifier.fillMaxWidth().height(150.dp).padding(16.dp))
 
         if (isGraphic) {

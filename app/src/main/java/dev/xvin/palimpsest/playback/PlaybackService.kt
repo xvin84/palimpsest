@@ -34,6 +34,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.guava.future
 import kotlinx.coroutines.isActive
@@ -88,8 +89,9 @@ class PlaybackService : MediaSessionService() {
 
         // Keep the audio chain in sync with settings.
         scope.launch {
-            graph.settings.flow.collectLatest { s ->
-                fx.equalizer.setProfile(s.eqProfile)
+            // The EQ follows both the settings and the current output (each headphone can have its own profile).
+            combine(graph.settings.flow, graph.outputs.current) { s, device -> s to device }.collectLatest { (s, device) ->
+                fx.equalizer.setProfile(s.eqFor(device.key))
                 fx.equalizer.enabled = s.eqEnabled
                 applyReplayGain(player.currentMediaItem)
             }

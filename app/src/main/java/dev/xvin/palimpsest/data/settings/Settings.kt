@@ -51,7 +51,15 @@ data class AppSettings(
     val lastScanAt: Long,
     val autoSync: Boolean,
     val autoDownloadLikes: Boolean,
-)
+    /** Output device key → EQ profile name. */
+    val deviceEq: Map<String, String>,
+) {
+    /** Profile for [deviceKey]: its own if one is assigned, otherwise the global one. */
+    fun eqFor(deviceKey: String): EqProfile {
+        val name = deviceEq[deviceKey] ?: return eqProfile
+        return (customEqProfiles + EqProfile.PRESETS).firstOrNull { it.name == name } ?: eqProfile
+    }
+}
 
 class Settings(private val context: Context, scope: CoroutineScope) {
     private object K {
@@ -74,6 +82,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
         val lastScan = longPreferencesKey("last_scan")
         val autoSync = booleanPreferencesKey("auto_sync")
         val autoDownloadLikes = booleanPreferencesKey("auto_download_likes")
+        val deviceEq = stringPreferencesKey("device_eq")
     }
 
     val defaultMusicRoot: String =
@@ -101,6 +110,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
             lastScanAt = p[K.lastScan] ?: 0L,
             autoSync = p[K.autoSync] ?: true,
             autoDownloadLikes = p[K.autoDownloadLikes] ?: false,
+            deviceEq = p[K.deviceEq]?.let { runCatching { json.decodeFromString<Map<String, String>>(it) }.getOrNull() } ?: emptyMap(),
         )
     }
 
@@ -122,6 +132,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
     suspend fun setLastScan(at: Long) = edit { it[K.lastScan] = at }
     suspend fun setAutoSync(on: Boolean) = edit { it[K.autoSync] = on }
     suspend fun setAutoDownloadLikes(on: Boolean) = edit { it[K.autoDownloadLikes] = on }
+    suspend fun setDeviceEq(map: Map<String, String>) = edit { it[K.deviceEq] = json.encodeToString(map) }
 
     suspend fun setYandexAuth(token: String?, refresh: String?, login: String?) = edit {
         if (token == null) { it.remove(K.yToken); it.remove(K.yRefresh); it.remove(K.yLogin) } else {
