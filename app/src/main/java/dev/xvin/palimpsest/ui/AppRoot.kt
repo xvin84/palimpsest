@@ -168,6 +168,8 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
         Box(Modifier.fillMaxSize()) {
             Scaffold(
                 containerColor = MaterialTheme.colorScheme.background,
+                // Screens draw edge-to-edge and pad for the status bar themselves.
+                contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
                 snackbarHost = { SnackbarHost(snackbar) },
                 bottomBar = {
                     Column {

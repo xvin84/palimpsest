@@ -271,6 +271,7 @@ fun NowPlayingScreen(onClose: () -> Unit) {
 @Composable
 private fun LyricsPane(track: TrackEntity?, positionMs: Long, onSeek: (Long) -> Unit) {
     val graph = LocalGraph.current
+    val nav = LocalNav.current
     val accent = LocalAccent.current
     val scope = rememberCoroutineScope()
     var reload by remember { mutableStateOf(0) }
@@ -292,7 +293,7 @@ private fun LyricsPane(track: TrackEntity?, positionMs: Long, onSeek: (Long) -> 
                     scope.launch {
                         val found = graph.lyrics.fetchOnline(track)
                         searching = false
-                        if (found != null) reload++
+                        if (found != null) reload++ else nav.toast("Текст не нашёлся ни в LRCLIB, ни в Яндексе")
                     }
                 }) { Text(if (searching) "Ищу…" else "Найти онлайн (LRCLIB / Яндекс)") }
             }

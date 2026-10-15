@@ -68,7 +68,7 @@ class SpectrumAnalyzer(private val fftSize: Int = 2048, val bands: Int = 48) {
             val db = 10 * log10(peak / (fftSize / 4.0).pow(2) + 1e-12)
             // Gentle tilt so highs, which carry less energy, still move the bars.
             val tilt = 3.0 * log10((lo + hi) / 2 / 1000.0).coerceAtLeast(-1.0) * 2
-            out[b] = (((db + tilt) + 70) / 70).coerceIn(0.0, 1.0).toFloat()
+            out[b] = (((db + tilt) + 80) / 80).coerceIn(0.0, 1.0).toFloat()
         }
         return out
     }

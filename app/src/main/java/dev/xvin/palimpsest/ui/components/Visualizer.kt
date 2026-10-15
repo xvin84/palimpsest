@@ -44,12 +44,16 @@ fun Visualizer(
         effects.analyzerActive = true
         onDispose { effects.analyzerActive = false }
     }
+    // Automatic gain: quiet masters and loud ones both fill the height.
+    val peak = remember { floatArrayOf(0.3f) }
+
     LaunchedEffect(playing) {
         while (true) {
             withFrameNanos { t ->
                 val target = if (playing) effects.spectrum.compute() else null
+                if (target != null) peak[0] = maxOf(peak[0] * 0.997f, target.max(), 0.15f)
                 for (i in levels.indices) {
-                    val v = target?.get(i) ?: 0f
+                    val v = target?.get(i)?.let { (it / peak[0]).coerceIn(0f, 1f).let { x -> x * x } } ?: 0f
                     // Fast attack, slow release: bars jump with the beat and fall gracefully.
                     levels[i] = if (v > levels[i]) levels[i] + (v - levels[i]) * 0.6f else levels[i] * 0.90f + v * 0.10f
                 }

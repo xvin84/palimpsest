@@ -96,7 +96,7 @@ class MainActivity : ComponentActivity() {
 
     /** Best-effort mapping of a content:// URI back to a file path, to find it in the library. */
     private fun resolvePath(uri: Uri): String? {
-        if (uri.scheme == "file") return uri.path
+        if (uri.scheme == "file") return uri.path?.let { runCatching { File(it).canonicalPath }.getOrDefault(it) }
         runCatching {
             contentResolver.query(uri, arrayOf(MediaStore.MediaColumns.DATA), null, null, null)?.use { c ->
                 if (c.moveToFirst()) c.getString(0)?.let { if (File(it).exists()) return it }

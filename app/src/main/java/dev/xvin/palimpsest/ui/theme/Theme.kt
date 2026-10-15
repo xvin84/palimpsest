@@ -89,7 +89,10 @@ fun PalimpsestTheme(accent: Color = Ink.Vermilion, content: @Composable () -> Un
         error = Color(0xFFFF6B6B),
     )
     CompositionLocalProvider(LocalAccent provides a) {
-        MaterialTheme(colorScheme = scheme, typography = typography, content = content)
+        MaterialTheme(colorScheme = scheme, typography = typography) {
+            // Text drawn outside a Surface/Scaffold must still be ivory, not the default black.
+            CompositionLocalProvider(androidx.compose.material3.LocalContentColor provides Ink.Text, content = content)
+        }
     }
 }
 
