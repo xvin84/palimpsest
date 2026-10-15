@@ -2,7 +2,7 @@ package dev.xvin.palimpsest.core.yandex
 
 import dev.xvin.palimpsest.core.model.ProviderException
 import dev.xvin.palimpsest.core.net.Http
-import dev.xvin.palimpsest.core.net.await
+import dev.xvin.palimpsest.core.net.fetch
 import kotlinx.coroutines.delay
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
@@ -39,8 +39,8 @@ class YandexAuth(private val http: OkHttpClient = Http.client) {
                 .add("client_id", CLIENT_ID)
                 .add("client_secret", CLIENT_SECRET)
                 .build()
-            val resp = http.newCall(Request.Builder().url("$OAUTH/token").post(body).build()).await()
-            val text = resp.use { it.body.string() }
+            val resp = http.newCall(Request.Builder().url("$OAUTH/token").post(body).build()).fetch()
+            val text = resp.body
             if (resp.isSuccessful) return Http.json.decodeFromString<YToken>(text)
             val err = runCatching { Http.json.decodeFromString<YOAuthError>(text) }.getOrNull()
             when (err?.error) {
@@ -63,8 +63,8 @@ class YandexAuth(private val http: OkHttpClient = Http.client) {
     }
 
     private suspend inline fun <reified T> post(url: String, body: FormBody): T {
-        val resp = http.newCall(Request.Builder().url(url).post(body).build()).await()
-        val text = resp.use { it.body.string() }
+        val resp = http.newCall(Request.Builder().url(url).post(body).build()).fetch()
+        val text = resp.body
         if (!resp.isSuccessful) throw ProviderException("Яндекс OAuth ${resp.code}: $text")
         return Http.json.decodeFromString<T>(text)
     }

@@ -11,7 +11,7 @@ import dev.xvin.palimpsest.core.model.RemoteTrack
 import dev.xvin.palimpsest.core.model.Service
 import dev.xvin.palimpsest.core.model.StreamInfo
 import dev.xvin.palimpsest.core.net.Http
-import dev.xvin.palimpsest.core.net.await
+import dev.xvin.palimpsest.core.net.fetch
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
@@ -142,7 +142,7 @@ class YandexMusicProvider(
         val infos: List<YLegacyDownloadInfo> = get("/tracks/$trackId/download-info")
         val best = infos.filter { !it.preview }.maxByOrNull { it.bitrateInKbps }
             ?: throw ProviderException("Трек недоступен для скачивания")
-        val xml = http.newCall(Request.Builder().url(best.downloadInfoUrl).build()).await().use { it.body.string() }
+        val xml = http.newCall(Request.Builder().url(best.downloadInfoUrl).build()).fetch().body
         fun tag(name: String) = Regex("<$name>(.*?)</$name>").find(xml)?.groupValues?.get(1)
             ?: throw ProviderException("download-info: нет поля $name")
         val host = tag("host"); val path = tag("path"); val ts = tag("ts"); val s = tag("s")
@@ -157,7 +157,7 @@ class YandexMusicProvider(
             val sign = hmacBase64(ANDROID_SIGN_KEY, "$numericId$ts")
             val res: YLyrics = get("/tracks/$numericId/lyrics", mapOf("format" to format, "timeStamp" to ts.toString(), "sign" to sign))
             val url = res.downloadUrl ?: return@runCatching null
-            http.newCall(Request.Builder().url(url).build()).await().use { if (it.isSuccessful) it.body.string() else null }
+            http.newCall(Request.Builder().url(url).build()).fetch().let { if (it.isSuccessful) it.body else null }
         }.getOrNull()
         val synced = fetch("LRC")
         val plain = if (synced == null) fetch("TEXT") else null
@@ -186,8 +186,8 @@ class YandexMusicProvider(
             .header("X-Yandex-Music-Client", ANDROID_CLIENT)
             .header("User-Agent", "Yandex-Music-API")
         extraHeaders.forEach { (k, v) -> builder.header(k, v) }
-        val resp = http.newCall(builder.build()).await()
-        val text = resp.use { it.body.string() }
+        val resp = http.newCall(builder.build()).fetch()
+        val text = resp.body
         if (resp.code == 401 || resp.code == 403) throw AuthRequiredException(Service.YANDEX)
         val env = runCatching { Http.json.decodeFromString<YEnvelope>(text) }.getOrNull()
         if (!resp.isSuccessful || env?.result == null) {

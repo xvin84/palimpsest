@@ -2,7 +2,7 @@ package dev.xvin.palimpsest.core.lyrics
 
 import dev.xvin.palimpsest.core.model.Lyrics
 import dev.xvin.palimpsest.core.net.Http
-import dev.xvin.palimpsest.core.net.await
+import dev.xvin.palimpsest.core.net.fetch
 import kotlinx.serialization.Serializable
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
@@ -33,9 +33,8 @@ class LrcLibClient(private val http: OkHttpClient = Http.client) {
                 .addQueryParameter("duration", durationSec.toString())
                 .build()
             val exact = runCatching {
-                http.newCall(request(url.toString())).await().use { r ->
-                    if (r.isSuccessful) Http.json.decodeFromString<Entry>(r.body.string()) else null
-                }
+                val r = http.newCall(request(url.toString())).fetch()
+                if (r.isSuccessful) Http.json.decodeFromString<Entry>(r.body) else null
             }.getOrNull()
             exact?.toLyrics()?.let { return it }
         }
@@ -43,10 +42,9 @@ class LrcLibClient(private val http: OkHttpClient = Http.client) {
             .addQueryParameter("track_name", title)
             .addQueryParameter("artist_name", artist)
             .build()
-        val results = http.newCall(request(url.toString())).await().use { r ->
-            if (!r.isSuccessful) return null
-            Http.json.decodeFromString<List<Entry>>(r.body.string())
-        }
+        val r = http.newCall(request(url.toString())).fetch()
+        if (!r.isSuccessful) return null
+        val results = Http.json.decodeFromString<List<Entry>>(r.body)
         val best = results
             .filter { it.syncedLyrics != null || it.plainLyrics != null }
             .minByOrNull { e ->
