@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -187,10 +188,21 @@ fun NowPlayingScreen(onClose: () -> Unit) {
                             }
                             val coverScale by animateFloatAsState(if (state.isPlaying) 1f else 0.9f, label = "cover-scale")
                             val inner = if (vizMode == VisualizerMode.RING) 0.7f else 1f
+                            var swipe by remember { mutableFloatStateOf(0f) }
                             Box(
                                 Modifier
                                     .fillMaxSize(inner)
-                                    .graphicsLayer { scaleX = coverScale; scaleY = coverScale }
+                                    .graphicsLayer { scaleX = coverScale; scaleY = coverScale; translationX = swipe * 0.4f; alpha = 1f - (kotlin.math.abs(swipe) / 900f).coerceAtMost(0.5f) }
+                                    .pointerInput(Unit) {
+                                        // Swipe the cover sideways to change track.
+                                        detectHorizontalDragGestures(
+                                            onDragEnd = {
+                                                if (swipe < -160f) graph.player.next() else if (swipe > 160f) graph.player.previous()
+                                                swipe = 0f
+                                            },
+                                            onDragCancel = { swipe = 0f },
+                                        ) { _, dx -> swipe += dx }
+                                    }
                                     .shadow(24.dp, RoundedCornerShape(if (vizMode == VisualizerMode.RING) 1000.dp else 16.dp))
                                     .clickable { showLyrics = true },
                             ) {
@@ -450,7 +462,20 @@ fun MiniPlayer(onOpen: () -> Unit) {
     val np = state.nowPlaying ?: return
     val position by remember { graph.player.positionFlow(500) }.collectAsStateWithLifecycle(0L to 0L)
     val accent = LocalAccent.current
-    Column(Modifier.fillMaxWidth().background(Ink.Paper2).clickable(onClick = onOpen)) {
+    var swipe by remember { mutableFloatStateOf(0f) }
+    Column(
+        Modifier.fillMaxWidth().background(Ink.Paper2).clickable(onClick = onOpen)
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onDragEnd = {
+                        if (swipe < -120f) graph.player.next() else if (swipe > 120f) graph.player.previous()
+                        swipe = 0f
+                    },
+                    onDragCancel = { swipe = 0f },
+                ) { _, dx -> swipe += dx }
+            }
+            .graphicsLayer { translationX = swipe * 0.3f },
+    ) {
         val frac = if (np.durationMs > 0) (position.first.toFloat() / np.durationMs).coerceIn(0f, 1f) else 0f
         Box(Modifier.fillMaxWidth().height(2.dp).background(Ink.Line)) {
             Box(Modifier.fillMaxWidth(frac).height(2.dp).background(accent))
