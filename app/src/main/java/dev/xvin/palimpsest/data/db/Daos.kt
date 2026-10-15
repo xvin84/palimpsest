@@ -54,6 +54,9 @@ interface TrackDao {
     @Query("SELECT * FROM tracks WHERE service = :service AND remoteId IS NOT NULL")
     suspend fun linkedTo(service: Service): List<TrackEntity>
 
+    @Query("SELECT * FROM tracks WHERE path IS NOT NULL AND remoteId IS NULL")
+    suspend fun unlinkedLocal(): List<TrackEntity>
+
     @Query("SELECT * FROM tracks WHERE updateAvailable = 1 ORDER BY artist, title")
     fun observeUpdates(): Flow<List<TrackEntity>>
 

@@ -95,9 +95,40 @@ class RemoteRepository(
 
     // --- Library rows for remote tracks ---------------------------------------------------------
 
+    /**
+     * Local files that aren't linked to any service yet, grouped by normalised title. Used to
+     * recognise that a liked Yandex track is already on the phone (e.g. an MP3 from Murglar
+     * without a URL tag) instead of adding a duplicate cloud copy.
+     */
+    private suspend fun unlinkedLocalIndex(): Map<String, List<TrackEntity>> =
+        db.tracks().unlinkedLocal().groupBy { TrackMatcher.normalizeTitle(it.title) }
+
+    private fun findLocalTwin(r: RemoteTrack, index: Map<String, List<TrackEntity>>): TrackEntity? =
+        index[TrackMatcher.normalizeTitle(r.title)].orEmpty()
+            .map { it to TrackMatcher.score(r.title, r.artistLine, r.durationMs, it.title, it.artist, it.durationMs) }
+            .filter { it.second >= 0.85 }
+            .maxByOrNull { it.second }?.first
+
     /** Finds or creates the library row for a service track. */
-    suspend fun ensureTrack(r: RemoteTrack, liked: Boolean? = null): TrackEntity = withContext(Dispatchers.IO) {
+    suspend fun ensureTrack(
+        r: RemoteTrack,
+        liked: Boolean? = null,
+        localIndex: Map<String, List<TrackEntity>>? = null,
+    ): TrackEntity = withContext(Dispatchers.IO) {
         val dao = db.tracks()
+        val twin = if (dao.byRemote(r.service, r.id) == null) findLocalTwin(r, localIndex ?: unlinkedLocalIndex()) else null
+        if (twin != null) {
+            // Link the existing file to the service track; the file itself stays untouched.
+            val linked = twin.copy(
+                service = r.service,
+                remoteId = r.id,
+                remoteAlbumId = r.albumId,
+                coverUrl = twin.coverUrl ?: r.coverUrl,
+                liked = liked ?: twin.liked,
+            )
+            dao.update(linked)
+            return@withContext linked
+        }
         val existing = dao.byRemote(r.service, r.id)
         if (existing != null) {
             val updated = existing.copy(
@@ -142,9 +173,16 @@ class RemoteRepository(
         try {
             val liked = yandexCall { yandex.likedTracks() }
             val likedIds = HashSet<Long>()
+            var index = unlinkedLocalIndex()
+            var linkedLocal = 0
             liked.forEachIndexed { i, r ->
                 if (i % 50 == 0) _status.value = SyncStatus(true, "Лайки: $i / ${liked.size}")
-                likedIds += ensureTrack(r, liked = true).id
+                val row = ensureTrack(r, liked = true, localIndex = index)
+                if (row.path != null && row.remoteId == r.id && index.values.any { list -> list.any { it.id == row.id } }) {
+                    linkedLocal++
+                    index = index.mapValues { (_, list) -> list.filter { it.id != row.id } }
+                }
+                likedIds += row.id
             }
             // Un-like tracks that were removed from likes on another device.
             db.tracks().linkedTo(Service.YANDEX).filter { it.liked && it.id !in likedIds }.forEach { db.tracks().setLiked(it.id, false) }
@@ -166,7 +204,11 @@ class RemoteRepository(
             val likesPl = db.playlists().byRemote(Service.YANDEX, "likes")?.id
                 ?: db.playlists().insert(PlaylistEntity(name = "Мне нравится · Яндекс", service = Service.YANDEX, remoteId = "likes"))
             db.playlists().replace(likesPl, liked.mapNotNull { db.tracks().byRemote(Service.YANDEX, it.id)?.id })
-            _status.value = SyncStatus(false, "Готово: ${liked.size} лайков, ${playlists.size} плейлистов")
+            _status.value = SyncStatus(
+                false,
+                "Готово: ${liked.size} лайков, ${playlists.size} плейлистов" +
+                    if (linkedLocal > 0) "; уже на телефоне нашлось $linkedLocal — не дублирую" else "",
+            )
         } catch (e: Exception) {
             _status.value = SyncStatus(false, error = e.message ?: e.toString())
         }
