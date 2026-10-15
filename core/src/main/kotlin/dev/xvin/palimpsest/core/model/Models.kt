@@ -55,13 +55,15 @@ data class StreamInfo(
     val aesCtrKey: ByteArray? = null,
 ) {
     val extension: String
-        get() = when {
-            codec.startsWith("flac-mp4") || codec.endsWith("-mp4") -> "m4a"
-            codec.startsWith("flac") -> "flac"
-            codec.startsWith("mp3") -> "mp3"
-            codec.contains("aac") -> "m4a"
-            codec.contains("opus") || codec.contains("webm") -> "webm"
-            else -> "bin"
+        get() = codec.lowercase().let { c ->
+            when {
+                c.endsWith("-mp4") || c == "m4a" || c == "mp4" || c.contains("aac") || c == "alac" -> "m4a"
+                c.startsWith("flac") -> "flac"
+                c.startsWith("mp3") -> "mp3"
+                c.contains("opus") || c.contains("webm") -> "webm"
+                c == "ogg" || c.contains("vorbis") -> "ogg"
+                else -> "m4a" // the most common container for unknown service streams
+            }
         }
 }
 

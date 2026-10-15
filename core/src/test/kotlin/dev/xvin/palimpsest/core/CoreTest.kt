@@ -208,3 +208,15 @@ class AesCtrTest {
         }
     }
 }
+
+class StreamInfoTest {
+    @Test fun extensions() {
+        fun ext(c: String) = dev.xvin.palimpsest.core.model.StreamInfo("u", c).extension
+        assertEquals("flac", ext("flac"))
+        assertEquals("m4a", ext("flac-mp4"))
+        assertEquals("m4a", ext("he-aac-mp4"))
+        assertEquals("m4a", ext("m4a")) // YouTube MediaFormat suffix
+        assertEquals("webm", ext("webm"))
+        assertEquals("mp3", ext("mp3"))
+    }
+}

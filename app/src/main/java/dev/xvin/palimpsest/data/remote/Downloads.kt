@@ -28,6 +28,7 @@ import dev.xvin.palimpsest.data.library.VersionRepository
 import dev.xvin.palimpsest.data.settings.Settings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -105,17 +106,34 @@ class Downloads(
             val s = settings.state.filterNotNull().first()
             val provider = remote.providers[track.service] ?: error("Нет провайдера ${track.service}")
             val meta: RemoteTrack? = runCatching { provider.track(remoteId) }.getOrNull()
-            val info = provider.resolveStream(remoteId, s.quality, forDownload = true)
-
             val dir = File(s.downloadDir, serviceFolder(track.service)).apply { mkdirs() }
             val tmp = File(dir, ".download-$trackId.part")
-            fetch(info.url, info.headers, tmp, info.aesCtrKey) { p -> set(trackId) { it.copy(progress = p) } }
+            // Stream URLs are short-lived and YouTube occasionally rejects one with 403:
+            // resolve a fresh link and try again before giving up.
+            var attempt = 0
+            var info = provider.resolveStream(remoteId, s.quality, forDownload = true)
+            while (true) {
+                try {
+                    fetch(info.url, info.headers, tmp, info.aesCtrKey) { p -> set(trackId) { it.copy(progress = p) } }
+                    break
+                } catch (e: IOException) {
+                    if (++attempt >= 3 || e.message?.startsWith("HTTP 4") != true) throw e
+                    Log.i(TAG, "retrying $trackId after ${e.message}")
+                    delay(1500L * attempt)
+                    info = provider.resolveStream(remoteId, s.quality, forDownload = true)
+                }
+            }
 
             // Tags: everything we know, so the file stands on its own in any player.
             val cover = (meta?.coverUrl ?: track.coverUrl)?.let { url -> runCatching { get(url) }.getOrNull() }
             val lyrics = runCatching { provider.lyrics(remoteId) }.getOrNull()
             val tagged = File(dir, ".download-$trackId.${info.extension}")
-            tmp.renameTo(tagged)
+            if (info.extension == "m4a" && Remux.isFragmentedMp4(tmp)) {
+                runCatching { Remux.toPlainMp4(tmp, tagged); tmp.delete() }
+                    .onFailure { Log.w(TAG, "remux failed, keeping fragmented file", it); tagged.delete(); tmp.renameTo(tagged) }
+            } else {
+                tmp.renameTo(tagged)
+            }
             runCatching {
                 TagIO.write(
                     tagged,

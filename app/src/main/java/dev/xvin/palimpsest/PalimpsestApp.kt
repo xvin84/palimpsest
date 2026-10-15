@@ -12,6 +12,7 @@ import coil3.SingletonImageLoader
 import coil3.disk.DiskCache
 import coil3.disk.directory
 import coil3.memory.MemoryCache
+import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
 import dev.xvin.palimpsest.core.lyrics.LrcLibClient
 import dev.xvin.palimpsest.core.model.MusicProvider
@@ -57,6 +58,8 @@ class PalimpsestApp : Application(), SingletonImageLoader.Factory {
             .memoryCache { MemoryCache.Builder().maxSizePercent(context, 0.15).build() }
             .diskCache { DiskCache.Builder().directory(File(cacheDir, "coil")).maxSizeBytes(128L shl 20).build() }
             .crossfade(180)
+            // Same client as everything else, so remote covers honour the YouTube proxy.
+            .components { add(OkHttpNetworkFetcherFactory(callFactory = { graph.http })) }
             .build()
 }
 
@@ -71,7 +74,7 @@ class AppGraph(val app: Application) {
 
     /** Optional proxy used only for YouTube hosts (YouTube is often unreachable directly). */
     private val proxySelector = object : ProxySelector() {
-        private val hosts = listOf("youtube.com", "googlevideo.com", "ytimg.com", "youtu.be", "ggpht.com", "googleapis.com")
+        private val hosts = listOf("youtube.com", "googlevideo.com", "ytimg.com", "youtu.be", "ggpht.com", "googleapis.com", "googleusercontent.com")
 
         override fun select(uri: URI?): List<Proxy> {
             val proxy = settings.state.value?.proxy

@@ -83,6 +83,7 @@ dependencies {
     implementation(libs.androidx.palette)
     implementation(libs.androidx.webkit)
     implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
     implementation(libs.jaudiotagger)
 
     testImplementation(libs.junit)

@@ -1,6 +1,6 @@
 package dev.xvin.palimpsest.ui.screens
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -19,6 +19,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -139,12 +140,12 @@ fun SearchScreen() {
 @Composable
 private fun RemoteRow(r: RemoteTrack, onPlay: () -> Unit, onDownload: () -> Unit, onMore: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onPlay).padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+        Modifier.fillMaxWidth().combinedClickable(onClick = onPlay, onLongClick = onMore).padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Artwork(r.coverUrl, r.album ?: r.title, Modifier.size(48.dp), corner = 6.dp)
         Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f).clickable(onClick = onMore)) {
+        Column(Modifier.weight(1f)) {
             Text(r.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
                 listOfNotNull(r.artistLine.ifBlank { null }, r.album).joinToString(" · "),
@@ -153,5 +154,6 @@ private fun RemoteRow(r: RemoteTrack, onPlay: () -> Unit, onDownload: () -> Unit
         }
         Text(formatDuration(r.durationMs), style = MaterialTheme.typography.labelSmall, color = Ink.Faint)
         IconButton(onClick = onDownload, enabled = r.available) { Icon(Icons.Rounded.Download, "Скачать", tint = Ink.Muted) }
+        IconButton(onClick = onMore) { Icon(Icons.Rounded.MoreVert, "Ещё", tint = Ink.Muted) }
     }
 }
