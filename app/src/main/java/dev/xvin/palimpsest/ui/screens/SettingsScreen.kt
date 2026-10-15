@@ -108,7 +108,19 @@ fun SettingsScreen() {
         }
 
         SectionHeader("Скачивание")
-        Text("Папка: ${settings.downloadDir}", Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodyMedium, color = Ink.Muted)
+        var downloadDir by remember(settings.downloadDir) { mutableStateOf(settings.downloadDir) }
+        Text(
+            "Куда сохранять: внутри будут папки «Яндекс» и «YouTube». Можно указать, например, …/Music/Murglar, " +
+                "чтобы новые треки лежали рядом со старыми.",
+            Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = Ink.Muted,
+        )
+        Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(downloadDir, { downloadDir = it }, Modifier.weight(1f), singleLine = true, label = { Text("Папка загрузок") })
+            TextButton(
+                enabled = downloadDir.isNotBlank() && downloadDir != settings.downloadDir,
+                onClick = { scope.launch { graph.settings.setDownloadDir(downloadDir.trim().trimEnd('/')) } },
+            ) { Text("Сохранить") }
+        }
         Spacer(Modifier.height(10.dp))
         Text("Качество", Modifier.padding(horizontal = 16.dp))
         Row(Modifier.padding(16.dp, 8.dp), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
