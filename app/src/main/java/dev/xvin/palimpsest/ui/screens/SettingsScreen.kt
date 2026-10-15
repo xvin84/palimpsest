@@ -122,6 +122,17 @@ fun SettingsScreen() {
             settings.keepVersions,
         ) { scope.launch { graph.settings.setKeepVersions(it) } }
 
+        ToggleRow(
+            "Ежедневная синхронизация",
+            "Раз в сутки по Wi-Fi: лайки и плейлисты Яндекса, проверка перезалитых треков",
+            settings.autoSync,
+        ) { scope.launch { graph.settings.setAutoSync(it) } }
+        ToggleRow(
+            "Скачивать новые лайки",
+            "Всё, что лайкнешь в Яндексе, само появится офлайн",
+            settings.autoDownloadLikes,
+        ) { scope.launch { graph.settings.setAutoDownloadLikes(it) } }
+
         SectionHeader("Громкость")
         Text("Выравнивание громкости (ReplayGain)", Modifier.padding(horizontal = 16.dp))
         Row(Modifier.padding(16.dp, 8.dp), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {

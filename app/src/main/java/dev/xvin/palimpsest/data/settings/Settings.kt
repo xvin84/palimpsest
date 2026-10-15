@@ -49,6 +49,8 @@ data class AppSettings(
     val proxy: String?,
     val keepVersions: Boolean,
     val lastScanAt: Long,
+    val autoSync: Boolean,
+    val autoDownloadLikes: Boolean,
 )
 
 class Settings(private val context: Context, scope: CoroutineScope) {
@@ -70,6 +72,8 @@ class Settings(private val context: Context, scope: CoroutineScope) {
         val keepVersions = booleanPreferencesKey("keep_versions")
         val queue = stringPreferencesKey("saved_queue")
         val lastScan = longPreferencesKey("last_scan")
+        val autoSync = booleanPreferencesKey("auto_sync")
+        val autoDownloadLikes = booleanPreferencesKey("auto_download_likes")
     }
 
     val defaultMusicRoot: String =
@@ -95,6 +99,8 @@ class Settings(private val context: Context, scope: CoroutineScope) {
             proxy = p[K.proxy],
             keepVersions = p[K.keepVersions] ?: true,
             lastScanAt = p[K.lastScan] ?: 0L,
+            autoSync = p[K.autoSync] ?: true,
+            autoDownloadLikes = p[K.autoDownloadLikes] ?: false,
         )
     }
 
@@ -114,6 +120,8 @@ class Settings(private val context: Context, scope: CoroutineScope) {
     suspend fun setProxy(proxy: String?) = edit { if (proxy.isNullOrBlank()) it.remove(K.proxy) else it[K.proxy] = proxy.trim() }
     suspend fun setKeepVersions(on: Boolean) = edit { it[K.keepVersions] = on }
     suspend fun setLastScan(at: Long) = edit { it[K.lastScan] = at }
+    suspend fun setAutoSync(on: Boolean) = edit { it[K.autoSync] = on }
+    suspend fun setAutoDownloadLikes(on: Boolean) = edit { it[K.autoDownloadLikes] = on }
 
     suspend fun setYandexAuth(token: String?, refresh: String?, login: String?) = edit {
         if (token == null) { it.remove(K.yToken); it.remove(K.yRefresh); it.remove(K.yLogin) } else {

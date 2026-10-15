@@ -239,3 +239,19 @@ class SpotifyTest {
         assertTrue(c.coverUrl!!.startsWith("https://"))
     }
 }
+
+class M3uTest {
+    @Test fun matchesPcPathsToPhoneLibrary() {
+        val m3u = "#EXTM3U\n/home/xvin/Music/Murglar//Яндекс/ДЕТИ RAVE - RUSSIA.flac\nC:\\Music\\Other\\a.mp3\n"
+        val lib = listOf(
+            "/storage/emulated/0/Music/Murglar/Яндекс/ДЕТИ RAVE - RUSSIA.flac",
+            "/storage/emulated/0/Music/Backup/ДЕТИ RAVE - RUSSIA.flac",
+            "/storage/emulated/0/Music/x/a.mp3",
+        )
+        val idx = dev.xvin.palimpsest.core.library.M3u.indexByFileName(lib)
+        val entries = dev.xvin.palimpsest.core.library.M3u.entries(m3u)
+        assertEquals(2, entries.size)
+        assertEquals(lib[0], dev.xvin.palimpsest.core.library.M3u.match(entries[0], idx))
+        assertEquals(lib[2], dev.xvin.palimpsest.core.library.M3u.match(entries[1], idx))
+    }
+}

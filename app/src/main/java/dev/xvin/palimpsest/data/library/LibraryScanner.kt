@@ -2,9 +2,11 @@ package dev.xvin.palimpsest.data.library
 
 import android.util.Log
 import dev.xvin.palimpsest.core.library.FileNames
+import dev.xvin.palimpsest.core.library.M3u
 import dev.xvin.palimpsest.core.library.YandexLinks
 import dev.xvin.palimpsest.core.model.Service
 import dev.xvin.palimpsest.data.db.AppDatabase
+import dev.xvin.palimpsest.data.db.PlaylistEntity
 import dev.xvin.palimpsest.data.db.TrackEntity
 import dev.xvin.palimpsest.data.settings.Settings
 import kotlinx.coroutines.Dispatchers
@@ -34,6 +36,7 @@ class LibraryScanner(private val db: AppDatabase, private val settings: Settings
 
     suspend fun scan(force: Boolean = false) = mutex.withLock {
         withContext(Dispatchers.IO) {
+            val startedAt = System.currentTimeMillis()
             try {
                 _progress.value = ScanProgress(running = true)
                 val s = settings.state.filterNotNull().first()
@@ -67,12 +70,33 @@ class LibraryScanner(private val db: AppDatabase, private val settings: Settings
                 val (detach, delete) = gone.partition { it.remoteId != null }
                 if (delete.isNotEmpty()) db.tracks().delete(delete.map { it.id })
                 if (detach.isNotEmpty()) db.tracks().detachFiles(detach.map { it.id })
+                importM3u(roots)
                 settings.setLastScan(System.currentTimeMillis())
+                Log.i("Scanner", "scan: ${files.size} files, ${todo.size} read, ${gone.size} gone in ${System.currentTimeMillis() - startedAt} ms")
                 _progress.value = ScanProgress(running = false, done = todo.size, total = todo.size, changed = todo.size + gone.size)
             } catch (e: Exception) {
                 Log.e("Scanner", "scan failed", e)
                 _progress.value = ScanProgress(running = false, error = e.message ?: e.toString())
             }
+        }
+    }
+
+    /** Mirrors .m3u/.m3u8 files from the music folders as playlists (read-only copies). */
+    private suspend fun importM3u(roots: List<File>) {
+        val lists = roots.flatMap { root ->
+            root.walkTopDown().onEnter { it == root || !it.name.startsWith(".") }
+                .filter { it.isFile && it.extension.lowercase() in setOf("m3u", "m3u8") }.toList()
+        }
+        if (lists.isEmpty()) return
+        val stamps = db.tracks().scanStamps()
+        val idByPath = stamps.associate { it.path to it.id }
+        val index = M3u.indexByFileName(idByPath.keys)
+        for (f in lists) {
+            val ids = M3u.entries(runCatching { f.readText() }.getOrDefault("")).mapNotNull { e -> M3u.match(e, index)?.let(idByPath::get) }
+            val key = "m3u:${f.absolutePath}"
+            val pid = db.playlists().byRemote(Service.LOCAL, key)?.id
+                ?: db.playlists().insert(PlaylistEntity(name = f.nameWithoutExtension, service = Service.LOCAL, remoteId = key))
+            db.playlists().replace(pid, ids)
         }
     }
 

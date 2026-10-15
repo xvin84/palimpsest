@@ -51,6 +51,7 @@ class PalimpsestApp : Application(), SingletonImageLoader.Factory {
     override fun onCreate() {
         super.onCreate()
         graph = AppGraph(this)
+        dev.xvin.palimpsest.data.remote.SyncWorker.schedule(this)
     }
 
     override fun newImageLoader(context: PlatformContext): ImageLoader =
