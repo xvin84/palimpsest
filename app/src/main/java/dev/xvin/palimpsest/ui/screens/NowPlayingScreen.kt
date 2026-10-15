@@ -411,7 +411,11 @@ private fun SleepDialog(onDismiss: () -> Unit) {
                 listOf(10, 15, 30, 45, 60, 90).chunked(3).forEach { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         row.forEach { m ->
-                            OutlinedButton(onClick = { graph.player.sleepIn(m); onDismiss() }, modifier = Modifier.weight(1f)) { Text("$m мин") }
+                            OutlinedButton(
+                                onClick = { graph.player.sleepIn(m); onDismiss() },
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
+                            ) { Text("$m мин", maxLines = 1, softWrap = false) }
                         }
                     }
                 }
