@@ -1,13 +1,123 @@
 package dev.xvin.palimpsest
 
+import android.Manifest
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
+import android.provider.DocumentsContract
+import android.provider.MediaStore
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
-import androidx.compose.material3.Text
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.mutableStateOf
+import androidx.core.content.IntentCompat
+import androidx.lifecycle.lifecycleScope
+import dev.xvin.palimpsest.ui.AppRoot
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 
 class MainActivity : ComponentActivity() {
+    private val graph by lazy { (application as PalimpsestApp).graph }
+
+    /** Bumped when something asks to show the full-screen player (notification tap, opened file). */
+    val openPlayerRequests = mutableStateOf(0)
+    val hasStorageAccess = mutableStateOf(false)
+
+    private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    private val audioPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { refreshAccess() }
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+        )
         super.onCreate(savedInstanceState)
-        setContent { Text(dev.xvin.palimpsest.core.Hello.text) }
+        graph.player.connect()
+        refreshAccess()
+        notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        setContent {
+            AppRoot(graph = graph, activity = this)
+        }
+        handleIntent(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Coming back from the "All files access" settings page.
+        val before = hasStorageAccess.value
+        refreshAccess()
+        if (!before && hasStorageAccess.value) lifecycleScope.launch { graph.scanner.scan() }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    fun refreshAccess() {
+        hasStorageAccess.value = Environment.isExternalStorageManager() ||
+            checkSelfPermission(Manifest.permission.READ_MEDIA_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
+    }
+
+    fun requestAllFilesAccess() {
+        val intent = Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:$packageName"))
+        runCatching { startActivity(intent) }.onFailure {
+            startActivity(Intent(android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
+        }
+    }
+
+    fun requestReadOnlyAccess() = audioPermission.launch(Manifest.permission.READ_MEDIA_AUDIO)
+
+    private fun handleIntent(intent: Intent?) {
+        intent ?: return
+        if (intent.getBooleanExtra(EXTRA_OPEN_PLAYER, false)) {
+            openPlayerRequests.value++
+            return
+        }
+        val uri: Uri = when (intent.action) {
+            Intent.ACTION_VIEW -> intent.data
+            Intent.ACTION_SEND -> IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
+            else -> null
+        } ?: return
+        lifecycleScope.launch {
+            val path = withContext(Dispatchers.IO) { resolvePath(uri) }
+            val track = path?.let { p -> withContext(Dispatchers.IO) { graph.db.tracks().byPath(p) } }
+            graph.player.playExternal(uri, track)
+            openPlayerRequests.value++
+        }
+        // Don't replay the same file on rotation.
+        setIntent(Intent(this, MainActivity::class.java))
+    }
+
+    /** Best-effort mapping of a content:// URI back to a file path, to find it in the library. */
+    private fun resolvePath(uri: Uri): String? {
+        if (uri.scheme == "file") return uri.path
+        runCatching {
+            contentResolver.query(uri, arrayOf(MediaStore.MediaColumns.DATA), null, null, null)?.use { c ->
+                if (c.moveToFirst()) c.getString(0)?.let { if (File(it).exists()) return it }
+            }
+        }
+        runCatching {
+            if (DocumentsContract.isDocumentUri(this, uri) && uri.authority == "com.android.externalstorage.documents") {
+                val (volume, rel) = DocumentsContract.getDocumentId(uri).split(':', limit = 2).let { it[0] to it.getOrElse(1) { "" } }
+                val base = if (volume == "primary") Environment.getExternalStorageDirectory().absolutePath else "/storage/$volume"
+                File(base, rel).takeIf { it.exists() }?.let { return it.absolutePath }
+            }
+        }
+        // Many file managers use their own FileProvider with the real path in the URI.
+        uri.path?.let { p ->
+            val idx = p.indexOf("/storage/")
+            if (idx >= 0) File(p.substring(idx)).takeIf { it.exists() }?.let { return it.absolutePath }
+        }
+        return null
+    }
+
+    companion object {
+        const val EXTRA_OPEN_PLAYER = "open_player"
     }
 }

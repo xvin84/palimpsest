@@ -1,0 +1,359 @@
+package dev.xvin.palimpsest.ui.screens
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material.icons.rounded.Sort
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.xvin.palimpsest.core.model.Service
+import dev.xvin.palimpsest.data.db.AlbumRow
+import dev.xvin.palimpsest.data.db.PlaylistEntity
+import dev.xvin.palimpsest.data.library.ArtProvider
+import dev.xvin.palimpsest.ui.LocalNav
+import dev.xvin.palimpsest.ui.components.Artwork
+import dev.xvin.palimpsest.ui.components.EmptyState
+import dev.xvin.palimpsest.ui.components.LocalGraph
+import dev.xvin.palimpsest.ui.components.Pill
+import dev.xvin.palimpsest.ui.components.TrackRow
+import dev.xvin.palimpsest.ui.components.pluralRu
+import dev.xvin.palimpsest.ui.theme.Ink
+import dev.xvin.palimpsest.ui.theme.LocalAccent
+import kotlinx.coroutines.launch
+
+private enum class LibTab(val label: String) { TRACKS("Треки"), ALBUMS("Альбомы"), ARTISTS("Исполнители"), FOLDERS("Папки"), PLAYLISTS("Плейлисты") }
+private enum class SortMode(val label: String) { TITLE("По названию"), ARTIST("По исполнителю"), ADDED("Недавно добавленные"), DURATION("По длительности") }
+
+@Composable
+fun LibraryScreen() {
+    val graph = LocalGraph.current
+    val nav = LocalNav.current
+    val scope = rememberCoroutineScope()
+    var tab by rememberSaveable { mutableStateOf(LibTab.TRACKS) }
+    val scan by graph.scanner.progress.collectAsStateWithLifecycle()
+    val count by graph.db.tracks().observeCount().collectAsStateWithLifecycle(0)
+
+    Column(Modifier.fillMaxSize().statusBarsPadding()) {
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 12.dp), verticalAlignment = Alignment.Bottom) {
+            Column(Modifier.weight(1f)) {
+                Text("Медиатека", style = MaterialTheme.typography.displayMedium)
+                Text(pluralRu(count, "трек", "трека", "треков"), style = MaterialTheme.typography.labelMedium, color = Ink.Muted)
+            }
+            IconButton(onClick = { scope.launch { graph.scanner.scan() } }, enabled = !scan.running) {
+                Icon(Icons.Rounded.Refresh, "Пересканировать", tint = Ink.Muted)
+            }
+            IconButton(onClick = nav::openSettings) { Icon(Icons.Rounded.Settings, "Настройки", tint = Ink.Muted) }
+        }
+        if (scan.running) {
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Text(
+                    if (scan.total > 0) "Читаю теги: ${scan.done} из ${scan.total}" else "Ищу музыку…",
+                    style = MaterialTheme.typography.labelMedium, color = Ink.Muted,
+                )
+                Spacer(Modifier.height(6.dp))
+                if (scan.total > 0) LinearProgressIndicator(progress = { scan.done.toFloat() / scan.total }, Modifier.fillMaxWidth())
+                else LinearProgressIndicator(Modifier.fillMaxWidth())
+            }
+        }
+        scan.error?.let { Text("Ошибка сканирования: $it", color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }
+
+        Row(
+            Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            LibTab.entries.forEach { t -> Pill(t.label, tab == t, { tab = t }) }
+        }
+
+        when (tab) {
+            LibTab.TRACKS -> TracksTab()
+            LibTab.ALBUMS -> AlbumsTab()
+            LibTab.ARTISTS -> ArtistsTab()
+            LibTab.FOLDERS -> FoldersTab()
+            LibTab.PLAYLISTS -> PlaylistsTab()
+        }
+    }
+}
+
+@Composable
+private fun TracksTab() {
+    val graph = LocalGraph.current
+    val nav = LocalNav.current
+    val all by graph.db.tracks().observeAll().collectAsStateWithLifecycle(null)
+    val playing by graph.player.state.collectAsStateWithLifecycle()
+    var source by rememberSaveable { mutableStateOf<Service?>(null) }
+    var onlyLiked by rememberSaveable { mutableStateOf(false) }
+    var sort by rememberSaveable { mutableStateOf(SortMode.TITLE) }
+    var sortMenu by remember { mutableStateOf(false) }
+
+    val list = all ?: return
+    val tracks = remember(list, source, onlyLiked, sort) {
+        list.asSequence()
+            .filter { source == null || it.service == source }
+            .filter { !onlyLiked || it.liked }
+            .let { s ->
+                when (sort) {
+                    SortMode.TITLE -> s.sortedBy { it.title.lowercase() }
+                    SortMode.ARTIST -> s.sortedWith(compareBy({ it.artist.lowercase() }, { it.album?.lowercase() }, { it.trackNumber }))
+                    SortMode.ADDED -> s.sortedByDescending { it.addedAt }
+                    SortMode.DURATION -> s.sortedByDescending { it.durationMs }
+                }
+            }.toList()
+    }
+    val services = remember(list) { list.map { it.service }.distinct().sortedBy { it.ordinal } }
+
+    if (list.isEmpty()) {
+        EmptyState(
+            "Пока пусто",
+            "Положи музыку в папку Music на телефоне или подключи Яндекс.Музыку во вкладке «Сервисы».",
+        )
+        return
+    }
+
+    LazyColumn(contentPadding = PaddingValues(bottom = 16.dp)) {
+        item {
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Pill("Все", source == null && !onlyLiked, { source = null; onlyLiked = false })
+                Pill("♥ Любимые", onlyLiked, { onlyLiked = !onlyLiked })
+                services.forEach { s -> Pill(s.displayName, source == s, { source = if (source == s) null else s }) }
+            }
+        }
+        item {
+            Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 4.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = { graph.player.play(tracks, shuffle = true) }) {
+                    Icon(Icons.Rounded.Shuffle, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Перемешать · ${tracks.size}")
+                }
+                Spacer(Modifier.weight(1f))
+                Box {
+                    TextButton(onClick = { sortMenu = true }) {
+                        Icon(Icons.Rounded.Sort, null, Modifier.size(18.dp), tint = Ink.Muted)
+                        Spacer(Modifier.width(6.dp))
+                        Text(sort.label, color = Ink.Muted)
+                    }
+                    DropdownMenu(sortMenu, onDismissRequest = { sortMenu = false }) {
+                        SortMode.entries.forEach { m -> DropdownMenuItem(text = { Text(m.label) }, onClick = { sort = m; sortMenu = false }) }
+                    }
+                }
+            }
+        }
+        itemsIndexed(tracks, key = { _, t -> t.id }) { i, t ->
+            TrackRow(
+                t,
+                onClick = { graph.player.play(tracks, i) },
+                onMore = { nav.showActions(t) },
+                playing = playing.nowPlaying?.trackId == t.id,
+            )
+        }
+    }
+}
+
+@Composable
+private fun AlbumsTab() {
+    val graph = LocalGraph.current
+    val nav = LocalNav.current
+    val albums by graph.db.tracks().observeAlbums().collectAsStateWithLifecycle(emptyList())
+    if (albums.isEmpty()) { EmptyState("Нет альбомов", "Альбомы появятся, когда у треков будет тег «Альбом»."); return }
+    LazyVerticalGrid(
+        GridCells.Adaptive(150.dp),
+        contentPadding = PaddingValues(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp),
+    ) {
+        items(albums, key = { "${it.artist}\u0000${it.album}" }) { a -> AlbumCard(a) { nav.openList(TrackListKind.ALBUM, a.album, a.artist) } }
+    }
+}
+
+@Composable
+private fun AlbumCard(a: AlbumRow, onClick: () -> Unit) {
+    Column(Modifier.clickable(onClick = onClick)) {
+        Artwork(ArtProvider.uriFor(a.coverTrackId), a.album, Modifier.fillMaxWidth().aspectRatio(1f), corner = 10.dp)
+        Spacer(Modifier.height(8.dp))
+        Text(a.album, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            listOfNotNull(a.artist, a.year?.toString()).joinToString(" · "),
+            style = MaterialTheme.typography.bodySmall, color = Ink.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun ArtistsTab() {
+    val graph = LocalGraph.current
+    val nav = LocalNav.current
+    val artists by graph.db.tracks().observeArtists().collectAsStateWithLifecycle(emptyList())
+    LazyColumn(contentPadding = PaddingValues(bottom = 16.dp)) {
+        items(artists, key = { it.artist }) { a ->
+            Row(
+                Modifier.fillMaxWidth().clickable { nav.openList(TrackListKind.ARTIST, a.artist) }.padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Artwork(ArtProvider.uriFor(a.coverTrackId), a.artist, Modifier.size(52.dp), corner = 26.dp)
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(a.artist, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        pluralRu(a.trackCount, "трек", "трека", "треков") + if (a.albumCount > 1) " · " + pluralRu(a.albumCount, "альбом", "альбома", "альбомов") else "",
+                        style = MaterialTheme.typography.bodySmall, color = Ink.Muted,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FoldersTab() {
+    val graph = LocalGraph.current
+    val nav = LocalNav.current
+    val folders by graph.db.tracks().observeFolders().collectAsStateWithLifecycle(emptyList())
+    LazyColumn(contentPadding = PaddingValues(bottom = 16.dp)) {
+        items(folders, key = { it.folder }) { f ->
+            Row(
+                Modifier.fillMaxWidth().clickable { nav.openList(TrackListKind.FOLDER, f.folder) }.padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)).background(Ink.Paper3), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.Folder, null, tint = LocalAccent.current)
+                }
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(f.folder.substringAfterLast('/'), style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        (if ('/' in f.folder) f.folder.substringBeforeLast('/') + " · " else "") + pluralRu(f.trackCount, "трек", "трека", "треков"),
+                        style = MaterialTheme.typography.bodySmall, color = Ink.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlaylistsTab() {
+    val graph = LocalGraph.current
+    val nav = LocalNav.current
+    val scope = rememberCoroutineScope()
+    val playlists by graph.db.playlists().observeAll().collectAsStateWithLifecycle(emptyList())
+    var creating by remember { mutableStateOf(false) }
+
+    LazyColumn(contentPadding = PaddingValues(bottom = 16.dp)) {
+        item {
+            Row(
+                Modifier.fillMaxWidth().clickable { creating = true }.padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.size(44.dp).clip(CircleShape).background(LocalAccent.current.copy(alpha = 0.2f)), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.Add, null, tint = LocalAccent.current)
+                }
+                Spacer(Modifier.width(14.dp))
+                Text("Новый плейлист", style = MaterialTheme.typography.bodyLarge)
+            }
+        }
+        item {
+            Row(
+                Modifier.fillMaxWidth().clickable { nav.openList(TrackListKind.LIKED, "liked") }.padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)).background(LocalAccent.current), contentAlignment = Alignment.Center) {
+                    Text("♥", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleLarge)
+                }
+                Spacer(Modifier.width(14.dp))
+                Text("Любимые треки", style = MaterialTheme.typography.bodyLarge)
+            }
+        }
+        items(playlists, key = { it.id }) { p -> PlaylistRow(p) { nav.openList(TrackListKind.PLAYLIST, p.id.toString()) } }
+    }
+    if (creating) {
+        NameDialog("Новый плейлист", "", onDismiss = { creating = false }) { name ->
+            scope.launch { graph.db.playlists().insert(PlaylistEntity(name = name)) }
+            creating = false
+        }
+    }
+}
+
+@Composable
+private fun PlaylistRow(p: PlaylistEntity, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (p.coverUrl != null) Artwork(p.coverUrl, p.name, Modifier.size(44.dp))
+        else Box(Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)).background(Ink.Paper3), contentAlignment = Alignment.Center) {
+            Icon(Icons.AutoMirrored.Rounded.PlaylistPlay, null, tint = Ink.Muted)
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(p.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            p.service?.let { Text(it.displayName, style = MaterialTheme.typography.bodySmall, color = Ink.Muted) }
+        }
+    }
+}
+
+@Composable
+fun NameDialog(title: String, initial: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+    var text by remember { mutableStateOf(initial) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { OutlinedTextField(text, { text = it }, singleLine = true, label = { Text("Название") }) },
+        confirmButton = { TextButton(onClick = { if (text.isNotBlank()) onConfirm(text.trim()) }) { Text("Готово") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
+        containerColor = Ink.Paper2,
+    )
+}

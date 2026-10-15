@@ -101,7 +101,7 @@ class YandexMusicProvider(
         return out
     }
 
-    override suspend fun resolveStream(id: String, quality: Quality): StreamInfo {
+    override suspend fun resolveStream(id: String, quality: Quality, forDownload: Boolean): StreamInfo {
         val q = when (quality) {
             Quality.LOSSLESS -> "lossless"
             Quality.HIGH -> "hq"

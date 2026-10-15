@@ -59,9 +59,12 @@ class YouTubeProvider(http: OkHttpClient = Http.client) : MusicProvider {
         )
     }
 
-    override suspend fun resolveStream(id: String, quality: Quality): StreamInfo = withContext(Dispatchers.IO) {
+    override suspend fun resolveStream(id: String, quality: Quality, forDownload: Boolean): StreamInfo = withContext(Dispatchers.IO) {
         val info = NpStreamInfo.getInfo(ServiceList.YouTube, watchUrl(id))
-        val stream = pickAudio(info.audioStreams, quality)
+        val streams = info.audioStreams
+        // Opus/WebM sounds better, but M4A can hold tags and a cover, which matters for kept files.
+        val m4a = streams.filter { it.format?.suffix == "m4a" }
+        val stream = pickAudio(if (forDownload && m4a.isNotEmpty()) m4a else streams, quality)
             ?: throw ProviderException("YouTube: нет аудиопотока для $id")
         StreamInfo(
             url = stream.content,

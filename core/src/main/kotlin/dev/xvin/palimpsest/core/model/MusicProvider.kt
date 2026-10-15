@@ -21,7 +21,11 @@ interface MusicProvider {
     /** Fresh metadata for a single track, used to detect that a track was re-uploaded. */
     suspend fun track(id: String): RemoteTrack?
 
-    suspend fun resolveStream(id: String, quality: Quality = Quality.LOSSLESS): StreamInfo
+    /**
+     * A direct stream. [forDownload] asks for a format that can carry tags (e.g. M4A instead of
+     * WebM on YouTube) since the file will be kept.
+     */
+    suspend fun resolveStream(id: String, quality: Quality = Quality.LOSSLESS, forDownload: Boolean = false): StreamInfo
 
     suspend fun lyrics(id: String): Lyrics? = null
 }
