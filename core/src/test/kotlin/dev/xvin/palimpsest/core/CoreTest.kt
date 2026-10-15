@@ -1,0 +1,210 @@
+package dev.xvin.palimpsest.core
+
+import dev.xvin.palimpsest.core.crypto.AesCtr
+import dev.xvin.palimpsest.core.dsp.AutoEqParser
+import dev.xvin.palimpsest.core.dsp.EqFilter
+import dev.xvin.palimpsest.core.dsp.EqProfile
+import dev.xvin.palimpsest.core.dsp.Equalizer
+import dev.xvin.palimpsest.core.dsp.FilterType
+import dev.xvin.palimpsest.core.dsp.SpectrumAnalyzer
+import dev.xvin.palimpsest.core.library.FileNames
+import dev.xvin.palimpsest.core.library.YandexLinks
+import dev.xvin.palimpsest.core.lyrics.Lrc
+import dev.xvin.palimpsest.core.match.TrackMatcher
+import dev.xvin.palimpsest.core.model.Service
+import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import javax.crypto.Cipher
+import javax.crypto.spec.IvParameterSpec
+import javax.crypto.spec.SecretKeySpec
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.log10
+import kotlin.math.sin
+import kotlin.math.sqrt
+
+class EqualizerTest {
+    private fun sine(freq: Double, sr: Int, frames: Int, ch: Int = 2) = FloatArray(frames * ch) { i ->
+        (0.25 * sin(2 * PI * freq * (i / ch) / sr)).toFloat()
+    }
+
+    private fun rms(buf: FloatArray, from: Int) = sqrt(buf.drop(from).sumOf { it.toDouble() * it } / (buf.size - from))
+
+    @Test fun flatProfileIsTransparent() {
+        val eq = Equalizer().apply { configure(48_000, 2); setProfile(EqProfile.FLAT) }
+        val input = sine(1000.0, 48_000, 4800)
+        val buf = input.copyOf()
+        eq.process(buf, 4800)
+        assertArrayEquals(input, buf, 1e-6f)
+    }
+
+    @Test fun peakFilterBoostsItsBand() {
+        val profile = EqProfile("t", filters = listOf(EqFilter(FilterType.PEAK, 1000.0, 6.0, 1.0)))
+        val eq = Equalizer().apply { configure(48_000, 2); setProfile(profile) }
+        val input = sine(1000.0, 48_000, 48_000)
+        val buf = input.copyOf()
+        eq.process(buf, 48_000)
+        val gainDb = 20 * log10(rms(buf, 20_000) / rms(input, 20_000))
+        assertEquals(6.0, gainDb, 0.3)
+        // Far away from the band nothing should change.
+        assertEquals(0.0, profile.responseDb(60.0), 0.3)
+        assertEquals(6.0, profile.responseDb(1000.0), 0.05)
+    }
+
+    @Test fun limiterPreventsClipping() {
+        val eq = Equalizer().apply { configure(44_100, 2); setGainDb(18.0) }
+        val buf = sine(200.0, 44_100, 44_100)
+        eq.process(buf, 44_100)
+        assertTrue(buf.maxOf { abs(it) } <= 0.981f)
+    }
+
+    @Test fun shelvesHaveExpectedResponse() {
+        val p = EqProfile("s", filters = listOf(EqFilter(FilterType.LOW_SHELF, 100.0, 5.0, 0.71), EqFilter(FilterType.HIGH_SHELF, 8000.0, -4.0, 0.71)))
+        assertEquals(5.0, p.responseDb(20.0), 0.3)
+        assertEquals(-4.0, p.responseDb(19_000.0), 0.4)
+        assertEquals(0.0, p.responseDb(1000.0), 0.5)
+    }
+}
+
+class AutoEqTest {
+    @Test fun parsesAutoEqFile() {
+        val text = """
+            Preamp: -6.4 dB
+            Filter 1: ON LSC Fc 105 Hz Gain 5.5 dB Q 0.70
+            Filter 2: ON PK Fc 2283 Hz Gain -3.1 dB Q 1.84
+            Filter 3: OFF PK Fc 5000 Hz Gain 2.0 dB Q 3.00
+            Filter 4: ON HSC Fc 10000 Hz Gain -1.2 dB Q 0.70
+        """.trimIndent()
+        val p = AutoEqParser.parse(text, "HD 600")
+        assertEquals(-6.4, p.preampDb, 1e-9)
+        assertEquals(4, p.filters.size)
+        assertEquals(FilterType.LOW_SHELF, p.filters[0].type)
+        assertEquals(2283.0, p.filters[1].freqHz, 1e-9)
+        assertEquals(false, p.filters[2].enabled)
+        // Round trip
+        val again = AutoEqParser.parse(AutoEqParser.format(p), "x")
+        assertEquals(p.filters.map { it.type }, again.filters.map { it.type })
+    }
+}
+
+class SpectrumTest {
+    @Test fun sineLandsInTheRightBand() {
+        val a = SpectrumAnalyzer(2048, 48).apply { sampleRate = 48_000 }
+        val frames = 4096
+        val buf = FloatArray(frames) { (0.8 * sin(2 * PI * 1000.0 * it / 48_000)).toFloat() }
+        a.push(buf, frames, 1)
+        val bands = a.compute()
+        val loudest = bands.indices.maxBy { bands[it] }
+        // 1 kHz on a 30 Hz–16 kHz log scale of 48 bands sits around band 26.
+        assertTrue("loudest=$loudest", loudest in 24..28)
+        assertTrue(bands[loudest] > 0.8f)
+        assertTrue(bands[2] < 0.3f)
+    }
+}
+
+class LrcTest {
+    @Test fun parsesSyncedLyrics() {
+        val lrc = """
+            [ar:Coldplay]
+            [ti:Yellow]
+            [00:12.50]Look at the stars
+            [00:17.3]Look how they shine for you
+            [01:02.00][02:10.00]And it was all yellow
+        """.trimIndent()
+        val p = Lrc.parse(lrc)
+        assertTrue(p.isSynced)
+        assertEquals(4, p.lines.size)
+        assertEquals(12_500, p.lines[0].timeMs)
+        assertEquals(17_300, p.lines[1].timeMs)
+        assertEquals("And it was all yellow", p.lines[3].text)
+        assertEquals(-1, p.indexAt(1000))
+        assertEquals(1, p.indexAt(20_000))
+        assertEquals(3, p.indexAt(500_000))
+    }
+
+    @Test fun plainTextStaysPlain() {
+        val p = Lrc.parse("line one\nline two")
+        assertEquals(false, p.isSynced)
+        assertEquals(2, p.lines.size)
+    }
+}
+
+class FileNamesTest {
+    @Test fun flatMurglarLayout() {
+        val g = FileNames.guess("Murglar/Яндекс/2rbina 2rista - Барон суббота.flac")
+        assertEquals("2rbina 2rista", g.artist)
+        assertEquals("Барон суббота", g.title)
+        assertNull(g.album)
+    }
+
+    @Test fun albumFolderLayout() {
+        val g = FileNames.guess("Murglar/Яндекс/Coldplay/(2003) Yellow/1. Yellow.flac")
+        assertEquals("Coldplay", g.artist)
+        assertEquals("Yellow", g.album)
+        assertEquals(2003, g.year)
+        assertEquals(1, g.trackNumber)
+        assertEquals("Yellow", g.title)
+    }
+
+    @Test fun ytDlpLayout() {
+        val g = FileNames.guess("Murglar/Openings/YOASOBI「アイドル」 Official Music Video [ZRtdQ81jPUQ].webm")
+        assertEquals("ZRtdQ81jPUQ", g.youtubeId)
+        assertEquals("YOASOBI「アイドル」 Official Music Video", g.title)
+        assertEquals(Service.YOUTUBE, FileNames.serviceFor("Murglar/Openings/x [ZRtdQ81jPUQ].webm", null))
+    }
+
+    @Test fun serviceFromFolderAndTag() {
+        assertEquals(Service.YANDEX, FileNames.serviceFor("Murglar/Яндекс/a.flac", null))
+        assertEquals(Service.YANDEX, FileNames.serviceFor("x.flac", "https://music.yandex.ru/album/39718785/track/146160168"))
+        assertEquals(Service.LOCAL, FileNames.serviceFor("Rips/a.flac", null))
+    }
+
+    @Test fun yandexLinks() {
+        assertEquals("39718785" to "146160168", YandexLinks.parse("https://music.yandex.ru/album/39718785/track/146160168"))
+        assertEquals(null to "123", YandexLinks.parse("https://music.yandex.com/track/123?x=1"))
+        assertNull(YandexLinks.parse("https://example.com"))
+    }
+
+    @Test fun sanitize() {
+        assertEquals("AC_DC - Back In Black", FileNames.sanitize("AC/DC - Back In Black"))
+        assertEquals("What_", FileNames.sanitize("What?"))
+    }
+}
+
+class MatcherTest {
+    @Test fun sameSongAcrossServices() {
+        val s = TrackMatcher.score(
+            "Барон Суббота (feat. The Scorr)", "2rbina 2rista, The Scorr", 201_000,
+            "Барон суббота", "2rbina 2rista", 202_000,
+        )
+        assertTrue("score=$s", s >= 0.8)
+    }
+
+    @Test fun differentSongs() {
+        val s = TrackMatcher.score("Yellow", "Coldplay", 266_000, "Fix You", "Coldplay", 295_000)
+        assertTrue("score=$s", s < 0.6)
+    }
+
+    @Test fun youtubeNoise() {
+        assertEquals("アイドル", TrackMatcher.normalizeTitle("アイドル (Official Music Video)"))
+        assertEquals("beyonce мой", TrackMatcher.normalize("Beyoncé Мой"))
+    }
+}
+
+class AesCtrTest {
+    @Test fun seekableDecryptMatchesFullDecrypt() {
+        val key = ByteArray(16) { (it * 7).toByte() }
+        val plain = ByteArray(10_000) { (it % 251).toByte() }
+        val enc = Cipher.getInstance("AES/CTR/NoPadding").run {
+            init(Cipher.ENCRYPT_MODE, SecretKeySpec(key, "AES"), IvParameterSpec(ByteArray(16)))
+            doFinal(plain)
+        }
+        for (offset in listOf(0L, 15L, 16L, 4097L, 9_999L)) {
+            val part = AesCtr.decrypting(enc.copyOfRange(offset.toInt(), enc.size).inputStream(), key, offset).readBytes()
+            assertArrayEquals(plain.copyOfRange(offset.toInt(), plain.size), part)
+        }
+    }
+}
