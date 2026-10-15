@@ -27,6 +27,7 @@ import dev.xvin.palimpsest.R
 import dev.xvin.palimpsest.data.db.PlayEventEntity
 import dev.xvin.palimpsest.data.settings.ReplayGainMode
 import dev.xvin.palimpsest.data.settings.SavedQueue
+import dev.xvin.palimpsest.widget.PlayerWidget
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -140,6 +141,14 @@ class PlaybackService : MediaSessionService() {
         graph.effects.equalizer.setGainDb(if (gain == null) 0.0 else (gain + s.replayGainPreampDb).toDouble())
     }
 
+    private fun updateWidget(item: MediaItem?) {
+        val m = item?.mediaMetadata
+        val playing = player.isPlaying
+        graph.appScope.launch(Dispatchers.IO) {
+            PlayerWidget.update(this@PlaybackService, m?.title?.toString(), m?.artist?.toString(), playing, m?.artworkUri, m?.artworkData)
+        }
+    }
+
     private fun saveQueue() {
         if (!::player.isInitialized || player.mediaItemCount == 0) return
         val ids = (0 until player.mediaItemCount).mapNotNull { MediaItems.trackId(player.getMediaItemAt(it)) }
@@ -150,6 +159,7 @@ class PlaybackService : MediaSessionService() {
 
     private inner class PlayerListener : Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            updateWidget(mediaItem)
             history.flush()
             history.start(mediaItem, player.isPlaying)
             applyReplayGain(mediaItem)
@@ -157,6 +167,7 @@ class PlaybackService : MediaSessionService() {
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
+            PlayerWidget.setPlaying(this@PlaybackService, isPlaying)
             history.setPlaying(isPlaying)
             if (!isPlaying) saveQueue()
         }

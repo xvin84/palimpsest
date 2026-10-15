@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Palimpsest</string>
+    <string name="widget_description">Что играет сейчас</string>
 </resources>
