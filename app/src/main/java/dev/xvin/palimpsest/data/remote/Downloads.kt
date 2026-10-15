@@ -155,8 +155,10 @@ class Downloads(
 
             val baseName = FileNames.sanitize("${track.artist} - ${track.title}")
             var target = File(dir, "$baseName.${info.extension}")
-            val owner = target.takeIf { it.exists() }?.let { db.tracks().byPath(it.absolutePath) }
-            if (owner != null && owner.id != track.id) target = File(dir, "$baseName ($remoteId).${info.extension}")
+            // Never overwrite a file that isn't this track's own (another track's, or an unindexed one).
+            if (target.exists() && db.tracks().byPath(target.absolutePath)?.id != track.id) {
+                target = File(dir, "$baseName ($remoteId).${info.extension}")
+            }
 
             val note = "Скачано: ${track.service.displayName}, ${info.codec}${if (info.bitrateKbps > 0) " ${info.bitrateKbps} kbps" else ""}"
             when (versions.installNewAudio(db.tracks().get(trackId)!!, tagged, target, note)) {
