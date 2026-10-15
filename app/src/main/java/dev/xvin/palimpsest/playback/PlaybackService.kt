@@ -47,6 +47,7 @@ class PlaybackService : MediaSessionService() {
     private var session: MediaSession? = null
     private lateinit var player: ExoPlayer
     private val history = HistoryTracker()
+    private var skippedInARow = 0
 
     override fun onCreate() {
         super.onCreate()
@@ -168,7 +169,21 @@ class PlaybackService : MediaSessionService() {
             saveQueue()
         }
 
+        override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+            // A cloud track that can't load (no network, region lock, expired link) shouldn't stop
+            // the music: move on to the next item, which may well be a local file.
+            val item = player.currentMediaItem ?: return
+            val isRemote = item.localConfiguration?.uri?.scheme == StreamResolver.SCHEME
+            if (isRemote && player.hasNextMediaItem() && skippedInARow < 5) {
+                skippedInARow++
+                player.seekToNextMediaItem()
+                player.prepare()
+                player.play()
+            }
+        }
+
         override fun onIsPlayingChanged(isPlaying: Boolean) {
+            if (isPlaying) skippedInARow = 0
             PlayerWidget.setPlaying(this@PlaybackService, isPlaying)
             history.setPlaying(isPlaying)
             if (!isPlaying) saveQueue()

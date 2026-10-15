@@ -174,7 +174,7 @@ class LibraryScanner(private val db: AppDatabase, private val settings: Settings
                 liked = existing.liked,
                 coverUrl = existing.coverUrl,
                 updateAvailable = existing.updateAvailable && existing.remoteDurationMs != null &&
-                    kotlin.math.abs(existing.remoteDurationMs - e.durationMs) > 1500,
+                    kotlin.math.abs(existing.remoteDurationMs - e.durationMs) > dev.xvin.palimpsest.core.library.Versions.DURATION_TOLERANCE_MS,
                 remoteDurationMs = existing.remoteDurationMs,
             )
         }

@@ -11,8 +11,11 @@ import kotlin.math.abs
  * overwriting, we keep each distinct audio as its own version.
  */
 object Versions {
-    /** Durations further apart than this are considered different recordings. */
-    const val DURATION_TOLERANCE_MS = 1_500L
+    /**
+     * Durations further apart than this are considered different recordings. Generous enough
+     * for VBR MP3 length estimates and services rounding to the second.
+     */
+    const val DURATION_TOLERANCE_MS = 2_000L
 
     enum class Change { SAME, DIFFERENT_DURATION, DIFFERENT_AUDIO, UNKNOWN }
 

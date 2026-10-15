@@ -133,14 +133,16 @@ private fun TracksTab() {
     val playing by graph.player.state.collectAsStateWithLifecycle()
     var source by rememberSaveable { mutableStateOf<Service?>(null) }
     var onlyLiked by rememberSaveable { mutableStateOf(false) }
+    var onlyOffline by rememberSaveable { mutableStateOf(false) }
     var sort by rememberSaveable { mutableStateOf(SortMode.TITLE) }
     var sortMenu by remember { mutableStateOf(false) }
 
     val list = all ?: return
-    val tracks = remember(list, source, onlyLiked, sort) {
+    val tracks = remember(list, source, onlyLiked, onlyOffline, sort) {
         list.asSequence()
             .filter { source == null || it.service == source }
             .filter { !onlyLiked || it.liked }
+            .filter { !onlyOffline || it.path != null }
             .let { s ->
                 when (sort) {
                     SortMode.TITLE -> s.sortedBy { it.title.lowercase() }
@@ -167,8 +169,9 @@ private fun TracksTab() {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Pill("Все", source == null && !onlyLiked, { source = null; onlyLiked = false })
+                Pill("Все", source == null && !onlyLiked && !onlyOffline, { source = null; onlyLiked = false; onlyOffline = false })
                 Pill("♥ Любимые", onlyLiked, { onlyLiked = !onlyLiked })
+                if (list.any { it.path == null }) Pill("Скачанные", onlyOffline, { onlyOffline = !onlyOffline })
                 services.forEach { s -> Pill(s.displayName, source == s, { source = if (source == s) null else s }) }
             }
         }
