@@ -44,7 +44,7 @@ class YandexMusicProvider(
     suspend fun account(): Account {
         val status: YStatus = get("/account/status")
         val acc = status.account
-        val uid = acc.uid ?: throw AuthRequiredException(Service.YANDEX)
+        val uid = acc.uid?.toLongOrNull() ?: throw AuthRequiredException(Service.YANDEX)
         cachedUid = uid
         return Account(uid, acc.login, acc.displayName ?: acc.fullName, status.plus?.hasPlus == true)
     }
@@ -202,7 +202,7 @@ class YandexMusicProvider(
     private fun YTrack.toRemote(): RemoteTrack {
         val album = albums.firstOrNull()
         val fullTitle = if (!version.isNullOrBlank()) "$title ($version)" else title
-        val albumId = album?.id?.toString()
+        val albumId = album?.id
         return RemoteTrack(
             service = Service.YANDEX,
             id = id,

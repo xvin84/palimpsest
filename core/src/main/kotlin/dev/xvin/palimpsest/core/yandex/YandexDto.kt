@@ -4,19 +4,20 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
 // Wire format of api.music.yandex.net. Only the fields we use; everything else is ignored.
+// Ids are Strings on purpose: the API mixes numbers and strings, and lenient JSON reads both into a String.
 
 @Serializable
 internal data class YEnvelope(val result: JsonElement? = null, val error: JsonElement? = null)
 
 @Serializable
-internal data class YArtist(val id: Long? = null, val name: String = "")
+internal data class YArtist(val id: String? = null, val name: String = "")
 
 @Serializable
 internal data class YTrackPosition(val volume: Int? = null, val index: Int? = null)
 
 @Serializable
 internal data class YAlbum(
-    val id: Long? = null,
+    val id: String? = null,
     val title: String? = null,
     val year: Int? = null,
     val genre: String? = null,
@@ -51,7 +52,7 @@ internal data class YLibrary(val tracks: List<YLikedTrack> = emptyList(), val re
 internal data class YLikes(val library: YLibrary)
 
 @Serializable
-internal data class YOwner(val uid: Long? = null, val login: String? = null, val name: String? = null)
+internal data class YOwner(val uid: String? = null, val login: String? = null, val name: String? = null)
 
 @Serializable
 internal data class YCover(val type: String? = null, val uri: String? = null, val itemsUri: List<String>? = null)
@@ -61,8 +62,8 @@ internal data class YPlaylistTrack(val id: String? = null, val track: YTrack? = 
 
 @Serializable
 internal data class YPlaylist(
-    val uid: Long? = null,
-    val kind: Long,
+    val uid: String? = null,
+    val kind: String,
     val title: String = "",
     val trackCount: Int = 0,
     val owner: YOwner? = null,
@@ -78,7 +79,7 @@ internal data class YSearchTracks(val results: List<YTrack> = emptyList(), val t
 internal data class YSearch(val tracks: YSearchTracks? = null)
 
 @Serializable
-internal data class YAccount(val uid: Long? = null, val login: String? = null, val displayName: String? = null, val fullName: String? = null)
+internal data class YAccount(val uid: String? = null, val login: String? = null, val displayName: String? = null, val fullName: String? = null)
 
 @Serializable
 internal data class YPlus(val hasPlus: Boolean = false)
