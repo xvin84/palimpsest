@@ -53,7 +53,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 
 @Serializable
-enum class TrackListKind { ALBUM, ARTIST, FOLDER, PLAYLIST, LIKED, UPDATES }
+enum class TrackListKind { ALBUM, ARTIST, FOLDER, PLAYLIST, LIKED, UPDATES, MOST_PLAYED, RECENT, FORGOTTEN }
 
 @Composable
 fun TrackListScreen(kind: TrackListKind, key: String, extra: String?) {
@@ -69,6 +69,9 @@ fun TrackListScreen(kind: TrackListKind, key: String, extra: String?) {
             TrackListKind.PLAYLIST -> key.toLongOrNull()?.let { graph.db.playlists().observeTracks(it) } ?: flowOf(emptyList())
             TrackListKind.LIKED -> dao.observeLiked()
             TrackListKind.UPDATES -> dao.observeUpdates()
+            TrackListKind.MOST_PLAYED -> dao.observeMostPlayed()
+            TrackListKind.RECENT -> dao.observeRecentlyAdded()
+            TrackListKind.FORGOTTEN -> dao.observeForgotten(System.currentTimeMillis() - 60L * 24 * 3600 * 1000)
         }
     }
     val tracks by flow.collectAsStateWithLifecycle(emptyList())
@@ -83,11 +86,17 @@ fun TrackListScreen(kind: TrackListKind, key: String, extra: String?) {
         TrackListKind.PLAYLIST -> playlist?.name ?: ""
         TrackListKind.LIKED -> "Любимые треки"
         TrackListKind.UPDATES -> "Новые версии"
+        TrackListKind.MOST_PLAYED -> "Часто слушаю"
+        TrackListKind.RECENT -> "Недавно добавленные"
+        TrackListKind.FORGOTTEN -> "Давно не слушал"
     }
     val subtitle = when (kind) {
         TrackListKind.ALBUM -> extra
         TrackListKind.FOLDER -> key.substringBeforeLast('/', "").ifEmpty { null }
         TrackListKind.UPDATES -> "Исполнители перезалили эти треки. Скачай новую версию — старая сохранится в истории версий."
+        TrackListKind.MOST_PLAYED -> "50 самых заслушанных"
+        TrackListKind.RECENT -> "Последние 50, что появились в медиатеке"
+        TrackListKind.FORGOTTEN -> "Любимое, что ты не включал больше двух месяцев"
         else -> playlist?.service?.displayName
     }
     val remoteOnly = tracks.filter { it.remoteId != null && (it.path == null || it.updateAvailable) }
@@ -131,6 +140,17 @@ fun TrackListScreen(kind: TrackListKind, key: String, extra: String?) {
                     }
                 }
             }
+        }
+        if (tracks.isEmpty()) item {
+            Text(
+                when (kind) {
+                    TrackListKind.FORGOTTEN -> "Пока нечего вспоминать: сюда попадут любимые треки, которые ты не слушал два месяца."
+                    TrackListKind.MOST_PLAYED -> "Послушай что-нибудь — здесь соберутся самые заслушанные треки."
+                    TrackListKind.UPDATES -> "Все треки актуальны."
+                    else -> "Здесь пока пусто."
+                },
+                Modifier.padding(horizontal = 16.dp), color = Ink.Muted,
+            )
         }
         itemsIndexed(tracks, key = { i, t -> "${t.id}_$i" }) { i, t ->
             TrackRow(

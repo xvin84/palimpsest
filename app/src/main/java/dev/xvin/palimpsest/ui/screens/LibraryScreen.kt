@@ -320,12 +320,32 @@ private fun PlaylistsTab() {
                 Text("Любимые треки", style = MaterialTheme.typography.bodyLarge)
             }
         }
+        item { SmartRow("Часто слушаю", "↑") { nav.openList(TrackListKind.MOST_PLAYED, "smart") } }
+        item { SmartRow("Недавно добавленные", "+") { nav.openList(TrackListKind.RECENT, "smart") } }
+        item { SmartRow("Давно не слушал", "↺") { nav.openList(TrackListKind.FORGOTTEN, "smart") } }
         items(playlists, key = { it.id }) { p -> PlaylistRow(p) { nav.openList(TrackListKind.PLAYLIST, p.id.toString()) } }
     }
     if (creating) {
         NameDialog("Новый плейлист", "", onDismiss = { creating = false }) { name ->
             scope.launch { graph.db.playlists().insert(PlaylistEntity(name = name)) }
             creating = false
+        }
+    }
+}
+
+@Composable
+private fun SmartRow(title: String, glyph: String, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)).background(LocalAccent.current.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
+            Text(glyph, color = LocalAccent.current, style = MaterialTheme.typography.titleLarge)
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text("Умный плейлист", style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
         }
     }
 }

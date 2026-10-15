@@ -121,6 +121,32 @@ interface TrackDao {
 
     @Query("SELECT COUNT(*) FROM tracks")
     fun observeCount(): Flow<Int>
+
+    // --- Smart playlists ---
+
+    @Query(
+        """
+        SELECT t.* FROM tracks t JOIN (
+            SELECT trackId, COUNT(*) AS c FROM play_events WHERE trackId IS NOT NULL GROUP BY trackId
+        ) p ON p.trackId = t.id ORDER BY p.c DESC LIMIT 50
+        """,
+    )
+    fun observeMostPlayed(): Flow<List<TrackEntity>>
+
+    @Query("SELECT * FROM tracks ORDER BY addedAt DESC LIMIT 50")
+    fun observeRecentlyAdded(): Flow<List<TrackEntity>>
+
+    /** Tracks you used to love (liked or played 3+ times) that haven't been played for :sinceDays days. */
+    @Query(
+        """
+        SELECT t.* FROM tracks t LEFT JOIN (
+            SELECT trackId, COUNT(*) AS c, MAX(startedAt) AS lastPlayed FROM play_events WHERE trackId IS NOT NULL GROUP BY trackId
+        ) p ON p.trackId = t.id
+        WHERE (t.liked = 1 OR p.c >= 3) AND (p.lastPlayed IS NULL OR p.lastPlayed < :before)
+        ORDER BY COALESCE(p.c, 0) DESC, RANDOM() LIMIT 50
+        """,
+    )
+    fun observeForgotten(before: Long): Flow<List<TrackEntity>>
 }
 
 @Dao
