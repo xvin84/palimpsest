@@ -85,7 +85,7 @@ class LibraryScanner(private val db: AppDatabase, private val settings: Settings
     private suspend fun importM3u(roots: List<File>) {
         val lists = roots.flatMap { root ->
             root.walkTopDown().onEnter { it == root || !it.name.startsWith(".") }
-                .filter { it.isFile && it.extension.lowercase() in setOf("m3u", "m3u8") }.toList()
+                .filter { it.isFile && !it.name.startsWith(".") && it.extension.lowercase() in setOf("m3u", "m3u8") }.toList()
         }
         if (lists.isEmpty()) return
         val stamps = db.tracks().scanStamps()
@@ -112,7 +112,8 @@ class LibraryScanner(private val db: AppDatabase, private val settings: Settings
     private fun walk(root: File): List<File> =
         root.walkTopDown()
             .onEnter { it == root || !it.name.startsWith(".") }
-            .filter { it.isFile && FileNames.isAudio(it.name) }
+            // Dot-files are in-flight downloads/replacements (".download-12.flac") — never index them.
+            .filter { it.isFile && !it.name.startsWith(".") && FileNames.isAudio(it.name) }
             .toList()
 
     private fun buildEntity(root: File, f: File): TrackEntity {
