@@ -238,6 +238,14 @@ class SpotifyTest {
         assertTrue(c.items.all { it.title.isNotBlank() && it.durationMs > 0 })
         assertTrue(c.coverUrl!!.startsWith("https://"))
     }
+
+    @Test fun parsesAlbumEmbedWithCover() {
+        val html = javaClass.getResource("/spotify_embed_album.html")!!.readText()
+        val c = dev.xvin.palimpsest.core.spotify.SpotifyImporter.parseEmbed(html, "album", "2noRn2Aes5aoNVsU6iWThc")
+        assertEquals("Discovery", c.name)
+        assertEquals(14, c.items.size)
+        assertTrue(c.coverUrl!!.startsWith("https://"))
+    }
 }
 
 class M3uTest {

@@ -54,7 +54,9 @@ class SpotifyImporter(private val http: OkHttpClient = Http.client) {
                     durationMs = o["duration"]?.jsonPrimitive?.longOrNull ?: 0,
                 )
             }
+            // Playlists carry coverArt.sources; albums only visualIdentity.image (largest last).
             val cover = entity.obj("coverArt")?.get("sources")?.jsonArray?.firstOrNull()?.jsonObject?.get("url")?.jsonPrimitive?.contentOrNull
+                ?: entity.obj("visualIdentity")?.get("image")?.jsonArray?.lastOrNull()?.jsonObject?.get("url")?.jsonPrimitive?.contentOrNull
             val name = entity["name"]?.jsonPrimitive?.contentOrNull ?: entity["title"]?.jsonPrimitive?.contentOrNull ?: "Spotify"
             return Collection(kind, id, name, cover, items)
         }
