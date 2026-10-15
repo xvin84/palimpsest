@@ -16,4 +16,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "palimpsest"
-include(":app", ":core")
+include(":app", ":core", ":desktop")
