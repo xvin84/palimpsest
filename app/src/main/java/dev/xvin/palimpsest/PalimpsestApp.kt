@@ -128,5 +128,5 @@ class AppGraph(val app: Application) {
     val lyrics = LyricsRepository(db, yandex, LrcLibClient(http))
     val downloads = Downloads(app, db, settings, http, remote, versions)
 
-    val player = PlayerConnection(app, mainScope)
+    val player = PlayerConnection(app, mainScope) { settings.loadQueue() }
 }

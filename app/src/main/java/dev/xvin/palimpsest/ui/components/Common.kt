@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -185,6 +186,35 @@ fun SeekBar(
             Text(formatDuration(if (dragging) (dragFraction * durationMs).toLong() else positionMs), style = MaterialTheme.typography.labelSmall, color = Ink.Muted)
             Text(formatDuration(durationMs), style = MaterialTheme.typography.labelSmall, color = Ink.Muted)
         }
+    }
+}
+
+/** Vertical fader for EQ bands: drag or tap anywhere on the column; centre line marks 0. */
+@Composable
+fun VerticalFader(
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    onChange: (Float) -> Unit,
+    modifier: Modifier = Modifier,
+    color: Color = LocalAccent.current,
+) {
+    fun toValue(y: Float, h: Int) = (range.endInclusive - (y / h).coerceIn(0f, 1f) * (range.endInclusive - range.start))
+    val frac = (value - range.start) / (range.endInclusive - range.start)
+    val zero = (0f - range.start) / (range.endInclusive - range.start)
+    androidx.compose.foundation.Canvas(
+        modifier
+            .pointerInput(range) { detectTapGestures { o -> onChange(toValue(o.y, size.height)) } }
+            .pointerInput(range) {
+                detectVerticalDragGestures { change, _ -> onChange(toValue(change.position.y, size.height)) }
+            },
+    ) {
+        val cx = size.width / 2
+        val yOf = { f: Float -> size.height * (1 - f) }
+        val track = 4.dp.toPx()
+        drawLine(Ink.Line, androidx.compose.ui.geometry.Offset(cx, 0f), androidx.compose.ui.geometry.Offset(cx, size.height), track, androidx.compose.ui.graphics.StrokeCap.Round)
+        drawLine(color, androidx.compose.ui.geometry.Offset(cx, yOf(zero)), androidx.compose.ui.geometry.Offset(cx, yOf(frac)), track, androidx.compose.ui.graphics.StrokeCap.Round)
+        drawLine(Ink.Faint, androidx.compose.ui.geometry.Offset(cx - 8.dp.toPx(), yOf(zero)), androidx.compose.ui.geometry.Offset(cx + 8.dp.toPx(), yOf(zero)), 1.dp.toPx())
+        drawCircle(color, 9.dp.toPx(), androidx.compose.ui.geometry.Offset(cx, yOf(frac)))
     }
 }
 

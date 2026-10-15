@@ -249,6 +249,31 @@ private fun VersionsTab(t: TrackEntity) {
     val scope = rememberCoroutineScope()
     val versions by remember(t.id) { graph.db.versions().observeFor(t.id) }.collectAsStateWithLifecycle(emptyList())
     val fmt = remember { SimpleDateFormat("d MMMM yyyy, HH:mm", Locale.forLanguageTag("ru")) }
+    val context = LocalContext.current
+
+    // Swap in another file (e.g. a better rip); the current one is archived, never lost.
+    val replacePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        val current = t.path?.let(::File) ?: return@rememberLauncherForActivityResult
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val name = dev.xvin.palimpsest.playback.MediaItems.displayName(context, uri) ?: "audio.${current.extension}"
+                    val ext = name.substringAfterLast('.', current.extension).lowercase()
+                    val tmp = File(current.parentFile, ".replace-${t.id}.$ext")
+                    context.contentResolver.openInputStream(uri)!!.use { input -> tmp.outputStream().use { input.copyTo(it) } }
+                    val target = File(current.parentFile, "${current.nameWithoutExtension}.$ext")
+                    graph.versions.installNewAudio(t, tmp, target, "Заменён вручную: $name")
+                }
+            }
+            nav.toast(
+                result.fold(
+                    { if (it is dev.xvin.palimpsest.data.library.VersionRepository.ReplaceResult.Identical) "Это тот же самый звук — ничего не изменилось" else "Файл заменён, прежний — в истории" },
+                    { "Не удалось: ${it.message}" },
+                ),
+            )
+        }
+    }
 
     Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
@@ -266,12 +291,17 @@ private fun VersionsTab(t: TrackEntity) {
                 nav.toast("Скачиваю новую версию; текущая сохранится")
             }) { Text("Скачать новую версию") }
         }
-        if (t.path != null) OutlinedButton(onClick = {
-            scope.launch {
-                graph.versions.snapshot(t, "Сохранена вручную")
-                nav.toast("Текущая версия сохранена")
+        if (t.path != null) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = {
+                    scope.launch {
+                        graph.versions.snapshot(t, "Сохранена вручную")
+                        nav.toast("Текущая версия сохранена")
+                    }
+                }) { Text("Сохранить текущую") }
+                OutlinedButton(onClick = { replacePicker.launch(arrayOf("audio/*")) }) { Text("Заменить файл…") }
             }
-        }) { Text("Сохранить текущую как версию") }
+        }
 
         if (versions.isEmpty()) Text("Версий пока нет.", color = Ink.Faint)
         versions.forEach { v -> VersionCard(v, fmt, t) }

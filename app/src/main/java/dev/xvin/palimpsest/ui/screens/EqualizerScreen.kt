@@ -3,7 +3,6 @@ package dev.xvin.palimpsest.ui.screens
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -38,7 +36,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -49,6 +46,7 @@ import dev.xvin.palimpsest.ui.LocalNav
 import dev.xvin.palimpsest.ui.components.LocalGraph
 import dev.xvin.palimpsest.ui.components.Pill
 import dev.xvin.palimpsest.ui.components.SectionHeader
+import dev.xvin.palimpsest.ui.components.VerticalFader
 import dev.xvin.palimpsest.ui.theme.Ink
 import dev.xvin.palimpsest.ui.theme.LocalAccent
 import kotlinx.coroutines.launch
@@ -88,20 +86,18 @@ fun EqualizerScreen() {
                 profile.filters.forEachIndexed { i, f ->
                     Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("%+.0f".format(f.gainDb), style = MaterialTheme.typography.labelSmall, color = Ink.Muted)
-                        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            // A horizontal Slider rotated -90°: simplest way to get a vertical fader.
-                            Slider(
-                                value = f.gainDb.toFloat(),
-                                onValueChange = { v ->
-                                    val filters = profile.filters.toMutableList()
-                                    filters[i] = f.copy(gainDb = (v * 2).toInt() / 2.0)
-                                    val p = profile.copy(name = "Свой", filters = filters)
-                                    set(p.copy(preampDb = -p.peakBoostDb().coerceAtLeast(0.0)))
-                                },
-                                valueRange = -12f..12f,
-                                modifier = Modifier.graphicsLayer { rotationZ = -90f }.width(180.dp),
-                            )
-                        }
+                        VerticalFader(
+                            value = f.gainDb.toFloat(),
+                            range = -12f..12f,
+                            onChange = { v ->
+                                val filters = profile.filters.toMutableList()
+                                filters[i] = f.copy(gainDb = Math.round(v * 2) / 2.0)
+                                val p = profile.copy(name = "Свой", filters = filters)
+                                // Auto-preamp: cut by the biggest boost so the EQ itself never clips.
+                                set(p.copy(preampDb = -p.peakBoostDb().coerceAtLeast(0.0)))
+                            },
+                            modifier = Modifier.weight(1f).fillMaxWidth().padding(vertical = 6.dp),
+                        )
                         Text(bandLabel(f.freqHz), style = MaterialTheme.typography.labelSmall, color = Ink.Faint, textAlign = TextAlign.Center)
                     }
                 }
@@ -194,7 +190,7 @@ private fun EqCurve(profile: EqProfile, enabled: Boolean, modifier: Modifier) {
     val points = remember(profile) {
         (0..120).map { i ->
             val f = 20.0 * 1000.0.pow(i / 120.0)
-            f to profile.responseDb(f)
+            f to profile.responseDb(f) - profile.preampDb // shape only; preamp has its own slider
         }
     }
     Canvas(modifier) {

@@ -37,6 +37,9 @@ class VersionRepository(
 
     private fun stamp() = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.ROOT).format(Date())
 
+    private fun humanDate(at: Long = System.currentTimeMillis()) =
+        SimpleDateFormat("d MMMM yyyy", Locale.forLanguageTag("ru")).format(Date(at))
+
     /**
      * Puts freshly downloaded audio [incoming] at the track's place. If the track already has a
      * file with different audio, the old one is archived instead of being overwritten.
@@ -56,7 +59,7 @@ class VersionRepository(
             incoming.delete()
             return@withContext ReplaceResult.Identical
         }
-        val archived = if (keep) archive(track, existing, oldFp, "Версия до ${stamp().substring(0, 10)}") else { existing.delete(); null }
+        val archived = if (keep) archive(track, existing, oldFp, "Была текущей до ${humanDate()}") else { existing.delete(); null }
         // New file takes the old file's place (same name, so playlists in other players keep working).
         val dest = if (existing.extension.equals(target.extension, true)) existing else target
         moveFile(incoming, dest)
@@ -95,7 +98,7 @@ class VersionRepository(
         db.versions().delete(version.id)
         File(version.path).delete()
         if (dest.absolutePath != track.path) db.tracks().update(track.copy(path = dest.absolutePath))
-        recordCurrent(track.id, dest, "Восстановлена: ${version.note.orEmpty()}")
+        recordCurrent(track.id, dest, "Восстановлена из истории (${humanDate(version.createdAt)})")
         scanner.rescanFile(dest.absolutePath)
         archived
     }
@@ -106,10 +109,16 @@ class VersionRepository(
     }
 
     private suspend fun archive(track: TrackEntity, file: File, fingerprint: String, note: String): TrackVersionEntity {
+        val known = db.versions().forTrack(track.id)
+        // The previous "current" row now describes an archived file.
+        known.filter { it.isCurrent }.forEach { db.versions().delete(it.id) }
+        // Same audio is already in history (e.g. a manual snapshot): don't keep a second copy.
+        known.firstOrNull { !it.isCurrent && it.fingerprint == fingerprint && File(it.path).isFile }?.let { dup ->
+            file.delete()
+            return dup
+        }
         val dst = File(versionsDir(track.id), "${stamp()}_${file.name}")
         moveFile(file, dst)
-        // The previous "current" row now describes an archived file.
-        db.versions().forTrack(track.id).filter { it.isCurrent }.forEach { db.versions().delete(it.id) }
         return insertVersion(track, dst, fingerprint, note, current = false)
     }
 

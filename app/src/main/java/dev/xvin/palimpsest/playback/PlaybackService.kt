@@ -96,8 +96,11 @@ class PlaybackService : MediaSessionService() {
         // Persist the queue now and then so a crash or reboot loses at most a few seconds.
         scope.launch {
             while (isActive) {
-                delay(15_000)
-                if (player.isPlaying) saveQueue()
+                delay(10_000)
+                if (player.isPlaying) {
+                    saveQueue()
+                    history.checkpoint()
+                }
             }
         }
     }
@@ -159,17 +162,24 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
-    /** Counts real listening time per item and logs a play once it's meaningful. */
+    /**
+     * Counts real listening time per item. A play is logged as soon as it becomes meaningful
+     * (30 s or half the track) and then kept up to date, so a killed process loses nothing.
+     */
     private inner class HistoryTracker {
         private var item: MediaItem? = null
         private var startedAt = 0L
         private var listened = 0L
         private var segmentStart = 0L
+        @Volatile private var recordedId: Long? = null
+        private var recording = false
 
         fun start(mediaItem: MediaItem?, playing: Boolean) {
             item = mediaItem
             startedAt = System.currentTimeMillis()
             listened = 0
+            recordedId = null
+            recording = false
             segmentStart = if (playing) System.currentTimeMillis() else 0
         }
 
@@ -178,28 +188,45 @@ class PlaybackService : MediaSessionService() {
             val now = System.currentTimeMillis()
             if (playing && segmentStart == 0L) segmentStart = now
             if (!playing && segmentStart != 0L) { listened += now - segmentStart; segmentStart = 0 }
+            if (!playing) checkpoint()
+        }
+
+        private fun total(): Long = listened + if (segmentStart != 0L) System.currentTimeMillis() - segmentStart else 0
+
+        private fun duration(it: MediaItem): Long = it.mediaMetadata.durationMs ?: player.duration.takeIf { d -> d > 0 } ?: 0L
+
+        /** Inserts the play once it crosses the threshold, or refreshes its listened time. */
+        fun checkpoint() {
+            val it = item ?: return
+            val ms = total()
+            val duration = duration(it)
+            val completed = duration > 0 && ms >= duration * 9 / 10
+            val id = recordedId
+            if (id != null) {
+                graph.appScope.launch(Dispatchers.IO) { graph.db.plays().updateProgress(id, ms, completed) }
+                return
+            }
+            val threshold = if (duration > 0) minOf(30_000L, duration / 2) else 30_000L
+            if (ms < threshold || recording) return
+            recording = true
+            val meta = it.mediaMetadata
+            val event = PlayEventEntity(
+                trackId = MediaItems.trackId(it),
+                title = meta.title?.toString() ?: "?",
+                artist = meta.artist?.toString() ?: "?",
+                album = meta.albumTitle?.toString(),
+                startedAt = startedAt,
+                listenedMs = ms,
+                completed = completed,
+            )
+            graph.appScope.launch(Dispatchers.IO) { recordedId = graph.db.plays().insert(event) }
         }
 
         fun flush() {
-            val it = item ?: return
-            if (segmentStart != 0L) { listened += System.currentTimeMillis() - segmentStart; segmentStart = System.currentTimeMillis() }
-            val meta = it.mediaMetadata
-            val duration = meta.durationMs ?: player.duration.takeIf { d -> d > 0 } ?: 0L
-            val threshold = if (duration > 0) minOf(30_000L, duration / 2) else 30_000L
-            if (listened >= threshold) {
-                val event = PlayEventEntity(
-                    trackId = MediaItems.trackId(it),
-                    title = meta.title?.toString() ?: "?",
-                    artist = meta.artist?.toString() ?: "?",
-                    album = meta.albumTitle?.toString(),
-                    startedAt = startedAt,
-                    listenedMs = listened,
-                    completed = duration > 0 && listened >= duration * 9 / 10,
-                )
-                graph.appScope.launch(Dispatchers.IO) { graph.db.plays().insert(event) }
-            }
+            checkpoint()
             item = null
             listened = 0
+            segmentStart = 0
         }
     }
 

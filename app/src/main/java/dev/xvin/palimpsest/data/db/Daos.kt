@@ -123,7 +123,10 @@ interface TrackDao {
 @Dao
 interface PlayEventDao {
     @Insert
-    suspend fun insert(e: PlayEventEntity)
+    suspend fun insert(e: PlayEventEntity): Long
+
+    @Query("UPDATE play_events SET listenedMs = :listenedMs, completed = :completed WHERE id = :id")
+    suspend fun updateProgress(id: Long, listenedMs: Long, completed: Boolean)
 
     @Query("SELECT * FROM play_events ORDER BY startedAt DESC LIMIT :limit")
     fun observeRecent(limit: Int = 300): Flow<List<PlayEventEntity>>

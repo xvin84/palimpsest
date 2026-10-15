@@ -11,6 +11,7 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import dev.xvin.palimpsest.data.db.TrackEntity
+import dev.xvin.palimpsest.data.settings.SavedQueue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
@@ -52,7 +53,12 @@ data class SleepTimer(val endsAt: Long?, val endOfTrack: Boolean = false)
 /**
  * The UI's handle on the playback service. Wraps a MediaController and exposes plain state.
  */
-class PlayerConnection(private val context: Context, private val scope: CoroutineScope) {
+class PlayerConnection(
+    private val context: Context,
+    private val scope: CoroutineScope,
+    /** Last session's queue, put back (paused) when the app starts with an idle player. */
+    private val savedQueue: suspend () -> SavedQueue?,
+) {
     private var controller: MediaController? = null
     private var connecting: Job? = null
 
@@ -75,6 +81,12 @@ class PlayerConnection(private val context: Context, private val scope: Coroutin
             c.addListener(listener)
             refresh(c)
             refreshQueue(c)
+            if (c.mediaItemCount == 0) {
+                savedQueue()?.takeIf { it.trackIds.isNotEmpty() }?.let { q ->
+                    c.setMediaItems(q.trackIds.map { bare(it.toString()) }, q.index.coerceIn(0, q.trackIds.lastIndex), q.positionMs)
+                    c.prepare()
+                }
+            }
         }
     }
 
