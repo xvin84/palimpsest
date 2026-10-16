@@ -288,7 +288,8 @@ fun NowPlayingScreen(onClose: () -> Unit) {
                     }
                 }
             }
-            VersionChip(np.variant, track, np.mediaId)
+            val ab by graph.player.ab.collectAsStateWithLifecycle()
+            if (ab != null && ab!!.trackId == np.trackId) AbSwitch(ab!!, np.mediaId) else VersionChip(np.variant, track, np.mediaId)
             Spacer(Modifier.height(8.dp))
             val wave by produceState<FloatArray?>(null, track?.id, track?.path, track?.modifiedAt, np.variant) {
                 value = null
@@ -618,6 +619,32 @@ private fun VersionChip(variant: String?, track: TrackEntity?, mediaId: String) 
             actions.forEach { (label, action) ->
                 TextButton(onClick = action, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) { Text(label, color = accent) }
             }
+        }
+    }
+}
+
+/** Big A | B switch: same moment of the song, other version. */
+@Composable
+private fun AbSwitch(ab: dev.xvin.palimpsest.playback.AbCompare, mediaId: String) {
+    val graph = LocalGraph.current
+    val accent = LocalAccent.current
+    val isB = mediaId.startsWith(dev.xvin.palimpsest.playback.MediaItems.VERSION_PREFIX)
+    Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Ink.Paper3)) {
+            listOf(false to "A · текущая", true to "B · ${ab.versionLabel.lowercase()}").forEach { (b, label) ->
+                val selected = b == isB
+                val bg by androidx.compose.animation.animateColorAsState(if (selected) accent else Ink.Paper3, tween(200), label = "ab")
+                Box(
+                    Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(bg)
+                        .clickable(enabled = !selected) { graph.player.toggleAb() }.padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis, color = if (selected) MaterialTheme.colorScheme.onPrimary else Ink.Text, style = MaterialTheme.typography.labelLarge)
+                }
+            }
+        }
+        TextButton(onClick = { graph.player.stopAb() }, contentPadding = PaddingValues(horizontal = 4.dp)) {
+            Text("Закончить сравнение", color = Ink.Muted, style = MaterialTheme.typography.labelMedium)
         }
     }
 }

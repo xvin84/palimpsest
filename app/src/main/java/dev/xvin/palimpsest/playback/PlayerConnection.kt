@@ -52,6 +52,9 @@ data class PlayerUiState(
 
 data class SleepTimer(val endsAt: Long?, val endOfTrack: Boolean = false)
 
+/** A/B listening: the library file (A) against one archived version (B) of the same track. */
+data class AbCompare(val trackId: Long, val versionId: Long, val versionLabel: String)
+
 /**
  * The UI's handle on the playback service. Wraps a MediaController and exposes plain state.
  */
@@ -75,6 +78,9 @@ class PlayerConnection(
 
     /** Playback failures, for the error journal and the explained error sheet. */
     var onError: ((Throwable) -> Unit)? = null
+
+    private val _ab = MutableStateFlow<AbCompare?>(null)
+    val ab: StateFlow<AbCompare?> = _ab
 
     private val _sleep = MutableStateFlow(SleepTimer(null))
     val sleep: StateFlow<SleepTimer> = _sleep
@@ -222,6 +228,29 @@ class PlayerConnection(
 
     /** Streams the service's newer audio of [trackId] to compare, keeping the queue. */
     fun playNewVersion(trackId: Long) = insertAndPlay(bare(MediaItems.NEW_PREFIX + trackId))
+
+    /** Starts A/B: plays the current file (A); [toggleAb] swaps to the version (B) at the same moment. */
+    fun startAb(trackId: Long, versionId: Long, label: String) {
+        _ab.value = AbCompare(trackId, versionId, label)
+        insertAndPlay(bare(trackId.toString()))
+    }
+
+    /** True when B (the archived version) is the one playing. */
+    fun abPlayingB(): Boolean = controller?.currentMediaItem?.mediaId?.startsWith(MediaItems.VERSION_PREFIX) == true
+
+    fun toggleAb() = scope.launch {
+        val ab = _ab.value ?: return@launch
+        val c = ctrl()
+        val idx = c.currentMediaItemIndex
+        val pos = c.currentPosition
+        val toB = !abPlayingB()
+        val item = bare(if (toB) MediaItems.VERSION_PREFIX + ab.versionId else ab.trackId.toString())
+        c.replaceMediaItem(idx, item)
+        c.seekTo(idx, pos)
+        c.play()
+    }
+
+    fun stopAb() { _ab.value = null }
 
     private fun insertAndPlay(item: MediaItem) = scope.launch {
         val c = ctrl()

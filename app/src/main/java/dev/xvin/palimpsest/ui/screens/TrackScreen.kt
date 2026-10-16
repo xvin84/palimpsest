@@ -342,9 +342,15 @@ private fun VersionCard(v: TrackVersionEntity, fmt: SimpleDateFormat, t: TrackEn
                 if (v.isCurrent && t.path != null) graph.player.play(listOf(t)) else graph.player.playVersion(v.id)
                 nav.openPlayer()
             }) { Icon(Icons.Rounded.PlayArrow, "Слушать") }
-            if (!v.isCurrent && exists && t.path != null) IconButton(onClick = {
-                scope.launch { graph.versions.restore(t, v); nav.toast("Версия восстановлена") }
-            }) { Icon(Icons.Rounded.Restore, "Сделать текущей") }
+            if (!v.isCurrent && exists && t.path != null) {
+                TextButton(onClick = {
+                    graph.player.startAb(t.id, v.id, "версия от " + SimpleDateFormat("d MMM", Locale.forLanguageTag("ru")).format(Date(v.createdAt)))
+                    nav.openPlayer()
+                }) { Text("A/B") }
+                IconButton(onClick = {
+                    scope.launch { graph.versions.restore(t, v); nav.toast("Версия восстановлена") }
+                }) { Icon(Icons.Rounded.Restore, "Сделать текущей") }
+            }
             if (!v.isCurrent) IconButton(onClick = { scope.launch { graph.versions.delete(v) } }) { Icon(Icons.Rounded.Delete, "Удалить", tint = Ink.Faint) }
         }
     }
