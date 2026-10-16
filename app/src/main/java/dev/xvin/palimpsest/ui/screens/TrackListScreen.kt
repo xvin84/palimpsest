@@ -79,6 +79,8 @@ fun TrackListScreen(kind: TrackListKind, key: String, extra: String?) {
     val playlists by graph.db.playlists().observeAll().collectAsStateWithLifecycle(emptyList())
     val playlist = if (kind == TrackListKind.PLAYLIST) playlists.firstOrNull { it.id == key.toLongOrNull() } else null
     var renaming by remember { mutableStateOf(false) }
+    var editingAlbum by remember { mutableStateOf(false) }
+    if (editingAlbum) AlbumEditDialog(tracks, onDismiss = { editingAlbum = false })
 
     val title = when (kind) {
         TrackListKind.ALBUM, TrackListKind.ARTIST -> key
@@ -130,6 +132,9 @@ fun TrackListScreen(kind: TrackListKind, key: String, extra: String?) {
                             scope.launch { graph.downloads.enqueue(remoteOnly.map { it.id }) }
                             nav.toast("Скачиваю ${remoteOnly.size}")
                         }) { Icon(Icons.Rounded.Download, "Скачать всё") }
+                    }
+                    if (kind == TrackListKind.ALBUM && tracks.any { it.path != null }) {
+                        IconButton(onClick = { editingAlbum = true }) { Icon(Icons.Rounded.Edit, "Изменить альбом", tint = Ink.Muted) }
                     }
                     if (kind == TrackListKind.PLAYLIST && playlist?.service == null) {
                         Box { IconButton(onClick = { renaming = true }) { Icon(Icons.Rounded.Edit, "Переименовать", tint = Ink.Muted) } }
