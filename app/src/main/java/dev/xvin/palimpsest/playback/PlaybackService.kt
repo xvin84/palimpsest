@@ -48,6 +48,7 @@ class PlaybackService : MediaSessionService() {
     private lateinit var player: ExoPlayer
     private val history = HistoryTracker()
     private var skippedInARow = 0
+    private var cameFromAutoTransition = false
 
     override fun onCreate() {
         super.onCreate()
@@ -95,6 +96,27 @@ class PlaybackService : MediaSessionService() {
                 fx.equalizer.setProfile(s.eqFor(device.key))
                 fx.equalizer.enabled = s.eqEnabled
                 applyReplayGain(player.currentMediaItem)
+            }
+        }
+        // Smooth transitions: fade out the last seconds of a track and fade the next one in.
+        scope.launch {
+            while (isActive) {
+                delay(80)
+                val fadeMs = (graph.settings.state.value?.fadeSec ?: 0) * 1000L
+                if (fadeMs <= 0 || !player.isPlaying) { if (player.volume != 1f && fadeMs <= 0) player.volume = 1f; continue }
+                val dur = player.duration
+                val pos = player.currentPosition
+                if (dur <= 0 || dur < fadeMs * 3) { player.volume = 1f; continue }
+                val remaining = dur - pos
+                val fadingOut = remaining < fadeMs && player.hasNextMediaItem() && player.repeatMode != Player.REPEAT_MODE_ONE
+                val fadingIn = pos < fadeMs && cameFromAutoTransition
+                val v = when {
+                    fadingOut -> (remaining.toFloat() / fadeMs)
+                    fadingIn -> (pos.toFloat() / fadeMs)
+                    else -> 1f
+                }.coerceIn(0f, 1f)
+                // Equal-power curve sounds smoother than a straight line.
+                player.volume = kotlin.math.sin(v * Math.PI / 2).toFloat()
             }
         }
         // Persist the queue now and then so a crash or reboot loses at most a few seconds.
@@ -162,6 +184,7 @@ class PlaybackService : MediaSessionService() {
 
     private inner class PlayerListener : Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            cameFromAutoTransition = reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO
             updateWidget(mediaItem)
             history.flush()
             history.start(mediaItem, player.isPlaying)

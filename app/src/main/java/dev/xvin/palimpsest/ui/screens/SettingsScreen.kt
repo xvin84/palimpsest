@@ -163,6 +163,13 @@ fun SettingsScreen() {
             valueRange = -6f..12f, modifier = Modifier.padding(horizontal = 16.dp),
         )
 
+        Text("Плавные переходы: ${if (settings.fadeSec == 0) "выкл." else "${settings.fadeSec} с"}", Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+        Text("Конец трека затухает, следующий плавно нарастает", Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
+        Slider(
+            settings.fadeSec.toFloat(), { v -> scope.launch { graph.settings.setFadeSec(v.toInt()) } },
+            valueRange = 0f..12f, steps = 11, modifier = Modifier.padding(horizontal = 16.dp),
+        )
+
         SectionHeader("Внешний вид")
         ToggleRow("Цвет из обложки", "Акцентный цвет подстраивается под текущий трек", settings.dynamicColor) {
             scope.launch { graph.settings.setDynamicColor(it) }
