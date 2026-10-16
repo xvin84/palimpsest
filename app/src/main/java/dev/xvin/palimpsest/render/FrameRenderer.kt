@@ -22,6 +22,9 @@ import kotlin.math.min
 import kotlin.math.sin
 
 enum class RenderMode { COVER, LYRICS }
+
+/** How long a line change (scroll + highlight) takes in lyrics videos. */
+private const val TRANSITION_MS = 650f
 enum class RenderAspect(val width: Int, val height: Int) { VERTICAL(1080, 1920), HORIZONTAL(1920, 1080) }
 
 /** Everything a frame needs; times in milliseconds. */
@@ -144,8 +147,10 @@ class FrameRenderer(private val s: FrameSpec) {
     }
 
     /**
-     * The current line sits in the middle of [area], bigger and in full white; the neighbours fade
-     * out. A line change scrolls the column smoothly instead of jumping.
+     * The current line sits a little above the middle of [area], bigger and in full white; the
+     * neighbours fade with distance. Everything moves continuously: a line grows and lights up
+     * while the previous one shrinks and dims, and the column glides to the new line. Before the
+     * first line, it waits just below the centre as "what's coming".
      */
     private fun lyricsColumn(c: Canvas, t: Long, area: RectF, center: Boolean) {
         val lyr = s.lyrics ?: return
@@ -154,53 +159,70 @@ class FrameRenderer(private val s: FrameSpec) {
         val idx = lyr.indexAt(t).coerceAtLeast(-1)
         val width = area.width().toInt()
         val big = (if (vertical) 66 else 60) * unit
-        val normal = (if (vertical) 46 else 42) * unit
-        val gap = 34 * unit
+        val small = (if (vertical) 46 else 42) * unit
+        val gap = 30 * unit
 
-        // Scroll position: eases from the previous line to the current one over 450 ms.
+        // 0 → 1 over the first part of the current line; drives the scroll and the line highlight.
         val since = if (idx >= 0) t - lines[idx].timeMs else 0L
-        val k = ease((since / 450f).coerceIn(0f, 1f))
-        val focus = if (idx <= 0) idx.toFloat() else (idx - 1) + k
+        val k = smooth((since / TRANSITION_MS).coerceIn(0f, 1f))
+        val focus = if (idx >= 0) idx - 1 + k else -1f // -1 before the first line, then glides idx-1 → idx
+
+        fun activation(i: Int): Float = when (i) {
+            idx -> k
+            idx - 1 -> 1 - k
+            else -> 0f
+        }
+
+        // Each line is laid out once at the big size and drawn scaled, so size changes are smooth.
+        val first = (idx - 7).coerceAtLeast(0)
+        val last = (idx + 9).coerceAtMost(lines.lastIndex)
+        val scales = FloatArray(last - first + 1) { j -> lerp(small / big, 1f, activation(first + j)) }
+        val heights = FloatArray(last - first + 1) { j -> layoutFor(first + j, lines[first + j].text, big, width, center).height * scales[j] + gap }
+        // y of each line's top relative to line `first`, and of the focus point.
+        val tops = FloatArray(heights.size)
+        for (j in 1 until heights.size) tops[j] = tops[j - 1] + heights[j - 1]
+        val focusY = when {
+            focus < first -> tops[0] - heights[0] * (first - focus) // before the first line: it sits lower
+            else -> {
+                val fi = focus.toInt().coerceIn(first, last)
+                tops[fi - first] + heights[fi - first] * (focus - fi)
+            }
+        }
+        val anchorY = area.top + area.height() * 0.40f
 
         c.save()
         c.clipRect(area)
-        val anchorY = area.top + area.height() * 0.42f
-        // Heights for lines around the focus, measured with the size each one would have.
-        val first = (idx - 6).coerceAtLeast(0)
-        val last = (idx + 8).coerceAtMost(lines.lastIndex)
-        val heights = FloatArray(last - first + 1) { i -> layoutFor(first + i, lines[first + i].text, if (first + i == idx) big else normal, width, center).height + gap }
-        // y of the focused line's top, then lay the others out above and below it.
-        var yFocusTop = anchorY
-        val fi = focus.toInt().coerceIn(first, last)
-        val frac = focus - focus.toInt()
-        yFocusTop -= heights[fi - first] * frac
-        var y = yFocusTop
-        for (i in fi - 1 downTo first) y -= heights[i - first]
         for (i in first..last) {
-            val active = i == idx
+            val j = i - first
+            val y = anchorY + tops[j] - focusY
+            if (y > area.bottom || y + heights[j] < area.top) continue
+            val act = activation(i)
             val dist = kotlin.math.abs(i - focus)
-            val alpha = if (active) 255 else (215 - dist * 40).coerceIn(55f, 175f).toInt()
-            val layout = layoutFor(i, lines[i].text, if (active) big else normal, width, center)
-            layout.paint.color = if (active) Color.WHITE else Color.argb(alpha, 255, 255, 255)
+            val base = (205 - dist * 38).coerceIn(50f, 170f)
+            val alpha = lerp(base, 255f, act).toInt()
+            val layout = layoutFor(i, lines[i].text, big, width, center)
+            layout.paint.color = Color.argb(alpha, 255, 255, 255)
+            val sc = scales[j]
             c.save()
-            c.translate(area.left, y)
+            // Scale around the line's horizontal anchor: its centre, or the left edge.
+            val px = if (center) area.left + width * (1 - sc) / 2 else area.left
+            c.translate(px, y)
+            c.scale(sc, sc)
             layout.draw(c)
             c.restore()
-            y += heights[i - first]
         }
         c.restore()
     }
 
-    private fun layoutFor(i: Int, text: String, size: Float, width: Int, center: Boolean): StaticLayout {
-        val key = i * 2 + if (size > 50 * unit) 1 else 0
-        return layouts.getOrPut(key) {
-            val p = TextPaint(lyricPaint).apply { textSize = size; isFakeBoldText = false }
-            StaticLayout.Builder.obtain(text.ifBlank { "♪" }, 0, text.ifBlank { "♪" }.length, p, width)
+    private fun layoutFor(i: Int, text: String, size: Float, width: Int, center: Boolean): StaticLayout =
+        layouts.getOrPut(i) {
+            val shown = text.ifBlank { "♪" }
+            val p = TextPaint(lyricPaint).apply { textSize = size }
+            StaticLayout.Builder.obtain(shown, 0, shown.length, p, width)
                 .setAlignment(if (center) Layout.Alignment.ALIGN_CENTER else Layout.Alignment.ALIGN_NORMAL)
                 .setLineSpacing(0f, 1.05f)
                 .build()
         }
-    }
 
     // ---- Pieces ----------------------------------------------------------------------------------
 
@@ -306,6 +328,8 @@ class FrameRenderer(private val s: FrameSpec) {
     }
 
     private fun time(ms: Long): String { val sec = ms / 1000; return "%d:%02d".format(sec / 60, sec % 60) }
-    private fun ease(x: Float) = 1 - (1 - x) * (1 - x) * (1 - x)
+    /** Ease-in-out (smootherstep): starts and stops gently, no jolt at either end. */
+    private fun smooth(x: Float) = x * x * x * (x * (x * 6 - 15) + 10)
+    private fun lerp(a: Float, b: Float, t: Float) = a + (b - a) * t
     private fun withAlpha(color: Int, a: Float) = Color.argb((a.coerceIn(0f, 1f) * 255).toInt(), Color.red(color), Color.green(color), Color.blue(color))
 }
