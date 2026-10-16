@@ -82,7 +82,7 @@ fun SearchScreen() {
             throw e
         } catch (e: Throwable) {
             failure = e
-            error = dev.xvin.palimpsest.errors.ErrorExplainer.explain(e, "Поиск").title
+            error = graph.errors.report(e, if (source == Service.YOUTUBE) "Поиск YouTube" else "Поиск Яндекс", show = false).title
             remote = emptyList()
         }
         loading = false
@@ -113,7 +113,7 @@ fun SearchScreen() {
                 Text(msg, color = MaterialTheme.colorScheme.error, modifier = Modifier.weight(1f))
                 failure?.let { f ->
                     androidx.compose.material3.TextButton(onClick = {
-                        nav.error(f, if (source == Service.YOUTUBE) "Поиск YouTube" else "Поиск Яндекс")
+                        graph.errors.log.value.firstOrNull()?.let(nav::showError) ?: nav.error(f, "Поиск")
                     }) { Text("Подробнее") }
                 }
             }

@@ -33,7 +33,7 @@ data class ErrorInfo(
 )
 
 object ErrorExplainer {
-    fun explain(t: Throwable, context: String? = null): ErrorInfo {
+    fun explain(t: Throwable, context: String? = null, online: Boolean = true): ErrorInfo {
         val chain = generateSequence(t) { it.cause }.take(8).toList()
         val text = chain.joinToString(" | ") { "${it.javaClass.simpleName}: ${it.message.orEmpty()}" }
         val lower = text.lowercase()
@@ -44,7 +44,11 @@ object ErrorExplainer {
         fun info(title: String, explanation: String, vararg hints: String) = ErrorInfo(title, explanation, hints.toList(), details, context = context)
 
         val playback = chain.firstNotNullOfOrNull { it as? PlaybackException }
+        val networkish = chain.any { it is java.io.IOException } || playback != null
         return when {
+            !online && networkish ->
+                info("Нет интернета", "Телефон сейчас не в сети.",
+                    "Включи Wi-Fi или мобильный интернет.", "Без сети играют скачанные треки — фильтр «Скачанные» в медиатеке.")
             chain.any { it is AuthRequiredException } || "401" in lower ->
                 info("Нужно войти заново", "Сервис не принял сохранённый вход — токен устарел или был отозван.",
                     "Сервисы → Яндекс.Музыка → Выйти, затем снова «Войти».")
@@ -104,7 +108,7 @@ object ErrorExplainer {
  * Collects errors from everywhere (playback, downloads, sync, search…), keeps a journal on
  * disk for Settings → «Журнал ошибок», and asks the UI to show the ones worth showing.
  */
-class ErrorCenter(context: Context) {
+class ErrorCenter(private val context: Context) {
     private val file = File(context.filesDir, "errors.log")
     private val _log = MutableStateFlow(load())
     val log: StateFlow<List<ErrorInfo>> = _log
@@ -114,12 +118,17 @@ class ErrorCenter(context: Context) {
     val shown: SharedFlow<ErrorInfo> = _shown
 
     fun report(t: Throwable, context: String? = null, show: Boolean = true): ErrorInfo {
-        val info = ErrorExplainer.explain(t, context)
+        val info = ErrorExplainer.explain(t, context, online())
         _log.update { (listOf(info) + it).take(MAX) }
         runCatching { persist() }
         if (show) _shown.tryEmit(info)
         return info
     }
+
+    private fun online(): Boolean = runCatching {
+        val cm = this.context.getSystemService(android.net.ConnectivityManager::class.java)
+        cm.getNetworkCapabilities(cm.activeNetwork)?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+    }.getOrDefault(true)
 
     fun clear() {
         _log.value = emptyList()

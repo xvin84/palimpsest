@@ -263,10 +263,11 @@ fun NowPlayingScreen(onClose: () -> Unit) {
             }
             VersionChip(np.variant, track, np.mediaId)
             Spacer(Modifier.height(8.dp))
-            val wave by produceState<FloatArray?>(null, track?.id, track?.path, track?.modifiedAt) {
+            val wave by produceState<FloatArray?>(null, track?.id, track?.path, track?.modifiedAt, np.variant) {
                 value = null
                 val t = track
-                if (t?.path != null) value = graph.waveform.get(t.id, java.io.File(t.path))
+                // The waveform belongs to the library file; another version gets the plain bar.
+                if (t?.path != null && np.variant == null) value = graph.waveform.get(t.id, java.io.File(t.path))
             }
             val w = wave
             if (w != null) WaveSeekBar(w, position.first, np.durationMs, onSeek = { graph.player.seekTo(it) })
