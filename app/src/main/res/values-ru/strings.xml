@@ -557,4 +557,23 @@
     <string name="theme_amoled">Чёрная AMOLED</string>
     <string name="theme_light">Светлая</string>
     <string name="language_system">Как в системе</string>
+    <string name="storage">Память</string>
+    <string name="storage_library">Музыка</string>
+    <string name="storage_library_hint">Файлов в медиатеке: %1$s. Отсюда они не удаляются.</string>
+    <string name="storage_versions">Старые версии</string>
+    <string name="storage_versions_hint">Версий в архиве: %1$s — прежние файлы перезалитых треков</string>
+    <string name="storage_versions_older_90">Удалить старше 90 дней</string>
+    <string name="storage_versions_all">Удалить все</string>
+    <string name="storage_versions_confirm">Старые версии удалятся с телефона насовсем. Текущие файлы треков останутся.</string>
+    <string name="storage_stream_cache">Кэш стриминга</string>
+    <string name="storage_stream_cache_hint">Недавно прослушанные облачные треки — повторно играют без сети и трафика</string>
+    <string name="storage_stream_limit">Предел кэша (применится после перезапуска):</string>
+    <string name="storage_images">Обложки</string>
+    <string name="storage_images_hint">Обложки и фото исполнителей — загрузятся заново, когда понадобятся</string>
+    <string name="storage_other">Волновые формы и переводы</string>
+    <string name="storage_other_hint">Посчитаются заново, когда понадобятся</string>
+    <string name="storage_backups_hint">Копий: %1$s, в Music/.palimpsest/backups</string>
+    <string name="storage_backups_keep_last">Оставить только последнюю</string>
+    <string name="storage_free_of">Свободно %1$s из %2$s</string>
+    <string name="storage_cleared">Готово, место освобождено</string>
 </resources>

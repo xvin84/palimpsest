@@ -75,6 +75,8 @@ data class AppSettings(
     val wave: WavePrefs,
     /** Fade length at track changes, seconds (0 = off). */
     val fadeSec: Int,
+    /** Size limit of the streaming cache, MB; takes effect on the next app start. */
+    val streamCacheMb: Int,
 ) {
     /** Profile for [deviceKey]: its own if one is assigned, otherwise the global one. */
     fun eqFor(deviceKey: String): EqProfile {
@@ -112,6 +114,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
         val waveMood = stringPreferencesKey("wave_mood")
         val waveLanguage = stringPreferencesKey("wave_language")
         val fadeSec = androidx.datastore.preferences.core.intPreferencesKey("fade_sec")
+        val streamCacheMb = androidx.datastore.preferences.core.intPreferencesKey("stream_cache_mb")
     }
 
     val defaultMusicRoot: String =
@@ -145,6 +148,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
             listenBrainzUser = p[K.lbUser],
             wave = WavePrefs(p[K.waveDiversity].orEmpty(), p[K.waveMood].orEmpty(), p[K.waveLanguage].orEmpty()),
             fadeSec = p[K.fadeSec] ?: 0,
+            streamCacheMb = p[K.streamCacheMb] ?: 1024,
         )
     }
 
@@ -169,6 +173,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
     suspend fun setAutoDownloadLikes(on: Boolean) = edit { it[K.autoDownloadLikes] = on }
     suspend fun setDeviceEq(map: Map<String, String>) = edit { it[K.deviceEq] = json.encodeToString(map) }
     suspend fun setFadeSec(sec: Int) = edit { it[K.fadeSec] = sec }
+    suspend fun setStreamCacheMb(mb: Int) = edit { it[K.streamCacheMb] = mb }
     suspend fun setWave(w: WavePrefs) = edit {
         it[K.waveDiversity] = w.diversity; it[K.waveMood] = w.mood; it[K.waveLanguage] = w.language
     }

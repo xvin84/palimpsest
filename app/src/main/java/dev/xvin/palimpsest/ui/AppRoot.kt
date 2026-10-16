@@ -99,6 +99,7 @@ import dev.xvin.palimpsest.i18n.tr
 @Serializable object ErrorsRoute
 @Serializable object ReleasesRoute
 @Serializable object DuplicatesRoute
+@Serializable object StorageRoute
 @Serializable object WrappedRoute
 
 /** Navigation actions any screen may trigger. */
@@ -114,6 +115,7 @@ interface AppNav {
     fun openErrors()
     fun openReleases()
     fun openDuplicates()
+    fun openStorage()
     fun openWrapped()
     fun showActions(track: TrackEntity)
     fun toast(message: String)
@@ -215,6 +217,7 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
             override fun openErrors() { nav.navigate(ErrorsRoute) }
             override fun openReleases() { nav.navigate(ReleasesRoute) }
             override fun openDuplicates() { nav.navigate(DuplicatesRoute) }
+            override fun openStorage() { nav.navigate(StorageRoute) }
             override fun openWrapped() { nav.navigate(WrappedRoute) }
             override fun showActions(track: TrackEntity) { actionsFor = track }
             override fun toast(message: String) { toastMessage = message }
@@ -285,6 +288,7 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
                     composable<ErrorsRoute> { Screen { dev.xvin.palimpsest.ui.screens.ErrorsScreen() } }
                     composable<ReleasesRoute> { Screen { dev.xvin.palimpsest.ui.screens.ReleasesScreen() } }
                     composable<DuplicatesRoute> { Screen { dev.xvin.palimpsest.ui.screens.DuplicatesScreen() } }
+                    composable<StorageRoute> { Screen { dev.xvin.palimpsest.ui.screens.StorageScreen() } }
                     composable<WrappedRoute> { Screen { dev.xvin.palimpsest.ui.screens.WrappedScreen() } }
                 }
             }

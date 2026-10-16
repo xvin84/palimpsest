@@ -32,6 +32,8 @@ import dev.xvin.palimpsest.playback.AudioEffects
 import dev.xvin.palimpsest.playback.PlayerConnection
 import dev.xvin.palimpsest.playback.StreamResolver
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import okhttp3.OkHttpClient
@@ -133,9 +135,10 @@ class AppGraph(val app: Application) {
     val streamResolver = StreamResolver(providers) { settings.state.value?.quality ?: Quality.LOSSLESS }
 
     val streamCache: SimpleCache by lazy {
+        val limitMb = kotlinx.coroutines.runBlocking { settings.state.filterNotNull().first().streamCacheMb }
         SimpleCache(
             File(app.cacheDir, "stream"),
-            LeastRecentlyUsedCacheEvictor(1L shl 30),
+            LeastRecentlyUsedCacheEvictor(limitMb.toLong() shl 20),
             StandaloneDatabaseProvider(app),
         )
     }
@@ -155,6 +158,7 @@ class AppGraph(val app: Application) {
     val radio = dev.xvin.palimpsest.playback.RadioController(remote, db, player, mainScope)
     val offlineWave = dev.xvin.palimpsest.playback.OfflineWave(db)
     val backups = dev.xvin.palimpsest.data.Backups(app, db, settings)
+    val storage = dev.xvin.palimpsest.data.Storage(app, db, versions, backups) { streamCache }
 
     /** Plays the offline mix; false if nothing is downloaded yet. */
     suspend fun startOfflineWave(): Boolean {

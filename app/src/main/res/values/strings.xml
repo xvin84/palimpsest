@@ -550,4 +550,23 @@
     <string name="theme_amoled">AMOLED black</string>
     <string name="theme_light">Light</string>
     <string name="language_system">System</string>
+    <string name="storage">Storage</string>
+    <string name="storage_library">Music</string>
+    <string name="storage_library_hint">Files in the library: %1$s. They are never deleted from here.</string>
+    <string name="storage_versions">Old versions</string>
+    <string name="storage_versions_hint">Archived versions: %1$s — earlier files of re-uploaded tracks</string>
+    <string name="storage_versions_older_90">Delete older than 90 days</string>
+    <string name="storage_versions_all">Delete all</string>
+    <string name="storage_versions_confirm">The old versions will be deleted from the phone for good. The current track files stay.</string>
+    <string name="storage_stream_cache">Streaming cache</string>
+    <string name="storage_stream_cache_hint">Recently played cloud tracks — they replay without network or data</string>
+    <string name="storage_stream_limit">Cache limit (applies after a restart):</string>
+    <string name="storage_images">Covers</string>
+    <string name="storage_images_hint">Covers and artist photos — they load again when needed</string>
+    <string name="storage_other">Waveforms and translations</string>
+    <string name="storage_other_hint">They are recomputed when needed</string>
+    <string name="storage_backups_hint">Backups: %1$s, in Music/.palimpsest/backups</string>
+    <string name="storage_backups_keep_last">Keep only the latest</string>
+    <string name="storage_free_of">%1$s free of %2$s</string>
+    <string name="storage_cleared">Done, space freed</string>
 </resources>

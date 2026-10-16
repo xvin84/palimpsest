@@ -108,6 +108,7 @@ fun SettingsScreen() {
         }
         Row(Modifier.padding(horizontal = 8.dp)) {
             TextButton(onClick = nav::openDuplicates) { Text(tr(R.string.settings_find_duplicates)) }
+            TextButton(onClick = nav::openStorage) { Text(tr(R.string.storage)) }
             val cov by graph.covers.progress.collectAsStateWithLifecycle()
             TextButton(enabled = !cov.running, onClick = { graph.appScope.launch { graph.covers.run() } }) {
                 Text(if (cov.running) tr(R.string.covers_progress, cov.done, cov.total, cov.found) else tr(R.string.settings_find_covers))

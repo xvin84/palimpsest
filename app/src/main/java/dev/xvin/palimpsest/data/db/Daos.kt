@@ -34,6 +34,9 @@ data class HourRow(val hour: Int, val plays: Int)
 
 @Dao
 interface TrackDao {
+    @Query("SELECT path FROM tracks WHERE path IS NOT NULL")
+    suspend fun allPaths(): List<String>
+
     @Query("SELECT * FROM tracks ORDER BY title COLLATE NOCASE")
     fun observeAll(): Flow<List<TrackEntity>>
 
@@ -258,6 +261,10 @@ interface PlayEventDao {
 
 @Dao
 interface VersionDao {
+    /** Old versions kept in the archive (not the file currently in the library). */
+    @Query("SELECT * FROM track_versions WHERE isCurrent = 0 ORDER BY createdAt")
+    suspend fun archived(): List<TrackVersionEntity>
+
     @Query("SELECT * FROM track_versions WHERE trackId = :trackId ORDER BY createdAt DESC")
     fun observeFor(trackId: Long): Flow<List<TrackVersionEntity>>
 
