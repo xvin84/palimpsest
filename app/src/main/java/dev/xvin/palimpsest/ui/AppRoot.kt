@@ -54,6 +54,7 @@ import coil3.toBitmap
 import dev.xvin.palimpsest.AppGraph
 import dev.xvin.palimpsest.MainActivity
 import dev.xvin.palimpsest.data.db.TrackEntity
+import dev.xvin.palimpsest.ui.components.CrashDialog
 import dev.xvin.palimpsest.ui.components.LocalGraph
 import dev.xvin.palimpsest.ui.components.TrackActionsSheet
 import dev.xvin.palimpsest.ui.screens.EqualizerScreen
@@ -150,6 +151,7 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
         player.error?.let { snackbar.showSnackbar("Ошибка воспроизведения: $it"); graph.player.clearError() }
     }
     LaunchedEffect(Unit) { graph.scanner.scan() }
+    CrashDialog()
 
     val appNav = remember(nav) {
         object : AppNav {
@@ -241,3 +243,4 @@ private fun BottomBar(nav: androidx.navigation.NavHostController) {
         }
     }
 }
+

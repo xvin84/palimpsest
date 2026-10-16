@@ -35,7 +35,23 @@ class YouTubeProvider(http: OkHttpClient = Http.client) : MusicProvider {
         initNewPipe(http)
     }
 
-    override suspend fun search(query: String, page: Int): List<RemoteTrack> = withContext(Dispatchers.IO) {
+    override suspend fun search(query: String, page: Int): List<RemoteTrack> = guarded { searchImpl(query, page) }
+
+    override suspend fun resolveStream(id: String, quality: Quality, forDownload: Boolean): StreamInfo =
+        guarded { resolveImpl(id, quality, forDownload) }
+
+    /** NewPipe can throw Errors (e.g. on unexpected page layouts); report them as ordinary failures. */
+    private suspend fun <T> guarded(block: suspend () -> T): T = try {
+        block()
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        throw e
+    } catch (e: Throwable) {
+        throw ProviderException("YouTube: ${e.javaClass.simpleName}: ${e.message}", e)
+    }
+
+    private suspend fun searchImpl(query: String, page: Int): List<RemoteTrack> = withContext(Dispatchers.IO) {
         val extractor = ServiceList.YouTube.getSearchExtractor(query, listOf(YoutubeSearchQueryHandlerFactory.MUSIC_SONGS), "")
         extractor.fetchPage()
         var items = extractor.initialPage
@@ -59,7 +75,7 @@ class YouTubeProvider(http: OkHttpClient = Http.client) : MusicProvider {
         )
     }
 
-    override suspend fun resolveStream(id: String, quality: Quality, forDownload: Boolean): StreamInfo = withContext(Dispatchers.IO) {
+    private suspend fun resolveImpl(id: String, quality: Quality, forDownload: Boolean): StreamInfo = withContext(Dispatchers.IO) {
         val info = NpStreamInfo.getInfo(ServiceList.YouTube, watchUrl(id))
         val streams = info.audioStreams
         // Opus/WebM sounds better, but M4A can hold tags and a cover, which matters for kept files.

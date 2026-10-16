@@ -75,8 +75,9 @@ class ResolvingStreamDataSource(
         val (service, id) = StreamResolver.parse(dataSpec.uri) ?: throw IOException("Неизвестный URI ${dataSpec.uri}")
         val info = try {
             runBlocking(Dispatchers.IO) { resolver.resolve(service, id) }
-        } catch (e: Exception) {
-            throw IOException("Не удалось получить поток: ${e.message}", e)
+        } catch (e: Throwable) {
+            // Extractor bugs can surface as Errors; on the loader thread those would crash the app.
+            throw IOException("Не удалось получить поток: ${e.message ?: e.javaClass.simpleName}", e)
         }
         val real = dataSpec.buildUpon()
             .setUri(Uri.parse(info.url))

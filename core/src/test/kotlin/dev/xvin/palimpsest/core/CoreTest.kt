@@ -263,3 +263,21 @@ class M3uTest {
         assertEquals(lib[2], dev.xvin.palimpsest.core.library.M3u.match(entries[1], idx))
     }
 }
+
+class ArtistNamesTest {
+    private fun s(x: String) = dev.xvin.palimpsest.core.library.ArtistNames.split(x)
+
+    @Test fun splitsTagsFromTheLibrary() {
+        assertEquals(listOf("1.Kla$", "BAbyBoi", "Мираж"), s("1.Kla$, BAbyBoi, Мираж"))
+        assertEquals(listOf("1.Kla$", "Czar"), s("1.Kla$;Czar"))
+        assertEquals(listOf("16canva", "16", "MallBoy"), s("16canva, 16, MallBoy"))
+        assertEquals(listOf("Coldplay", "Rihanna"), s("Coldplay feat. Rihanna"))
+    }
+
+    @Test fun keepsRealNamesWhole() {
+        assertEquals(listOf("Simon & Garfunkel"), s("Simon & Garfunkel"))
+        assertEquals(listOf("Tyler, The Creator", "Kali Uchis"), s("Tyler, The Creator, Kali Uchis"))
+        assertEquals(listOf("AC/DC"), s("AC/DC"))
+        assertEquals(listOf("Lil Nas X"), s("Lil Nas X"))
+    }
+}

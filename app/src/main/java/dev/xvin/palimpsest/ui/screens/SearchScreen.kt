@@ -77,8 +77,10 @@ fun SearchScreen() {
         try {
             if (source == null) local = graph.db.tracks().search(query.trim())
             else remote = graph.remote.search(source!!, query.trim())
-        } catch (e: Exception) {
-            error = e.message ?: e.toString()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            error = (e.message ?: e.javaClass.simpleName).let { "Не удалось: $it" }
             remote = emptyList()
         }
         loading = false
