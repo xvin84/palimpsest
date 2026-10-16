@@ -73,6 +73,9 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -410,35 +413,39 @@ private fun LyricsPane(track: TrackEntity?, positionMs: Long, onSeek: (Long) -> 
             // The mode is a setting, so it carries over from track to track until changed.
             val appSettings by graph.settings.flow.collectAsStateWithLifecycle(null)
             val mode = appSettings?.lyricsTranslation ?: dev.xvin.palimpsest.data.settings.LyricsTranslation.OFF
-            var translation by remember(track?.id) { mutableStateOf<List<String>?>(null) }
-            // Lyrics already in the app's language (or a failed request) show as they are.
-            var untranslatable by remember(track?.id) { mutableStateOf(false) }
-            var translating by remember { mutableStateOf(false) }
-            LaunchedEffect(mode, track?.id) {
-                if (mode == dev.xvin.palimpsest.data.settings.LyricsTranslation.OFF || translation != null || untranslatable || track == null) return@LaunchedEffect
-                translating = true
-                runCatching { graph.lyrics.translate(track.id, parsed.lines.map { it.text }) }
-                    .onSuccess { if (it == null) { nav.toast(tr(R.string.lyrics_already_native)); untranslatable = true } else translation = it }
-                    .onFailure { nav.error(it, tr(R.string.ctx_lyrics_translate)); untranslatable = true }
-                translating = false
+            val lyricsKey = track?.id
+            var translation by remember(lyricsKey) { mutableStateOf<List<String>?>(null) }
+            // Why there's no translation for this track, shown under the switch instead of a pop-up.
+            var status by remember(lyricsKey) { mutableStateOf<TranslationStatus?>(null) }
+            LaunchedEffect(mode, lyricsKey) {
+                if (mode == dev.xvin.palimpsest.data.settings.LyricsTranslation.OFF || translation != null || status is TranslationStatus.Final) return@LaunchedEffect
+                status = TranslationStatus.Working
+                runCatching { graph.lyrics.translate(track?.id ?: 0L, parsed.lines.map { it.text }) }
+                    .onSuccess { status = if (it == null) TranslationStatus.SameLanguage else null; translation = it }
+                    .onFailure { e -> status = graph.errors.report(e, tr(R.string.ctx_lyrics_translate), show = false)?.let(TranslationStatus::Failed) }
             }
             val translateOn = mode != dev.xvin.palimpsest.data.settings.LyricsTranslation.OFF && translation != null
             val only = translateOn && mode == dev.xvin.palimpsest.data.settings.LyricsTranslation.ONLY
             LaunchedEffect(current) {
                 if (current >= 0) listState.animateScrollToItem((current - 2).coerceAtLeast(0))
             }
-            Column(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
-                if (translating) Text(tr(R.string.translating), style = MaterialTheme.typography.labelMedium, color = Ink.Muted, modifier = Modifier.padding(end = 4.dp))
-                listOf(
-                    dev.xvin.palimpsest.data.settings.LyricsTranslation.OFF to R.string.lyrics_mode_original,
-                    dev.xvin.palimpsest.data.settings.LyricsTranslation.BELOW to R.string.lyrics_mode_both,
-                    dev.xvin.palimpsest.data.settings.LyricsTranslation.ONLY to R.string.translation,
-                ).forEach { (m, label) ->
-                    dev.xvin.palimpsest.ui.components.Pill(tr(label), mode == m, { graph.appScope.launch { graph.settings.setLyricsTranslation(m) } })
-                }
+            // The switch fades away after a few seconds and comes back on any touch of the lyrics.
+            var touches by remember { mutableIntStateOf(0) }
+            var controlsVisible by remember { mutableStateOf(true) }
+            LaunchedEffect(touches, status) {
+                controlsVisible = true
+                if (status != TranslationStatus.Working) { kotlinx.coroutines.delay(3000); controlsVisible = false }
             }
-            LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(vertical = 24.dp)) {
+            Box(Modifier.fillMaxSize()) {
+            LazyColumn(
+                Modifier.fillMaxSize().pointerInput(Unit) {
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false, pass = androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                        touches++
+                    }
+                },
+                state = listState, contentPadding = PaddingValues(top = 56.dp, bottom = 24.dp),
+            ) {
                 itemsIndexed(parsed.lines) { i, l ->
                     val active = i == current
                     // Smooth karaoke: the active line grows and lights up instead of jumping.
@@ -465,6 +472,71 @@ private fun LyricsPane(track: TrackEntity?, positionMs: Long, onSeek: (Long) -> 
                     }
                 }
             }
+            androidx.compose.animation.AnimatedVisibility(
+                visible = controlsVisible,
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 6.dp),
+                enter = androidx.compose.animation.fadeIn(tween(180)) + androidx.compose.animation.slideInVertically(tween(180)) { -it / 3 },
+                exit = androidx.compose.animation.fadeOut(tween(400)),
+            ) {
+                TranslationSwitch(mode, status, accent, onMode = { m -> touches++; graph.appScope.launch { graph.settings.setLyricsTranslation(m) } }, onDetails = { info -> nav.showError(info) })
+            }
+            }
+        }
+    }
+}
+
+/** Where a translation request stands; [Final] ones aren't retried for the same track. */
+private sealed interface TranslationStatus {
+    sealed interface Final : TranslationStatus
+    data object Working : TranslationStatus
+    data object SameLanguage : Final
+    data class Failed(val info: dev.xvin.palimpsest.errors.ErrorInfo) : Final
+}
+
+/** One compact segmented control: Original · Both · Translation, with a status line under it. */
+@Composable
+private fun TranslationSwitch(
+    mode: dev.xvin.palimpsest.data.settings.LyricsTranslation,
+    status: TranslationStatus?,
+    accent: androidx.compose.ui.graphics.Color,
+    onMode: (dev.xvin.palimpsest.data.settings.LyricsTranslation) -> Unit,
+    onDetails: (dev.xvin.palimpsest.errors.ErrorInfo) -> Unit,
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(
+            Modifier.shadow(10.dp, RoundedCornerShape(50)).clip(RoundedCornerShape(50)).background(Ink.Paper2.copy(alpha = 0.96f)).padding(3.dp),
+        ) {
+            listOf(
+                dev.xvin.palimpsest.data.settings.LyricsTranslation.OFF to R.string.lyrics_mode_original,
+                dev.xvin.palimpsest.data.settings.LyricsTranslation.BELOW to R.string.lyrics_mode_both,
+                dev.xvin.palimpsest.data.settings.LyricsTranslation.ONLY to R.string.translation,
+            ).forEach { (m, label) ->
+                val selected = mode == m
+                val bg by androidx.compose.animation.animateColorAsState(if (selected) accent else androidx.compose.ui.graphics.Color.Transparent, tween(200), label = "seg")
+                Text(
+                    tr(label),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (selected) MaterialTheme.colorScheme.onPrimary else Ink.Muted,
+                    modifier = Modifier.clip(RoundedCornerShape(50)).background(bg).clickable { onMode(m) }.padding(horizontal = 14.dp, vertical = 7.dp),
+                )
+            }
+        }
+        if (mode != dev.xvin.palimpsest.data.settings.LyricsTranslation.OFF) {
+            val text = when (status) {
+                TranslationStatus.Working -> tr(R.string.translating)
+                TranslationStatus.SameLanguage -> tr(R.string.lyrics_already_native)
+                is TranslationStatus.Failed -> tr(R.string.translation_failed)
+                null -> null
+            }
+            if (text != null) {
+                Text(
+                    text,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (status is TranslationStatus.Failed) MaterialTheme.colorScheme.error else Ink.Muted,
+                    modifier = Modifier.padding(top = 6.dp).clip(RoundedCornerShape(50)).background(Ink.Paper2.copy(alpha = 0.9f))
+                        .then(if (status is TranslationStatus.Failed) Modifier.clickable { onDetails(status.info) } else Modifier)
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                )
             }
         }
     }

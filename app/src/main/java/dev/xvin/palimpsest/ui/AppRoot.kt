@@ -234,15 +234,13 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
     CompositionLocalProvider(LocalNav provides appNav) {
         // The library blurs while the player slides over it; once the player covers it the blur is
         // dropped again, so nothing gets re-blurred every frame behind a full-screen player.
+        // Closing stays sharp: after a swipe-down the player is already gone, and a late blur flickers.
         val behindBlur = remember { androidx.compose.animation.core.Animatable(0f) }
         LaunchedEffect(playerOpen) {
             if (playerOpen) {
                 behindBlur.animateTo(1f, tween(Motion.ENTER + 40))
-                behindBlur.snapTo(0f)
-            } else {
-                behindBlur.snapTo(1f)
-                behindBlur.animateTo(0f, tween(Motion.EXIT + 60))
             }
+            behindBlur.snapTo(0f)
         }
         Box(Modifier.fillMaxSize()) {
             Scaffold(

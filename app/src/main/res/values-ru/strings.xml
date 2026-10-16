@@ -604,4 +604,5 @@
     <string name="render_done">Видео готово</string>
     <string name="lyrics_mode_original">Оригинал</string>
     <string name="lyrics_mode_both">Оба</string>
+    <string name="translation_failed">Перевод недоступен — нажми, чтобы узнать почему</string>
 </resources>

@@ -597,4 +597,5 @@
     <string name="render_done">The video is ready</string>
     <string name="lyrics_mode_original">Original</string>
     <string name="lyrics_mode_both">Both</string>
+    <string name="translation_failed">Translation unavailable — tap for details</string>
 </resources>

@@ -6,16 +6,17 @@ import dev.xvin.palimpsest.core.net.fetch
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
 /**
- * Line-by-line lyrics translation through Google Translate's public web endpoints (no key).
- * The Chrome-extension endpoint takes every line as its own parameter and answers one-to-one;
- * the older "gtx" endpoint (lines joined by newlines) is the fallback when the first one is
- * rate-limited.
+ * Line-by-line lyrics translation through public web endpoints (no key), each tried in turn:
+ * Yandex Translate (reachable from Russia without a VPN, one-to-one lines), then Google's
+ * Chrome-extension endpoint (one-to-one), then Google's older "gtx" endpoint (lines joined by
+ * newlines). Google rate-limits shared VPN addresses a lot, hence the order.
  */
 class Translator(private val http: OkHttpClient = Http.client) {
     data class Result(val lines: List<String>, val sourceLanguage: String?)
@@ -26,12 +27,29 @@ class Translator(private val http: OkHttpClient = Http.client) {
         val languages = ArrayList<String>()
         // Keep requests modest; the endpoints dislike very long bodies.
         for (chunk in chunked(lines, 3_500)) {
-            val (texts, langs) = runCatching { perLine(chunk, target) }.getOrElse { joined(chunk, target) }
+            val (texts, langs) = runCatching { yandex(chunk, target) }
+                .recoverCatching { perLine(chunk, target) }
+                .recoverCatching { joined(chunk, target) }
+                .getOrThrow()
             languages += langs
             out += List(chunk.size) { i -> texts.getOrNull(i)?.trim().orEmpty() }
         }
         val detected = languages.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
         return Result(out, detected)
+    }
+
+    private val yandexId = java.util.UUID.randomUUID().toString().replace("-", "") + "-0-0"
+
+    private suspend fun yandex(chunk: List<String>, target: String): Pair<List<String>, List<String>> {
+        val body = FormBody.Builder().apply { chunk.forEach { add("text", it) } }.build()
+        val r = http.newCall(
+            Request.Builder()
+                .url("https://translate.yandex.net/api/v1/tr.json/translate?id=$yandexId&srv=android&lang=$target")
+                .post(body)
+                .build(),
+        ).fetch()
+        if (!r.isSuccessful) throw ProviderException("Translation failed: Yandex HTTP ${r.code}")
+        return parseYandex(r.body)
     }
 
     private suspend fun perLine(chunk: List<String>, target: String): Pair<List<String>, List<String>> {
@@ -63,6 +81,16 @@ class Translator(private val http: OkHttpClient = Http.client) {
     }
 
     companion object {
+        /** `{"code":200,"lang":"en-ru","text":["…", …]}`; the source language is before the dash. */
+        internal fun parseYandex(json: String): Pair<List<String>, List<String>> {
+            val root = Http.json.parseToJsonElement(json).jsonObject
+            val code = root["code"]?.jsonPrimitive?.contentOrNull
+            if (code != "200") throw ProviderException("Translation failed: Yandex code $code")
+            val texts = root["text"]?.jsonArray?.map { it.jsonPrimitive.contentOrNull.orEmpty() }.orEmpty()
+            val source = root["lang"]?.jsonPrimitive?.contentOrNull?.substringBefore('-')
+            return texts to listOfNotNull(source)
+        }
+
         /** `[["перевод","en"], …]` (auto-detected source) or `["перевод", …]`. */
         internal fun parsePerLine(json: String): Pair<List<String>, List<String>> {
             val root = Http.json.parseToJsonElement(json).jsonArray

@@ -307,4 +307,10 @@ class TranslatorTest {
         assertEquals(listOf("en", "ru"), langs)
         assertEquals(listOf("a", "b"), dev.xvin.palimpsest.core.translate.Translator.parsePerLine("""["a","b"]""").first)
     }
+
+    @Test fun translatorParsesYandexAnswers() {
+        val (texts, langs) = dev.xvin.palimpsest.core.translate.Translator.parseYandex("""{"code":200,"lang":"en-ru","text":["Посмотри на звезды",""]}""")
+        assertEquals(listOf("Посмотри на звезды", ""), texts)
+        assertEquals(listOf("en"), langs)
+    }
 }
