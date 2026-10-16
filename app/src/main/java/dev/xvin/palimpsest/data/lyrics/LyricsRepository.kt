@@ -21,7 +21,28 @@ class LyricsRepository(
     private val db: AppDatabase,
     private val yandex: YandexMusicProvider,
     private val lrclib: LrcLibClient,
+    private val translator: dev.xvin.palimpsest.core.translate.Translator,
+    private val translationsDir: File,
 ) {
+    /** Translated lines (same count as [lines]), cached per track and text. null = already in Russian. */
+    suspend fun translate(trackId: Long, lines: List<String>): List<String>? = withContext(Dispatchers.IO) {
+        val key = lines.joinToString("\n").hashCode()
+        val cache = File(translationsDir, "${trackId}_$key.txt")
+        if (cache.isFile) {
+            val txt = cache.readText()
+            return@withContext if (txt == SAME_LANGUAGE) null else txt.split("\n")
+        }
+        val r = translator.translate(lines, "ru")
+        translationsDir.mkdirs()
+        if (r.sourceLanguage == "ru") { cache.writeText(SAME_LANGUAGE); return@withContext null }
+        cache.writeText(r.lines.joinToString("\n"))
+        r.lines
+    }
+
+    private companion object {
+        const val SAME_LANGUAGE = "\u0000same"
+    }
+
     suspend fun local(track: TrackEntity): Lyrics? = withContext(Dispatchers.IO) {
         db.lyrics().get(track.id)?.let { return@withContext Lyrics(it.plain, it.synced, it.source) }
         val path = track.path ?: return@withContext null

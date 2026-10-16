@@ -281,3 +281,12 @@ class ArtistNamesTest {
         assertEquals(listOf("Lil Nas X"), s("Lil Nas X"))
     }
 }
+
+class TranslatorTest {
+    @Test fun parsesGoogleResponse() {
+        val json = """[[["Посмотри на звёзды\n","Look at the stars\n",null,null,10],["Как они сияют","Look how they shine",null,null,10]],null,"en",null,null,null,1.0]"""
+        val (text, lang) = dev.xvin.palimpsest.core.translate.Translator.parse(json)
+        assertEquals("Посмотри на звёзды\nКак они сияют", text)
+        assertEquals("en", lang)
+    }
+}

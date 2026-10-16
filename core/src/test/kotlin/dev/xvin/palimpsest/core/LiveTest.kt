@@ -39,4 +39,10 @@ class LiveTest {
         println("CAA: ${bytes?.size} bytes")
         check(bytes != null && bytes.size > 10_000)
     }
+
+    @Test fun translate() = runBlocking {
+        val r = dev.xvin.palimpsest.core.translate.Translator().translate(listOf("Look at the stars", "Look how they shine for you"))
+        println("TR: ${r.sourceLanguage} ${r.lines}")
+        check(r.lines.size == 2 && r.lines.all { it.isNotBlank() })
+    }
 }

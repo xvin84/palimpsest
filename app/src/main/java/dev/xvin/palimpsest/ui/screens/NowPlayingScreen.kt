@@ -400,9 +400,21 @@ private fun LyricsPane(track: TrackEntity?, positionMs: Long, onSeek: (Long) -> 
         else -> {
             val current = parsed.indexAt(positionMs)
             val listState = rememberLazyListState()
+            var translateOn by remember(track?.id) { mutableStateOf(false) }
+            var translation by remember(track?.id) { mutableStateOf<List<String>?>(null) }
+            var translating by remember { mutableStateOf(false) }
+            LaunchedEffect(translateOn, track?.id) {
+                if (!translateOn || translation != null || track == null) return@LaunchedEffect
+                translating = true
+                runCatching { graph.lyrics.translate(track.id, parsed.lines.map { it.text }) }
+                    .onSuccess { if (it == null) { nav.toast("Текст уже на русском"); translateOn = false } else translation = it }
+                    .onFailure { nav.error(it, "Перевод текста"); translateOn = false }
+                translating = false
+            }
             LaunchedEffect(current) {
                 if (current >= 0) listState.animateScrollToItem((current - 2).coerceAtLeast(0))
             }
+            Box(Modifier.fillMaxSize()) {
             LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(vertical = 32.dp)) {
                 itemsIndexed(parsed.lines) { i, l ->
                     val active = i == current
@@ -420,10 +432,19 @@ private fun LyricsPane(track: TrackEntity?, positionMs: Long, onSeek: (Long) -> 
                         l.text.ifBlank { "♪" },
                         style = MaterialTheme.typography.headlineSmall.copy(fontSize = 22.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold),
                         color = color,
-                        modifier = Modifier.fillMaxWidth().clickable { onSeek(l.timeMs) }.padding(vertical = 6.dp)
+                        modifier = Modifier.fillMaxWidth().clickable { onSeek(l.timeMs) }.padding(top = 6.dp, bottom = if (translateOn) 0.dp else 6.dp)
                             .graphicsLayer { scaleX = scale; scaleY = scale; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0.5f) },
                     )
+                    val tr = translation?.getOrNull(i)
+                    if (translateOn && !tr.isNullOrBlank() && l.text.isNotBlank()) {
+                        Text(tr, style = MaterialTheme.typography.bodyMedium, color = if (i == current) accent.copy(alpha = 0.8f) else Ink.Muted, modifier = Modifier.padding(bottom = 8.dp))
+                    }
                 }
+            }
+            TextButton(
+                onClick = { translateOn = !translateOn },
+                modifier = Modifier.align(Alignment.TopEnd),
+            ) { Text(if (translating) "Перевожу…" else if (translateOn) "Оригинал" else "Перевод", color = accent) }
             }
         }
     }

@@ -135,7 +135,7 @@ class AppGraph(val app: Application) {
     }
 
     val remote = RemoteRepository(db, settings, yandexAuth, yandex, providers, artistIndex) { e, ctx -> errors.report(e, ctx) }
-    val lyrics = LyricsRepository(db, yandex, LrcLibClient(http))
+    val lyrics = LyricsRepository(db, yandex, LrcLibClient(http), dev.xvin.palimpsest.core.translate.Translator(http), File(app.filesDir, "translations"))
     val spotify = dev.xvin.palimpsest.core.spotify.SpotifyImporter(http)
     val releases = dev.xvin.palimpsest.data.remote.ReleaseWatcher(app, db, yandex)
     val covers = dev.xvin.palimpsest.data.library.CoverFinder(db, yandex, dev.xvin.palimpsest.core.covers.CoverArtArchive(http), http, scanner, app.cacheDir)
