@@ -101,6 +101,18 @@ fun SourcesScreen() {
                         TextButton(onClick = { scope.launch { graph.remote.logoutYandex() } }) { Text("Выйти", color = Ink.Muted) }
                     }
                 }
+                val lossy by graph.db.tracks().observeLossyYandex().collectAsStateWithLifecycle(emptyList())
+                if (lossy.isNotEmpty()) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Улучшить качество: ${lossy.size} скачанных треков в MP3/AAC можно заменить на FLAC. Старые файлы останутся в истории версий.",
+                        style = MaterialTheme.typography.bodySmall, color = Ink.Muted,
+                    )
+                    TextButton(onClick = {
+                        scope.launch { graph.downloads.enqueue(lossy.map { it.id }, upgrade = true) }
+                        nav.toast("Ищу FLAC для ${lossy.size} треков")
+                    }) { Text("Заменить на FLAC", color = LocalAccent.current) }
+                }
                 if (updates.isNotEmpty()) {
                     Spacer(Modifier.height(8.dp))
                     TextButton(onClick = { nav.openList(TrackListKind.UPDATES, "updates") }) {

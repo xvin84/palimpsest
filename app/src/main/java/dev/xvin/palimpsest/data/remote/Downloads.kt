@@ -69,14 +69,15 @@ class Downloads(
     private val _items = MutableStateFlow<Map<Long, DownloadItem>>(emptyMap())
     val items: StateFlow<Map<Long, DownloadItem>> = _items
 
-    suspend fun enqueue(trackIds: List<Long>) {
+    /** [upgrade]: re-download already downloaded tracks, but only if the service has lossless. */
+    suspend fun enqueue(trackIds: List<Long>, upgrade: Boolean = false) {
         if (trackIds.isEmpty()) return
         val tracks = db.tracks().getMany(trackIds).filter { it.remoteId != null }
         _items.update { m -> m + tracks.associate { it.id to DownloadItem(it.id, it.title, it.artist, DownloadState.QUEUED) } }
         val wm = WorkManager.getInstance(context)
         tracks.map { it.id }.chunked(250).forEach { chunk ->
             val req = OneTimeWorkRequestBuilder<DownloadWorker>()
-                .setInputData(workDataOf(DownloadWorker.KEY_IDS to chunk.toLongArray()))
+                .setInputData(workDataOf(DownloadWorker.KEY_IDS to chunk.toLongArray(), DownloadWorker.KEY_UPGRADE to upgrade))
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                 .build()
             wm.enqueueUniqueWork(UNIQUE, ExistingWorkPolicy.APPEND_OR_REPLACE, req)
@@ -94,11 +95,11 @@ class Downloads(
         _items.update { m -> m[id]?.let { m + (id to f(it)) } ?: m }
 
     /** Downloads one track. Called from the worker. */
-    suspend fun download(trackId: Long) = withContext(Dispatchers.IO) {
+    suspend fun download(trackId: Long, upgrade: Boolean = false) = withContext(Dispatchers.IO) {
         val track = db.tracks().get(trackId) ?: return@withContext
         val remoteId = track.remoteId ?: return@withContext
         if (_items.value[trackId] == null) _items.update { it + (trackId to DownloadItem(trackId, track.title, track.artist, DownloadState.QUEUED)) }
-        if (track.path != null && File(track.path).isFile && !track.updateAvailable) {
+        if (track.path != null && File(track.path).isFile && !track.updateAvailable && !upgrade) {
             set(trackId) { it.copy(state = DownloadState.SKIPPED, message = "Уже скачан") }
             return@withContext
         }
@@ -112,7 +113,11 @@ class Downloads(
             // Stream URLs are short-lived and YouTube occasionally rejects one with 403:
             // resolve a fresh link and try again before giving up.
             var attempt = 0
-            var info = provider.resolveStream(remoteId, s.quality, forDownload = true)
+            var info = provider.resolveStream(remoteId, dev.xvin.palimpsest.core.model.Quality.LOSSLESS.takeIf { upgrade } ?: s.quality, forDownload = true)
+            if (upgrade && !info.codec.startsWith("flac") && info.codec != "alac") {
+                set(trackId) { it.copy(state = DownloadState.SKIPPED, message = "Lossless недоступен (${info.codec})") }
+                return@withContext
+            }
             while (true) {
                 try {
                     fetch(info.url, info.headers, tmp, info.aesCtrKey) { p -> set(trackId) { it.copy(progress = p) } }
@@ -238,9 +243,10 @@ class DownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
         val graph = (applicationContext as PalimpsestApp).graph
         val ids = inputData.getLongArray(KEY_IDS) ?: return Result.success()
         runCatching { setForeground(foregroundInfo(0, ids.size)) }
+        val upgrade = inputData.getBoolean(KEY_UPGRADE, false)
         ids.forEachIndexed { i, id ->
             runCatching { setForeground(foregroundInfo(i, ids.size)) }
-            graph.downloads.download(id)
+            graph.downloads.download(id, upgrade)
         }
         return Result.success()
     }
@@ -263,6 +269,7 @@ class DownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
 
     companion object {
         const val KEY_IDS = "ids"
+        const val KEY_UPGRADE = "upgrade"
         private const val CHANNEL = "downloads"
     }
 }

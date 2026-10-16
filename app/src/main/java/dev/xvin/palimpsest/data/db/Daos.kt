@@ -57,6 +57,15 @@ interface TrackDao {
     @Query("SELECT * FROM tracks WHERE path IS NOT NULL AND remoteId IS NULL")
     suspend fun unlinkedLocal(): List<TrackEntity>
 
+    /** Downloaded Yandex tracks stored lossy (MP3/AAC/…) — candidates for a FLAC upgrade. */
+    @Query(
+        """
+        SELECT * FROM tracks WHERE service = 'YANDEX' AND remoteId IS NOT NULL AND path IS NOT NULL
+        AND (codec IS NULL OR lower(codec) NOT IN ('flac', 'alac', 'wav', 'ape', 'wv', 'aiff'))
+        """,
+    )
+    fun observeLossyYandex(): Flow<List<TrackEntity>>
+
     @Query("SELECT * FROM tracks WHERE updateAvailable = 1 ORDER BY artist, title")
     fun observeUpdates(): Flow<List<TrackEntity>>
 
