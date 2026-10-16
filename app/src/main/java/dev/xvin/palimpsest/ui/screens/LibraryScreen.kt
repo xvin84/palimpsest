@@ -71,6 +71,8 @@ import dev.xvin.palimpsest.ui.components.TrackRow
 import dev.xvin.palimpsest.ui.theme.Ink
 import dev.xvin.palimpsest.ui.theme.LocalAccent
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.map
+import androidx.compose.runtime.LaunchedEffect
 import dev.xvin.palimpsest.R
 import dev.xvin.palimpsest.i18n.tr
 import dev.xvin.palimpsest.i18n.plural
@@ -168,9 +170,16 @@ private fun TracksTab() {
         return
     }
 
-    LazyColumn(contentPadding = PaddingValues(bottom = 16.dp)) {
-        item { MyWaveCard() }
-        item { OfflineWaveRow() }
+    // The wave card shows up once settings load (and only with Yandex). A list resting at the top
+    // would keep its first visible row in place and leave the new card hidden above it, so jump up.
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val hasWave by remember { graph.settings.flow.map { it.yandexToken != null } }.collectAsStateWithLifecycle(false)
+    LaunchedEffect(hasWave) {
+        if (hasWave && listState.firstVisibleItemIndex <= 1) listState.scrollToItem(0)
+    }
+    LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 16.dp)) {
+        if (hasWave) item(key = "wave") { MyWaveCard() }
+        item(key = "offline-wave") { OfflineWaveRow() }
         item {
             Row(
                 Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),

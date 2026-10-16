@@ -380,14 +380,57 @@ private fun LyricsPane(track: TrackEntity?, positionMs: Long, onSeek: (Long) -> 
     val scope = rememberCoroutineScope()
     var reload by remember { mutableStateOf(0) }
     var searching by remember { mutableStateOf(false) }
+    var loaded by remember(track?.id) { mutableStateOf<dev.xvin.palimpsest.core.model.Lyrics?>(null) }
     val lyrics by produceState<ParsedLyrics?>(null, track?.id, track?.modifiedAt, reload) {
         value = null
         val l = track?.let { graph.lyrics.local(it) }
+        loaded = l
         value = l?.let { Lrc.parse(it.synced ?: it.plain.orEmpty()) } ?: ParsedLyrics.EMPTY
     }
     val parsed = lyrics
+    // Timed lyrics are the point: with none, or only plain text, look online once per track —
+    // quietly, unless the user picked this text by hand.
+    var autoSearched by remember(track?.id) { mutableStateOf(false) }
+    LaunchedEffect(parsed, track?.id) {
+        val t = track ?: return@LaunchedEffect
+        if (parsed == null || autoSearched || parsed.isSynced || graph.lyrics.isPinned(t.id)) return@LaunchedEffect
+        autoSearched = true
+        searching = true
+        val found = if (parsed.lines.isEmpty()) graph.lyrics.fetchOnline(t) else graph.lyrics.findSynced(t)
+        searching = false
+        if (found != null) reload++
+    }
+    var chooseSource by remember { mutableStateOf(false) }
+    if (chooseSource && track != null) {
+        LyricsSourcesSheet(track, loaded, onDismiss = { chooseSource = false }, onPicked = { chooseSource = false; reload++ })
+    }
+    // Overlay controls (translation, source) fade away after a few seconds; any touch brings them back.
+    var touches by remember { mutableIntStateOf(0) }
+    var controlsVisible by remember { mutableStateOf(true) }
+    val sourceChip: @Composable () -> Unit = {
+        loaded?.let { l ->
+            Text(
+                tr(R.string.lyrics_source_chip, l.source) + " ▾",
+                style = MaterialTheme.typography.labelMedium,
+                color = Ink.Muted,
+                modifier = Modifier.padding(top = 6.dp).shadow(6.dp, RoundedCornerShape(50)).clip(RoundedCornerShape(50))
+                    .background(Ink.Paper2.copy(alpha = 0.96f)).clickable { touches++; chooseSource = true }.padding(horizontal = 12.dp, vertical = 5.dp),
+            )
+        }
+    }
+    val touchCatcher = Modifier.pointerInput(Unit) {
+        awaitEachGesture {
+            awaitFirstDown(requireUnconsumed = false, pass = androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+            touches++
+        }
+    }
     when {
         parsed == null -> CircularProgressIndicator()
+        parsed.lines.isEmpty() && searching -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CircularProgressIndicator()
+            Spacer(Modifier.height(12.dp))
+            Text(tr(R.string.lyrics_auto_searching), color = Ink.Muted)
+        }
         parsed.lines.isEmpty() -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(tr(R.string.lyrics_none_yet), style = MaterialTheme.typography.headlineSmall)
             Spacer(Modifier.height(12.dp))
@@ -402,9 +445,23 @@ private fun LyricsPane(track: TrackEntity?, positionMs: Long, onSeek: (Long) -> 
                 }) { Text(if (searching) tr(R.string.searching) else tr(R.string.lyrics_find_online_sources)) }
             }
         }
-        !parsed.isSynced -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 24.dp)) {
-            itemsIndexed(parsed.lines) { _, l ->
-                Text(l.text, style = MaterialTheme.typography.titleMedium, color = Ink.Text, modifier = Modifier.padding(vertical = 3.dp))
+        !parsed.isSynced -> Box(Modifier.fillMaxSize()) {
+            LaunchedEffect(touches) { controlsVisible = true; kotlinx.coroutines.delay(3000); controlsVisible = false }
+            LazyColumn(Modifier.fillMaxSize().then(touchCatcher), contentPadding = PaddingValues(top = 48.dp, bottom = 24.dp)) {
+                itemsIndexed(parsed.lines) { _, l ->
+                    Text(l.text, style = MaterialTheme.typography.titleMedium, color = Ink.Text, modifier = Modifier.padding(vertical = 3.dp))
+                }
+            }
+            androidx.compose.animation.AnimatedVisibility(
+                visible = controlsVisible || searching,
+                modifier = Modifier.align(Alignment.TopCenter),
+                enter = androidx.compose.animation.fadeIn(tween(180)),
+                exit = androidx.compose.animation.fadeOut(tween(400)),
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    sourceChip()
+                    if (searching) Text(tr(R.string.lyrics_auto_searching), style = MaterialTheme.typography.labelMedium, color = Ink.Muted, modifier = Modifier.padding(top = 4.dp))
+                }
             }
         }
         else -> {
@@ -429,21 +486,13 @@ private fun LyricsPane(track: TrackEntity?, positionMs: Long, onSeek: (Long) -> 
             LaunchedEffect(current) {
                 if (current >= 0) listState.animateScrollToItem((current - 2).coerceAtLeast(0))
             }
-            // The switch fades away after a few seconds and comes back on any touch of the lyrics.
-            var touches by remember { mutableIntStateOf(0) }
-            var controlsVisible by remember { mutableStateOf(true) }
             LaunchedEffect(touches, status) {
                 controlsVisible = true
                 if (status != TranslationStatus.Working) { kotlinx.coroutines.delay(3000); controlsVisible = false }
             }
             Box(Modifier.fillMaxSize()) {
             LazyColumn(
-                Modifier.fillMaxSize().pointerInput(Unit) {
-                    awaitEachGesture {
-                        awaitFirstDown(requireUnconsumed = false, pass = androidx.compose.ui.input.pointer.PointerEventPass.Initial)
-                        touches++
-                    }
-                },
+                Modifier.fillMaxSize().then(touchCatcher),
                 state = listState, contentPadding = PaddingValues(top = 56.dp, bottom = 24.dp),
             ) {
                 itemsIndexed(parsed.lines) { i, l ->
@@ -463,7 +512,7 @@ private fun LyricsPane(track: TrackEntity?, positionMs: Long, onSeek: (Long) -> 
                         shown.ifBlank { "♪" },
                         style = MaterialTheme.typography.headlineSmall.copy(fontSize = 22.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold),
                         color = color,
-                        modifier = Modifier.fillMaxWidth().clickable { onSeek(l.timeMs) }.padding(top = 6.dp, bottom = if (translateOn && !only) 0.dp else 6.dp)
+                        modifier = Modifier.fillMaxWidth(0.92f).clickable { onSeek(l.timeMs) }.padding(top = 6.dp, bottom = if (translateOn && !only) 0.dp else 6.dp)
                             .graphicsLayer { scaleX = scale; scaleY = scale; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0.5f) },
                     )
                     val tr = translation?.getOrNull(i)
@@ -478,8 +527,56 @@ private fun LyricsPane(track: TrackEntity?, positionMs: Long, onSeek: (Long) -> 
                 enter = androidx.compose.animation.fadeIn(tween(180)) + androidx.compose.animation.slideInVertically(tween(180)) { -it / 3 },
                 exit = androidx.compose.animation.fadeOut(tween(400)),
             ) {
-                TranslationSwitch(mode, status, accent, onMode = { m -> touches++; graph.appScope.launch { graph.settings.setLyricsTranslation(m) } }, onDetails = { info -> nav.showError(info) })
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    TranslationSwitch(mode, status, accent, onMode = { m -> touches++; graph.appScope.launch { graph.settings.setLyricsTranslation(m) } }, onDetails = { info -> nav.showError(info) })
+                    sourceChip()
+                }
             }
+            }
+        }
+    }
+}
+
+/** «Источник текста»: every lyrics variant found locally and online; the picked one sticks. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LyricsSourcesSheet(track: TrackEntity, current: dev.xvin.palimpsest.core.model.Lyrics?, onDismiss: () -> Unit, onPicked: () -> Unit) {
+    val graph = LocalGraph.current
+    val accent = LocalAccent.current
+    val options by produceState<List<dev.xvin.palimpsest.core.model.Lyrics>?>(null, track.id) { value = graph.lyrics.candidates(track) }
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ink.Paper2) {
+        Text(tr(R.string.lyrics_sources_title), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(horizontal = 20.dp))
+        val list = options
+        when {
+            list == null -> Row(Modifier.fillMaxWidth().padding(24.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+                Spacer(Modifier.width(12.dp))
+                Text(tr(R.string.lyrics_sources_loading), color = Ink.Muted)
+            }
+            list.isEmpty() -> Text(tr(R.string.lyrics_not_found), color = Ink.Muted, modifier = Modifier.padding(20.dp))
+            else -> LazyColumn(Modifier.fillMaxWidth().navigationBarsPadding(), contentPadding = PaddingValues(vertical = 8.dp)) {
+                itemsIndexed(list) { _, l ->
+                    val text = (l.synced ?: l.plain).orEmpty()
+                    val isCurrent = current != null && (current.synced ?: current.plain).orEmpty().trim() == text.trim()
+                    val preview = Lrc.parse(text).lines.map { it.text }.filter { it.isNotBlank() }.take(2).joinToString(" / ")
+                    Column(
+                        Modifier.fillMaxWidth().clickable {
+                            graph.appScope.launch { graph.lyrics.choose(track, l); kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { onPicked() } }
+                        }.padding(horizontal = 20.dp, vertical = 10.dp),
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(l.source, style = MaterialTheme.typography.titleMedium, color = if (isCurrent) accent else Ink.Text)
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                tr(if (l.synced != null) R.string.lyrics_synced_badge else R.string.lyrics_plain_badge),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (l.synced != null) accent else Ink.Faint,
+                            )
+                            if (isCurrent) { Spacer(Modifier.weight(1f)); Text("✓", color = accent) }
+                        }
+                        Text(preview, style = MaterialTheme.typography.bodySmall, color = Ink.Muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    }
+                }
             }
         }
     }

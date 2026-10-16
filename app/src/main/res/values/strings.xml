@@ -602,4 +602,10 @@
     <string name="render_quality_standard">Standard · 1080p · 30 fps</string>
     <string name="render_quality_high">High · 1080p · 60 fps</string>
     <string name="render_quality_max">Max · 1440p · 60 fps</string>
+    <string name="lyrics_source_chip">Source: %1$s</string>
+    <string name="lyrics_sources_title">Lyrics source</string>
+    <string name="lyrics_synced_badge">synced</string>
+    <string name="lyrics_plain_badge">plain</string>
+    <string name="lyrics_sources_loading">Searching every source…</string>
+    <string name="lyrics_auto_searching">Looking for synced lyrics…</string>
 </resources>

@@ -609,4 +609,10 @@
     <string name="render_quality_standard">Обычное · 1080p · 30 к/с</string>
     <string name="render_quality_high">Высокое · 1080p · 60 к/с</string>
     <string name="render_quality_max">Максимум · 1440p · 60 к/с</string>
+    <string name="lyrics_source_chip">Источник: %1$s</string>
+    <string name="lyrics_sources_title">Источник текста</string>
+    <string name="lyrics_synced_badge">с таймкодами</string>
+    <string name="lyrics_plain_badge">без таймкодов</string>
+    <string name="lyrics_sources_loading">Ищу во всех источниках…</string>
+    <string name="lyrics_auto_searching">Ищу текст с таймкодами…</string>
 </resources>
