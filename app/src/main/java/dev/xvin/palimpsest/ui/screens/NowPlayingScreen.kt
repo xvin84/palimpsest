@@ -47,6 +47,7 @@ import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.RepeatOne
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
@@ -124,6 +125,7 @@ fun NowPlayingScreen(onClose: () -> Unit) {
     var showQueue by remember { mutableStateOf(false) }
     var showSleep by remember { mutableStateOf(false) }
     var showSpeed by remember { mutableStateOf(false) }
+    var showShare by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
     val dragOffset = remember { androidx.compose.animation.core.Animatable(0f) }
     val dragScope = rememberCoroutineScope()
@@ -200,6 +202,7 @@ fun NowPlayingScreen(onClose: () -> Unit) {
                         DropdownMenuItem(text = { Text("Таймер сна") }, leadingIcon = { Icon(Icons.Rounded.Bedtime, null) }, onClick = { menu = false; showSleep = true })
                         DropdownMenuItem(text = { Text("Скорость и тон") }, leadingIcon = { Icon(Icons.Rounded.Speed, null) }, onClick = { menu = false; showSpeed = true })
                         DropdownMenuItem(text = { Text("Эквалайзер") }, leadingIcon = { Icon(Icons.Rounded.Equalizer, null) }, onClick = { menu = false; nav.openEqualizer() })
+                        DropdownMenuItem(text = { Text("Поделиться карточкой") }, leadingIcon = { Icon(Icons.Rounded.Share, null) }, onClick = { menu = false; showShare = true })
                         track?.let { t ->
                             DropdownMenuItem(text = { Text("Действия с треком") }, onClick = { menu = false; nav.showActions(t) })
                         }
@@ -360,6 +363,7 @@ fun NowPlayingScreen(onClose: () -> Unit) {
     if (showQueue) QueueSheet(onDismiss = { showQueue = false })
     if (showSleep) SleepDialog(onDismiss = { showSleep = false })
     if (showSpeed) SpeedDialog(onDismiss = { showSpeed = false })
+    if (showShare) dev.xvin.palimpsest.ui.components.ShareCardDialog(np, onDismiss = { showShare = false })
 }
 
 @Composable
