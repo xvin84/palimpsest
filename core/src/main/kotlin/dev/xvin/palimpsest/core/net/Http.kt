@@ -16,6 +16,9 @@ object Http {
             .build()
     }
 
+    /** Sites that serve pages to browsers only (Genius) get a desktop browser's User-Agent. */
+    const val BROWSER_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
+
     val json = Json {
         ignoreUnknownKeys = true
         isLenient = true

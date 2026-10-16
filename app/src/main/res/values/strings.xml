@@ -248,10 +248,10 @@
     <string name="lyrics_already_native">The lyrics are already in your language</string>
     <string name="lyrics_embed">Also write into the file tag</string>
     <string name="lyrics_field_hint">Text or LRC ([mm:ss.xx] line)</string>
-    <string name="lyrics_find_online_sources">Find online (LRCLIB / Yandex)</string>
+    <string name="lyrics_find_online_sources">Find online (LRCLIB, NetEase, Genius, Yandex)</string>
     <string name="lyrics_none">No lyrics</string>
     <string name="lyrics_none_yet">No lyrics yet</string>
-    <string name="lyrics_not_found">No lyrics on LRCLIB or Yandex</string>
+    <string name="lyrics_not_found">No lyrics found in any source</string>
     <string name="lyrics_saved">Lyrics saved</string>
     <string name="lyrics_source">Source: %1$s</string>
     <string name="lyrics_src_lrc">.lrc file</string>

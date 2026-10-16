@@ -289,4 +289,15 @@ class TranslatorTest {
         assertEquals("Посмотри на звёзды\nКак они сияют", text)
         assertEquals("en", lang)
     }
+
+    @Test fun netEaseDropsCredits() {
+        val lrc = "[00:00.000] 作词 : Chris Martin\n[00:01.000] 作曲 : Coldplay\n[00:33.79]Look at the stars"
+        assertEquals("[00:33.79]Look at the stars", dev.xvin.palimpsest.core.lyrics.NetEaseLyrics.clean(lrc))
+    }
+
+    @Test fun geniusExtractsLyricsContainers() {
+        val html = """<div id="lyrics-root"><div data-lyrics-container="true" class="a"><div data-exclude-from-selection="true">3 Contributors<div>Yellow Lyrics</div></div>[Verse 1]<br/><a href="/x"><span>Look at the stars</span></a><br>Look how they shine</div>
+            <div class="ad"></div><div data-lyrics-container="true">And it&#x27;s &amp; done</div></div>"""
+        assertEquals("[Verse 1]\nLook at the stars\nLook how they shine\nAnd it's & done", dev.xvin.palimpsest.core.lyrics.GeniusLyrics.extract(html))
+    }
 }

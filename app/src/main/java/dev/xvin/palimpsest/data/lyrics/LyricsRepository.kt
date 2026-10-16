@@ -23,6 +23,8 @@ class LyricsRepository(
     private val db: AppDatabase,
     private val yandex: YandexMusicProvider,
     private val lrclib: LrcLibClient,
+    private val netEase: dev.xvin.palimpsest.core.lyrics.NetEaseLyrics,
+    private val genius: dev.xvin.palimpsest.core.lyrics.GeniusLyrics,
     private val translator: dev.xvin.palimpsest.core.translate.Translator,
     private val translationsDir: File,
 ) {
@@ -55,15 +57,25 @@ class LyricsRepository(
         null
     }
 
+    /**
+     * Synced lyrics win: Yandex (for its own tracks), LRCLIB, NetEase. If no one has timings, the
+     * first plain text from any of them, with Genius (plain only) as the last resort.
+     */
     suspend fun fetchOnline(track: TrackEntity): Lyrics? = withContext(Dispatchers.IO) {
-        val fromYandex = if (track.service == Service.YANDEX && track.remoteId != null && yandex.isReady) {
-            runCatching { yandex.lyrics(track.remoteId) }.getOrNull()
-        } else null
-        val found = fromYandex?.takeIf { it.synced != null }
-            ?: runCatching {
-                lrclib.find(track.artist, cleanTitle(track.title), track.album, (track.durationMs / 1000).toInt().takeIf { it > 0 })
-            }.getOrNull()
-            ?: fromYandex
+        val title = cleanTitle(track.title)
+        val sources: List<suspend () -> Lyrics?> = listOf(
+            { if (track.service == Service.YANDEX && track.remoteId != null && yandex.isReady) yandex.lyrics(track.remoteId) else null },
+            { lrclib.find(track.artist, title, track.album, (track.durationMs / 1000).toInt().takeIf { it > 0 }) },
+            { netEase.find(track.artist, title, track.durationMs) },
+        )
+        val plain = ArrayList<Lyrics>()
+        var found: Lyrics? = null
+        for (source in sources) {
+            val l = runCatching { source() }.getOrNull() ?: continue
+            if (l.synced != null) { found = l; break }
+            plain += l
+        }
+        if (found == null) found = plain.firstOrNull() ?: runCatching { genius.find(track.artist, title) }.getOrNull()
         if (found != null) db.lyrics().put(LyricsEntity(track.id, found.synced, found.plain, found.source))
         found
     }

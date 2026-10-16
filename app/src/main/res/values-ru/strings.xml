@@ -247,10 +247,10 @@
     <string name="lyrics_already_native">Текст уже на русском</string>
     <string name="lyrics_embed">Записать и в тег файла</string>
     <string name="lyrics_field_hint">Текст или LRC ([мм:сс.xx] строка)</string>
-    <string name="lyrics_find_online_sources">Найти онлайн (LRCLIB / Яндекс)</string>
+    <string name="lyrics_find_online_sources">Найти онлайн (LRCLIB, NetEase, Genius, Яндекс)</string>
     <string name="lyrics_none">Текста нет</string>
     <string name="lyrics_none_yet">Текста пока нет</string>
-    <string name="lyrics_not_found">Текст не нашёлся ни в LRCLIB, ни в Яндексе</string>
+    <string name="lyrics_not_found">Текст не нашёлся ни в одном источнике</string>
     <string name="lyrics_saved">Текст сохранён</string>
     <string name="lyrics_source">Источник: %1$s</string>
     <string name="lyrics_src_lrc">.lrc файл</string>

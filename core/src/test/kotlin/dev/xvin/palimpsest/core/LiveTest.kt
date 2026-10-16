@@ -45,4 +45,18 @@ class LiveTest {
         println("TR: ${r.sourceLanguage} ${r.lines}")
         check(r.lines.size == 2 && r.lines.all { it.isNotBlank() })
     }
+
+    @Test fun netEase() = runBlocking {
+        val l = dev.xvin.palimpsest.core.lyrics.NetEaseLyrics().find("Coldplay", "Yellow", 266_000)
+        println("NetEase: synced=${l?.synced != null} " + (l?.synced ?: l?.plain)?.lines()?.take(4))
+        check(l?.synced != null && "作词" !in l.synced!!)
+    }
+
+    @Test fun genius() = runBlocking {
+        val l = dev.xvin.palimpsest.core.lyrics.GeniusLyrics().find("Coldplay", "Yellow")
+        println("Genius: " + l?.plain?.lines()?.take(6))
+        check(l?.plain?.contains("Look at the stars") == true)
+        val ru = dev.xvin.palimpsest.core.lyrics.GeniusLyrics().find("2rbina 2rista", "Барон суббота")
+        println("Genius RU: " + ru?.plain?.lines()?.take(4))
+    }
 }
