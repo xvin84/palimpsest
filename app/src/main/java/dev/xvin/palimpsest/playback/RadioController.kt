@@ -37,8 +37,11 @@ class RadioController(
         scope.launch { player.state.collect { onState(it) } }
     }
 
-    suspend fun start(seed: String, title: String): Result<Unit> = runCatching {
-        val batch = remote.radioStart(seed)
+    suspend fun start(seed: String, title: String, extraSeeds: List<String> = emptyList()): Result<Unit> = runCatching {
+        // Settings seeds are best effort: if the server doesn't take them, fall back to the plain station.
+        val batch = if (extraSeeds.isEmpty()) remote.radioStart(listOf(seed))
+        else runCatching { remote.radioStart(listOf(seed) + extraSeeds) }.getOrNull()?.takeIf { it.tracks.isNotEmpty() }
+            ?: remote.radioStart(listOf(seed))
         if (batch.tracks.isEmpty()) error("Станция пока пустая")
         val rows = batch.tracks.map { remote.ensureTrack(it) }
         player.play(rows) // replaces the queue → would stop a previous station

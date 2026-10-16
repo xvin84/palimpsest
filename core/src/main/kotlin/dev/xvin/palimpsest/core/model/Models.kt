@@ -65,6 +65,9 @@ data class ArtistInfo(
 
 data class AlbumWithTracks(val album: RemoteAlbum, val tracks: List<RemoteTrack>)
 
+/** A ready-made station («Тренировка», «Работа», …) offered next to «Моя волна». */
+data class WaveStation(val seed: String, val name: String, val group: String?, val color: String?, val imageUrl: String?)
+
 /** One batch of a radio session ("Моя волна", radio by track/artist). */
 data class RadioBatch(val sessionId: String, val batchId: String?, val tracks: List<RemoteTrack>)
 

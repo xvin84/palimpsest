@@ -27,6 +27,15 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore("s
 
 enum class ReplayGainMode(val label: String) { OFF("Выкл."), TRACK("По треку"), ALBUM("По альбому") }
 
+/** «Моя волна» tuning, sent as extra seeds. "" = no preference. */
+data class WavePrefs(val diversity: String = "", val mood: String = "", val language: String = "") {
+    fun seeds(): List<String> = listOfNotNull(
+        diversity.ifEmpty { null }?.let { "settingDiversity:$it" },
+        mood.ifEmpty { null }?.let { "settingMoodEnergy:$it" },
+        language.ifEmpty { null }?.let { "settingLanguage:$it" },
+    )
+}
+
 enum class VisualizerMode(val label: String) { BARS("Полосы"), MIRROR("Зеркало"), RING("Кольцо"), OFF("Выкл.") }
 
 @Serializable
@@ -55,6 +64,7 @@ data class AppSettings(
     val deviceEq: Map<String, String>,
     val listenBrainzToken: String?,
     val listenBrainzUser: String?,
+    val wave: WavePrefs,
 ) {
     /** Profile for [deviceKey]: its own if one is assigned, otherwise the global one. */
     fun eqFor(deviceKey: String): EqProfile {
@@ -87,6 +97,9 @@ class Settings(private val context: Context, scope: CoroutineScope) {
         val deviceEq = stringPreferencesKey("device_eq")
         val lbToken = stringPreferencesKey("listenbrainz_token")
         val lbUser = stringPreferencesKey("listenbrainz_user")
+        val waveDiversity = stringPreferencesKey("wave_diversity")
+        val waveMood = stringPreferencesKey("wave_mood")
+        val waveLanguage = stringPreferencesKey("wave_language")
     }
 
     val defaultMusicRoot: String =
@@ -117,6 +130,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
             deviceEq = p[K.deviceEq]?.let { runCatching { json.decodeFromString<Map<String, String>>(it) }.getOrNull() } ?: emptyMap(),
             listenBrainzToken = p[K.lbToken],
             listenBrainzUser = p[K.lbUser],
+            wave = WavePrefs(p[K.waveDiversity].orEmpty(), p[K.waveMood].orEmpty(), p[K.waveLanguage].orEmpty()),
         )
     }
 
@@ -139,6 +153,9 @@ class Settings(private val context: Context, scope: CoroutineScope) {
     suspend fun setAutoSync(on: Boolean) = edit { it[K.autoSync] = on }
     suspend fun setAutoDownloadLikes(on: Boolean) = edit { it[K.autoDownloadLikes] = on }
     suspend fun setDeviceEq(map: Map<String, String>) = edit { it[K.deviceEq] = json.encodeToString(map) }
+    suspend fun setWave(w: WavePrefs) = edit {
+        it[K.waveDiversity] = w.diversity; it[K.waveMood] = w.mood; it[K.waveLanguage] = w.language
+    }
     suspend fun setListenBrainz(token: String?, user: String?) = edit {
         if (token == null) { it.remove(K.lbToken); it.remove(K.lbUser) } else { it[K.lbToken] = token; if (user != null) it[K.lbUser] = user }
     }

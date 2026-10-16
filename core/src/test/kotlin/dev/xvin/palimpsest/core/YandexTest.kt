@@ -115,6 +115,19 @@ class YandexTest {
         assertEquals("Сукины дети", a.popular.single().title)
         assertEquals("Czar", a.similar.single().name)
     }
+
+    @Test fun waveStationsAndSettingSeeds() = runBlocking {
+        server.enqueue(json("""{"result":{"blocks":[{"type":"activity","items":[
+            {"id":{"type":"activity","tag":"workout"},"name":"Тренировка","icon":{"backgroundColor":"#ff0000","imageUrl":"avatars.yandex.net/x/%%"}},
+            {"id":{"type":"activity","tag":"sleep"},"name":"Сон"}]}]}}"""))
+        val st = yandex.waveStations()
+        assertEquals(listOf("activity:workout", "activity:sleep"), st.map { it.seed })
+        assertEquals("Тренировка", st[0].name)
+        server.takeRequest()
+        server.enqueue(json("""{"result":{"radioSessionId":"s","batchId":"b","sequence":[]}}"""))
+        yandex.radioStart(listOf("user:onyourwave", "settingMoodEnergy:calm"))
+        assertTrue(server.takeRequest().body!!.utf8().contains("\"seeds\":[\"user:onyourwave\",\"settingMoodEnergy:calm\"]"))
+    }
 }
 
 class ListenBrainzTest {

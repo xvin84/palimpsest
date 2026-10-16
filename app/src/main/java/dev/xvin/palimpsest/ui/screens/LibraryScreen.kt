@@ -34,6 +34,7 @@ import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.Sort
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -394,7 +395,9 @@ private fun MyWaveCard() {
     val settings by graph.settings.flow.collectAsStateWithLifecycle(null)
     val station by graph.radio.station.collectAsStateWithLifecycle()
     var starting by remember { mutableStateOf(false) }
+    var tuning by remember { mutableStateOf(false) }
     if (settings?.yandexToken == null) return
+    if (tuning) WaveTuningSheet(onDismiss = { tuning = false })
     val accent = LocalAccent.current
     val active = station?.seed == dev.xvin.palimpsest.playback.RadioController.MY_WAVE
     Row(
@@ -407,7 +410,7 @@ private fun MyWaveCard() {
                 if (active) { nav.openPlayer(); return@clickable }
                 starting = true
                 scope.launch {
-                    graph.radio.start(dev.xvin.palimpsest.playback.RadioController.MY_WAVE, "Моя волна")
+                    graph.radio.start(dev.xvin.palimpsest.playback.RadioController.MY_WAVE, "Моя волна", settings?.wave?.seeds().orEmpty())
                         .onSuccess { nav.openPlayer() }
                         .onFailure { nav.error(it, "Моя волна") }
                     starting = false
@@ -423,6 +426,7 @@ private fun MyWaveCard() {
                 style = MaterialTheme.typography.bodySmall, color = Ink.Text.copy(alpha = 0.8f),
             )
         }
+        IconButton(onClick = { tuning = true }) { Icon(Icons.Rounded.Tune, "Настроить волну", tint = Ink.Text) }
         Box(Modifier.size(48.dp).clip(CircleShape).background(Ink.Text), contentAlignment = Alignment.Center) {
             if (starting) androidx.compose.material3.CircularProgressIndicator(Modifier.size(22.dp), color = Ink.Paper, strokeWidth = 2.dp)
             else Text(if (active) "≋" else "▶", color = Ink.Paper, style = MaterialTheme.typography.titleLarge)

@@ -185,3 +185,18 @@ internal data class YRotorSession(
     val batchId: String? = null,
     val sequence: List<YSequence> = emptyList(),
 )
+
+@Serializable
+internal data class YStationId(val type: String = "", val tag: String = "")
+
+@Serializable
+internal data class YIcon(val backgroundColor: String? = null, val imageUrl: String? = null)
+
+@Serializable
+internal data class YStation(val id: YStationId? = null, val name: String = "", val icon: YIcon? = null)
+
+@Serializable
+internal data class YWaveBlock(val type: String? = null, val items: List<YStation> = emptyList())
+
+@Serializable
+internal data class YWaveSettings(val blocks: List<YWaveBlock> = emptyList())

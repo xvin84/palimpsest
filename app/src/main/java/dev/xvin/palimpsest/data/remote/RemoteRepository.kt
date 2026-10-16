@@ -306,7 +306,10 @@ class RemoteRepository(
 
     suspend fun similar(trackRemoteId: String): List<RemoteTrack> = withContext(Dispatchers.IO) { yandexCall { yandex.similarTracks(trackRemoteId) } }
 
-    suspend fun radioStart(seed: String): RadioBatch = withContext(Dispatchers.IO) { yandexCall { yandex.radioStart(seed) } }
+    suspend fun radioStart(seeds: List<String>): RadioBatch = withContext(Dispatchers.IO) { yandexCall { yandex.radioStart(seeds) } }
+
+    suspend fun waveStations(): List<dev.xvin.palimpsest.core.model.WaveStation> =
+        withContext(Dispatchers.IO) { yandexCall { yandex.waveStations() } }
 
     suspend fun radioMore(sessionId: String, queue: List<String>): RadioBatch =
         withContext(Dispatchers.IO) { yandexCall { yandex.radioMore(sessionId, queue) } }

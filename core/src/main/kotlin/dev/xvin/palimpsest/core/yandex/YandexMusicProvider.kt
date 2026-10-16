@@ -8,6 +8,7 @@ import dev.xvin.palimpsest.core.model.AuthRequiredException
 import dev.xvin.palimpsest.core.model.RadioBatch
 import dev.xvin.palimpsest.core.model.RemoteAlbum
 import dev.xvin.palimpsest.core.model.RemoteArtist
+import dev.xvin.palimpsest.core.model.WaveStation
 import dev.xvin.palimpsest.core.model.Lyrics
 import dev.xvin.palimpsest.core.model.MusicProvider
 import dev.xvin.palimpsest.core.model.ProviderException
@@ -151,15 +152,30 @@ class YandexMusicProvider(
      * Starts a radio session. Seeds: `user:onyourwave` («Моя волна»), `track:<id>`, `artist:<id>`,
      * `album:<id>`, `genre:<name>`.
      */
-    suspend fun radioStart(seed: String, queue: List<String> = emptyList()): RadioBatch {
+    suspend fun radioStart(seed: String, queue: List<String> = emptyList()): RadioBatch = radioStart(listOf(seed), queue)
+
+    /** Several seeds at once, e.g. «Моя волна» plus `settingMoodEnergy:calm`. */
+    suspend fun radioStart(seeds: List<String>, queue: List<String> = emptyList()): RadioBatch {
         val body = buildJsonObject {
-            put("seeds", buildJsonArray { add(JsonPrimitive(seed)) })
+            put("seeds", buildJsonArray { seeds.forEach { add(JsonPrimitive(it)) } })
             put("includeTracksInResponse", true)
             if (queue.isNotEmpty()) put("queue", buildJsonArray { queue.forEach { add(JsonPrimitive(it)) } })
         }
         val r: YRotorSession = postJson("/rotor/session/new", body)
         val id = r.radioSessionId ?: throw ProviderException("Радио: сессия не создана")
         return RadioBatch(id, r.batchId, r.sequence.mapNotNull { it.track?.toRemote() })
+    }
+
+    /** Stations shown in the wave settings (activities, moods, …). */
+    suspend fun waveStations(): List<WaveStation> {
+        val w: YWaveSettings = get("/rotor/wave/settings", mapOf("seeds" to "user:onyourwave"))
+        return w.blocks.flatMap { b ->
+            b.items.mapNotNull { st ->
+                val id = st.id ?: return@mapNotNull null
+                if (id.type.isBlank() || id.tag.isBlank()) return@mapNotNull null
+                WaveStation("${id.type}:${id.tag}", st.name, b.type, st.icon?.backgroundColor, st.icon?.imageUrl?.let { coverUrl(it, 200) })
+            }
+        }.distinctBy { it.seed }
     }
 
     /** Next batch; [queue] = tracks already received, so the station doesn't repeat them. */
