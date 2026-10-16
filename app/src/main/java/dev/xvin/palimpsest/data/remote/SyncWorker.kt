@@ -26,12 +26,8 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
         graph.scanner.scan()
         graph.scrobbler.flush()
         if (graph.yandex.isReady) {
-            graph.remote.syncYandex()
+            graph.syncYandex() // also downloads new likes when that's on
             graph.remote.checkForUpdates()
-            if (s.autoDownloadLikes) {
-                val pending = graph.db.tracks().linkedTo(Service.YANDEX).filter { it.liked && it.path == null }
-                graph.downloads.enqueue(pending.map { it.id })
-            }
         }
         return Result.success()
     }
@@ -40,15 +36,16 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
         private const val NAME = "daily-sync"
 
         fun schedule(context: Context) {
-            val req = PeriodicWorkRequestBuilder<SyncWorker>(1, TimeUnit.DAYS)
+            // Every 3 hours so likes from the official app show up (and download) the same day.
+            val req = PeriodicWorkRequestBuilder<SyncWorker>(3, TimeUnit.HOURS)
                 .setConstraints(
                     Constraints.Builder()
-                        .setRequiredNetworkType(NetworkType.UNMETERED)
+                        .setRequiredNetworkType(NetworkType.CONNECTED)
                         .setRequiresBatteryNotLow(true)
                         .build(),
                 )
                 .build()
-            WorkManager.getInstance(context).enqueueUniquePeriodicWork(NAME, ExistingPeriodicWorkPolicy.KEEP, req)
+            WorkManager.getInstance(context).enqueueUniquePeriodicWork(NAME, ExistingPeriodicWorkPolicy.UPDATE, req)
         }
     }
 }

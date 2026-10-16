@@ -87,7 +87,7 @@ fun SourcesScreen() {
                     Text("Вход выполнен: ${loginName ?: "аккаунт"}", color = Ink.Muted)
                     Spacer(Modifier.height(12.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { graph.appScope.launch { graph.remote.syncYandex() } }, enabled = !status.running) { Text("Синхронизировать") }
+                        Button(onClick = { graph.appScope.launch { graph.syncYandex() } }, enabled = !status.running) { Text("Синхронизировать") }
                         OutlinedButton(onClick = { graph.appScope.launch { graph.remote.checkForUpdates() } }, enabled = !status.running) { Text("Новые версии?") }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -209,7 +209,7 @@ private fun YandexLoginDialog(onDismiss: () -> Unit) {
             val name = graph.remote.finishYandexLogin(c)
             if (name != null) {
                 // The dialog (and this effect) goes away; the sync must outlive it.
-                graph.appScope.launch { graph.remote.syncYandex() }
+                graph.appScope.launch { graph.syncYandex() }
                 onDismiss()
             } else error = "Код истёк — попробуй ещё раз"
         } catch (e: Exception) {
@@ -246,7 +246,7 @@ private fun YandexLoginDialog(onDismiss: () -> Unit) {
                     TextButton(onClick = {
                         scope.launch {
                             runCatching { graph.remote.loginWithToken(token) }
-                                .onSuccess { graph.appScope.launch { graph.remote.syncYandex() }; onDismiss() }
+                                .onSuccess { graph.appScope.launch { graph.syncYandex() }; onDismiss() }
                                 .onFailure { error = it.message }
                         }
                     }) { Text("Войти") }

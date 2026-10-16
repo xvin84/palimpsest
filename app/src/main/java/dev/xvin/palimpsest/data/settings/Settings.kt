@@ -113,7 +113,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
             keepVersions = p[K.keepVersions] ?: true,
             lastScanAt = p[K.lastScan] ?: 0L,
             autoSync = p[K.autoSync] ?: true,
-            autoDownloadLikes = p[K.autoDownloadLikes] ?: false,
+            autoDownloadLikes = p[K.autoDownloadLikes] ?: true,
             deviceEq = p[K.deviceEq]?.let { runCatching { json.decodeFromString<Map<String, String>>(it) }.getOrNull() } ?: emptyMap(),
             listenBrainzToken = p[K.lbToken],
             listenBrainzUser = p[K.lbUser],

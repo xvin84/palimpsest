@@ -135,13 +135,13 @@ fun SettingsScreen() {
         ) { scope.launch { graph.settings.setKeepVersions(it) } }
 
         ToggleRow(
-            "Ежедневная синхронизация",
-            "Раз в сутки по Wi-Fi: лайки и плейлисты Яндекса, проверка перезалитых треков",
+            "Фоновая синхронизация",
+            "Каждые 3 часа: лайки и плейлисты Яндекса, проверка перезалитых треков",
             settings.autoSync,
         ) { scope.launch { graph.settings.setAutoSync(it) } }
         ToggleRow(
-            "Скачивать новые лайки",
-            "Всё, что лайкнешь в Яндексе, само появится офлайн",
+            "Скачивать избранное сразу",
+            "♥ в приложении — трек сразу скачивается; лайки из официального приложения — при синхронизации",
             settings.autoDownloadLikes,
         ) { scope.launch { graph.settings.setAutoDownloadLikes(it) } }
 

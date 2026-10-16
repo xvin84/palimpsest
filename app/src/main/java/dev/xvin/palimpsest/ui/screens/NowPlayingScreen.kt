@@ -83,6 +83,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -124,7 +125,9 @@ fun NowPlayingScreen(onClose: () -> Unit) {
     var showSleep by remember { mutableStateOf(false) }
     var showSpeed by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
-    var dragOffset by remember { mutableFloatStateOf(0f) }
+    val dragOffset = remember { androidx.compose.animation.core.Animatable(0f) }
+    val dragScope = rememberCoroutineScope()
+    var heightPx by remember { mutableFloatStateOf(1f) }
     var artistMenu by remember { mutableStateOf(false) }
     val artists by remember(np.trackId) { graph.db.artists().observeForTrack(np.trackId ?: -1) }.collectAsStateWithLifecycle(emptyList())
     val station by graph.radio.station.collectAsStateWithLifecycle()
@@ -133,15 +136,39 @@ fun NowPlayingScreen(onClose: () -> Unit) {
     Box(
         Modifier
             .fillMaxSize()
-            .graphicsLayer { translationY = dragOffset.coerceAtLeast(0f) }
-            .background(Ink.Paper)
+            .onSizeChanged { heightPx = it.height.toFloat().coerceAtLeast(1f) }
+            // Measured before the transform, so the finger's speed is real even while the card moves.
             .pointerInput(Unit) {
-                // Pull down to close.
+                val tracker = androidx.compose.ui.input.pointer.util.VelocityTracker()
                 detectVerticalDragGestures(
-                    onDragEnd = { if (dragOffset > 220f) onClose(); dragOffset = 0f },
-                    onDragCancel = { dragOffset = 0f },
-                ) { _, dy -> dragOffset += dy }
-            },
+                    onDragStart = { tracker.resetTracking() },
+                    onDragEnd = {
+                        val velocity = tracker.calculateVelocity().y
+                        dragScope.launch {
+                            if (dragOffset.value > heightPx * 0.25f || velocity > 1800f) {
+                                dragOffset.animateTo(heightPx, tween(220, easing = androidx.compose.animation.core.FastOutLinearInEasing))
+                                onClose()
+                            } else {
+                                dragOffset.animateTo(0f, androidx.compose.animation.core.spring(dampingRatio = 0.8f, stiffness = 500f))
+                            }
+                        }
+                    },
+                    onDragCancel = { dragScope.launch { dragOffset.animateTo(0f) } },
+                ) { change, dy ->
+                    tracker.addPosition(change.uptimeMillis, change.position)
+                    dragScope.launch { dragOffset.snapTo((dragOffset.value + dy).coerceAtLeast(0f)) }
+                }
+            }
+            .graphicsLayer {
+                // Follow the finger, shrink a touch and round the corners — like a card being put away.
+                val p = (dragOffset.value / heightPx).coerceIn(0f, 1f)
+                translationY = dragOffset.value
+                val scale = 1f - p * 0.07f
+                scaleX = scale; scaleY = scale
+                shape = RoundedCornerShape((p * 120).coerceAtMost(28f).dp)
+                clip = p > 0f
+            }
+            .background(Ink.Paper),
     ) {
         // Blurred cover as ambient backdrop.
         if (artModel != null) {
@@ -255,7 +282,7 @@ fun NowPlayingScreen(onClose: () -> Unit) {
                 }
                 track?.let { t ->
                     IconButton(onClick = {
-                        scope.launch { graph.remote.setLiked(t, !t.liked).onFailure { nav.toast("В Яндексе не сохранилось: ${it.message}") } }
+                        scope.launch { graph.setLiked(t, !t.liked).onFailure { nav.toast("В Яндексе не сохранилось: ${it.message}") } }
                     }) {
                         Icon(if (t.liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, "Любимое", tint = if (t.liked) accent else Ink.Muted)
                     }

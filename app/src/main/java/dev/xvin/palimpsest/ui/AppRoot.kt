@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -213,24 +214,25 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
             ) { padding ->
                 NavHost(
                     nav, startDestination = LibraryRoute, modifier = Modifier.padding(padding),
-                    // Screens slide in a little and fade: quick, but you see where you came from.
-                    enterTransition = { fadeIn(tween(220)) + androidx.compose.animation.slideInHorizontally(tween(280)) { it / 10 } },
-                    exitTransition = { fadeOut(tween(160)) },
-                    popEnterTransition = { fadeIn(tween(220)) + androidx.compose.animation.slideInHorizontally(tween(280)) { -it / 10 } },
-                    popExitTransition = { fadeOut(tween(160)) + androidx.compose.animation.slideOutHorizontally(tween(240)) { it / 10 } },
+                    // Opaque screens stack like cards: a new one slides over from the right, closing slides
+                    // it back off and reveals the previous one (which moves a little for depth).
+                    enterTransition = { androidx.compose.animation.slideInHorizontally(tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { it } },
+                    exitTransition = { androidx.compose.animation.slideOutHorizontally(tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { -it / 4 } + fadeOut(tween(300), targetAlpha = 0.6f) },
+                    popEnterTransition = { androidx.compose.animation.slideInHorizontally(tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { -it / 4 } + fadeIn(tween(300), initialAlpha = 0.6f) },
+                    popExitTransition = { androidx.compose.animation.slideOutHorizontally(tween(280, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { it } },
                 ) {
-                    composable<LibraryRoute> { LibraryScreen() }
-                    composable<SearchRoute> { SearchScreen() }
-                    composable<SourcesRoute> { SourcesScreen() }
-                    composable<StatsRoute> { StatsScreen() }
-                    composable<SettingsRoute> { SettingsScreen() }
-                    composable<EqualizerRoute> { EqualizerScreen() }
-                    composable<ListRoute> { e -> val r = e.toRoute<ListRoute>(); TrackListScreen(r.kind, r.key, r.extra) }
-                    composable<TrackRoute> { e -> val r = e.toRoute<TrackRoute>(); TrackScreen(r.trackId, r.tab) }
-                    composable<ArtistRoute> { e -> val r = e.toRoute<ArtistRoute>(); dev.xvin.palimpsest.ui.screens.ArtistScreen(r.name, r.remoteId) }
-                    composable<RemoteAlbumRoute> { e -> dev.xvin.palimpsest.ui.screens.RemoteAlbumScreen(e.toRoute<RemoteAlbumRoute>().albumId) }
-                    composable<SimilarRoute> { e -> val r = e.toRoute<SimilarRoute>(); dev.xvin.palimpsest.ui.screens.SimilarScreen(r.trackRemoteId, r.title) }
-                    composable<ErrorsRoute> { dev.xvin.palimpsest.ui.screens.ErrorsScreen() }
+                    composable<LibraryRoute> { Screen { LibraryScreen() } }
+                    composable<SearchRoute> { Screen { SearchScreen() } }
+                    composable<SourcesRoute> { Screen { SourcesScreen() } }
+                    composable<StatsRoute> { Screen { StatsScreen() } }
+                    composable<SettingsRoute> { Screen { SettingsScreen() } }
+                    composable<EqualizerRoute> { Screen { EqualizerScreen() } }
+                    composable<ListRoute> { e -> Screen { val r = e.toRoute<ListRoute>(); TrackListScreen(r.kind, r.key, r.extra) } }
+                    composable<TrackRoute> { e -> Screen { val r = e.toRoute<TrackRoute>(); TrackScreen(r.trackId, r.tab) } }
+                    composable<ArtistRoute> { e -> Screen { val r = e.toRoute<ArtistRoute>(); dev.xvin.palimpsest.ui.screens.ArtistScreen(r.name, r.remoteId) } }
+                    composable<RemoteAlbumRoute> { e -> Screen { dev.xvin.palimpsest.ui.screens.RemoteAlbumScreen(e.toRoute<RemoteAlbumRoute>().albumId) } }
+                    composable<SimilarRoute> { e -> Screen { val r = e.toRoute<SimilarRoute>(); dev.xvin.palimpsest.ui.screens.SimilarScreen(r.trackRemoteId, r.title) } }
+                    composable<ErrorsRoute> { Screen { dev.xvin.palimpsest.ui.screens.ErrorsScreen() } }
                 }
             }
 
@@ -287,3 +289,9 @@ private fun BottomBar(nav: androidx.navigation.NavHostController) {
     }
 }
 
+
+/** Opaque backdrop for a destination, so screens never show through each other mid-transition. */
+@Composable
+private fun Screen(content: @Composable () -> Unit) {
+    Box(Modifier.fillMaxSize().background(Ink.Paper)) { content() }
+}

@@ -144,4 +144,21 @@ class AppGraph(val app: Application) {
         p.onError = { e -> errors.report(e, "Воспроизведение") }
     }
     val radio = dev.xvin.palimpsest.playback.RadioController(remote, db, player, mainScope)
+
+    /** ♥: likes locally and in Yandex, and (by default) downloads the track right away. */
+    suspend fun setLiked(track: dev.xvin.palimpsest.data.db.TrackEntity, liked: Boolean): Result<Unit> {
+        val result = remote.setLiked(track, liked)
+        if (liked && settings.state.value?.autoDownloadLikes != false && track.remoteId != null && track.path == null) {
+            downloads.enqueue(listOf(track.id))
+        }
+        return result
+    }
+
+    /** Pulls likes/playlists from Yandex and downloads newly liked tracks if that's switched on. */
+    suspend fun syncYandex() {
+        remote.syncYandex()
+        if (settings.state.value?.autoDownloadLikes != false) {
+            downloads.enqueue(db.tracks().linkedTo(Service.YANDEX).filter { it.liked && it.path == null }.map { it.id })
+        }
+    }
 }
