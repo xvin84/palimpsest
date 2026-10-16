@@ -88,6 +88,7 @@ import kotlinx.serialization.Serializable
 @Serializable data class RemoteAlbumRoute(val albumId: String)
 @Serializable data class SimilarRoute(val trackRemoteId: String, val title: String)
 @Serializable object ErrorsRoute
+@Serializable object ReleasesRoute
 
 /** Navigation actions any screen may trigger. */
 interface AppNav {
@@ -100,6 +101,7 @@ interface AppNav {
     fun openRemoteAlbum(albumId: String)
     fun openSimilar(trackRemoteId: String, title: String)
     fun openErrors()
+    fun openReleases()
     fun showActions(track: TrackEntity)
     fun toast(message: String)
     /** Logs [t] and shows it explained, with hints and copyable details. */
@@ -160,6 +162,10 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
     var errorShown by remember { mutableStateOf<dev.xvin.palimpsest.errors.ErrorInfo?>(null) }
 
     LaunchedEffect(openRequests) { if (openRequests > 0) playerOpen = true }
+    val albumRequest by activity.openAlbumRequest
+    LaunchedEffect(albumRequest) {
+        albumRequest?.let { playerOpen = false; nav.navigate(RemoteAlbumRoute(it)); activity.openAlbumRequest.value = null }
+    }
     LaunchedEffect(toastMessage) { toastMessage?.let { snackbar.showSnackbar(it); toastMessage = null } }
     // Background errors (playback, downloads, sync): a short snackbar, details one tap away.
     LaunchedEffect(Unit) {
@@ -186,6 +192,7 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
             override fun openRemoteAlbum(albumId: String) { playerOpen = false; nav.navigate(RemoteAlbumRoute(albumId)) }
             override fun openSimilar(trackRemoteId: String, title: String) { playerOpen = false; nav.navigate(SimilarRoute(trackRemoteId, title)) }
             override fun openErrors() { nav.navigate(ErrorsRoute) }
+            override fun openReleases() { nav.navigate(ReleasesRoute) }
             override fun showActions(track: TrackEntity) { actionsFor = track }
             override fun toast(message: String) { toastMessage = message }
             override fun error(t: Throwable, context: String) { errorShown = graph.errors.report(t, context, show = false) }
@@ -233,6 +240,7 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
                     composable<RemoteAlbumRoute> { e -> Screen { dev.xvin.palimpsest.ui.screens.RemoteAlbumScreen(e.toRoute<RemoteAlbumRoute>().albumId) } }
                     composable<SimilarRoute> { e -> Screen { val r = e.toRoute<SimilarRoute>(); dev.xvin.palimpsest.ui.screens.SimilarScreen(r.trackRemoteId, r.title) } }
                     composable<ErrorsRoute> { Screen { dev.xvin.palimpsest.ui.screens.ErrorsScreen() } }
+                    composable<ReleasesRoute> { Screen { dev.xvin.palimpsest.ui.screens.ReleasesScreen() } }
                 }
             }
 

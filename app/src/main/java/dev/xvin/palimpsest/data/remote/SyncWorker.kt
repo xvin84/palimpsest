@@ -28,6 +28,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
         if (graph.yandex.isReady) {
             graph.syncYandex() // also downloads new likes when that's on
             graph.remote.checkForUpdates()
+            runCatching { graph.releases.check() } // at most once a day
         }
         return Result.success()
     }

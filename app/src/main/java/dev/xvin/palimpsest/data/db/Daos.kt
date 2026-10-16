@@ -286,6 +286,8 @@ interface LyricsDao {
 
 data class TrackArtistsRow(val trackId: Long, val artist: String)
 
+data class WatchedArtist(val remoteId: String, val name: String, val tracks: Int)
+
 @Dao
 interface ArtistDao {
     @Query(
@@ -306,6 +308,14 @@ interface ArtistDao {
         """,
     )
     fun observeTracksOf(name: String): Flow<List<TrackEntity>>
+
+    @Query(
+        """
+        SELECT remoteId, MIN(name) AS name, COUNT(DISTINCT trackId) AS tracks FROM track_artists
+        WHERE remoteId IS NOT NULL GROUP BY remoteId HAVING tracks >= 2 ORDER BY tracks DESC LIMIT :limit
+        """,
+    )
+    suspend fun topWithRemoteIds(limit: Int): List<WatchedArtist>
 
     @Query("SELECT remoteId FROM track_artists WHERE name = :name COLLATE NOCASE AND remoteId IS NOT NULL LIMIT 1")
     suspend fun remoteIdOf(name: String): String?

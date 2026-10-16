@@ -328,6 +328,7 @@ private fun PlaylistsTab() {
         item { SmartRow("Часто слушаю", "↑") { nav.openList(TrackListKind.MOST_PLAYED, "smart") } }
         item { SmartRow("Недавно добавленные", "+") { nav.openList(TrackListKind.RECENT, "smart") } }
         item { SmartRow("Давно не слушал", "↺") { nav.openList(TrackListKind.FORGOTTEN, "smart") } }
+        item { SmartRow("Новые релизы", "✦") { nav.openReleases() } }
         items(playlists, key = { it.id }) { p -> PlaylistRow(p) { nav.openList(TrackListKind.PLAYLIST, p.id.toString()) } }
     }
     if (creating) {

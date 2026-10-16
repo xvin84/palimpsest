@@ -26,6 +26,8 @@ class MainActivity : ComponentActivity() {
 
     /** Bumped when something asks to show the full-screen player (notification tap, opened file). */
     val openPlayerRequests = mutableStateOf(0)
+    /** Album to open (from a "new release" notification). */
+    val openAlbumRequest = mutableStateOf<String?>(null)
     val hasStorageAccess = mutableStateOf(false)
 
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -75,6 +77,7 @@ class MainActivity : ComponentActivity() {
 
     private fun handleIntent(intent: Intent?) {
         intent ?: return
+        intent.getStringExtra(EXTRA_OPEN_ALBUM)?.let { openAlbumRequest.value = it; return }
         if (intent.getBooleanExtra(EXTRA_OPEN_PLAYER, false)) {
             openPlayerRequests.value++
             return
@@ -119,5 +122,6 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_OPEN_PLAYER = "open_player"
+        const val EXTRA_OPEN_ALBUM = "open_album"
     }
 }
