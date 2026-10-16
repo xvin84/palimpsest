@@ -36,7 +36,7 @@ object Remux {
     }.getOrDefault(false)
 
     /** Copies the audio track of [src] into a regular MP4 at [dst]. */
-    fun toPlainMp4(src: File, dst: File) {
+    fun toPlainMp4(src: File, dst: File, isCancelled: () -> Boolean = { false }) {
         val extractor = MediaExtractor()
         var muxer: MediaMuxer? = null
         try {
@@ -55,6 +55,7 @@ object Remux {
             while (true) {
                 info.size = extractor.readSampleData(buf, 0)
                 if (info.size < 0) break
+                if (isCancelled()) throw kotlinx.coroutines.CancellationException("remux cancelled")
                 info.offset = 0
                 info.presentationTimeUs = extractor.sampleTime
                 info.flags = if (extractor.sampleFlags and MediaExtractor.SAMPLE_FLAG_SYNC != 0) MediaCodec.BUFFER_FLAG_KEY_FRAME else 0

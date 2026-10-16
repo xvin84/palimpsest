@@ -126,12 +126,15 @@ class Downloads(
             return@withContext
         }
         set(trackId) { it.copy(state = DownloadState.RUNNING, progress = 0f) }
+        val job = currentCoroutineContext()[Job]
+        // Temp files of this attempt; whatever is still lying around at the end (skip, failure) gets deleted.
+        val temps = ArrayList<File>()
         try {
             val s = settings.state.filterNotNull().first()
             val provider = remote.providers[track.service] ?: error("Нет провайдера ${track.service}")
             val meta: RemoteTrack? = runCatching { provider.track(remoteId) }.getOrNull()
             val dir = File(s.downloadDir, serviceFolder(track.service)).apply { mkdirs() }
-            val tmp = File(dir, ".download-$trackId.part")
+            val tmp = File(dir, ".download-$trackId.part").also { temps += it }
             // Stream URLs are short-lived and YouTube occasionally rejects one with 403:
             // resolve a fresh link and try again before giving up.
             var attempt = 0
@@ -155,10 +158,14 @@ class Downloads(
             // Tags: everything we know, so the file stands on its own in any player.
             val cover = (meta?.coverUrl ?: track.coverUrl)?.let { url -> runCatching { get(url) }.getOrNull() }
             val lyrics = runCatching { provider.lyrics(remoteId) }.getOrNull()
-            val tagged = File(dir, ".download-$trackId.${info.extension}")
+            val tagged = File(dir, ".download-$trackId.${info.extension}").also { temps += it }
+            currentCoroutineContext().ensureActive()
             if (info.extension == "m4a" && Remux.isFragmentedMp4(tmp)) {
-                runCatching { Remux.toPlainMp4(tmp, tagged); tmp.delete() }
-                    .onFailure { Log.w(TAG, "remux failed, keeping fragmented file", it); tagged.delete(); tmp.renameTo(tagged) }
+                runCatching { Remux.toPlainMp4(tmp, tagged) { job?.isActive == false }; tmp.delete() }
+                    .onFailure {
+                        if (it is CancellationException) throw it
+                        Log.w(TAG, "remux failed, keeping fragmented file", it); tagged.delete(); tmp.renameTo(tagged)
+                    }
             } else {
                 tmp.renameTo(tagged)
             }
@@ -181,6 +188,7 @@ class Downloads(
                 )
             }.onFailure { Log.w(TAG, "tagging failed for ${tagged.name}: $it") }
 
+            currentCoroutineContext().ensureActive()
             val baseName = FileNames.sanitize("${track.artist} - ${track.title}")
             var target = File(dir, "$baseName.${info.extension}")
             // Never overwrite a file that isn't this track's own (another track's, or an unindexed one).
@@ -202,6 +210,8 @@ class Downloads(
             Log.w(TAG, "download $trackId failed", e)
             set(trackId) { it.copy(state = DownloadState.FAILED, message = e.message ?: e.toString()) }
             onFailure(e, "Скачивание «${track.title}»")
+        } finally {
+            temps.forEach { if (it.exists()) it.delete() }
         }
     }
 
@@ -276,7 +286,10 @@ class DownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
             // Track title and progress, refreshed a couple of times a second (Android drops faster updates anyway).
             val ticker = launch {
                 graph.downloads.items.sample(500).collect { items ->
-                    nm.notify(NOTIFICATION_ID, notification(items[ids.getOrNull(index)], index, ids.size))
+                    // Every tap on «Скачать» is its own work request, so count the whole queue, not this batch.
+                    val all = items.values
+                    val finished = all.count { it.state != DownloadState.QUEUED && it.state != DownloadState.RUNNING }
+                    nm.notify(NOTIFICATION_ID, notification(items[ids.getOrNull(index)], finished, all.size))
                 }
             }
             ids.forEachIndexed { i, id ->
