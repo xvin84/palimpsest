@@ -25,6 +25,11 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Palimpsest">
 
+        <!-- Android Auto: this app is a media app. -->
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -66,6 +71,7 @@
             <intent-filter>
                 <action android:name="android.intent.action.MEDIA_BUTTON" />
                 <action android:name="androidx.media3.session.MediaSessionService" />
+                <action android:name="androidx.media3.session.MediaLibraryService" />
                 <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
         </service>

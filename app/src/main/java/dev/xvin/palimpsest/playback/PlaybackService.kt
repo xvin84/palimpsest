@@ -19,7 +19,12 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
-import androidx.media3.session.MediaSessionService
+import androidx.media3.session.LibraryResult
+import androidx.media3.session.MediaLibraryService
+import androidx.media3.session.SessionError
+import com.google.common.collect.ImmutableList
+import com.google.common.util.concurrent.Futures
+import kotlinx.coroutines.flow.first
 import com.google.common.util.concurrent.ListenableFuture
 import dev.xvin.palimpsest.MainActivity
 import dev.xvin.palimpsest.PalimpsestApp
@@ -41,10 +46,14 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 @OptIn(UnstableApi::class)
-class PlaybackService : MediaSessionService() {
+class PlaybackService : MediaLibraryService() {
+    private companion object {
+        const val ROOT = "root"
+    }
+
     private val graph by lazy { (application as PalimpsestApp).graph }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private var session: MediaSession? = null
+    private var session: MediaLibrarySession? = null
     private lateinit var player: ExoPlayer
     private val history = HistoryTracker()
     private var skippedInARow = 0
@@ -81,9 +90,8 @@ class PlaybackService : MediaSessionService() {
             Intent(this, MainActivity::class.java).putExtra(MainActivity.EXTRA_OPEN_PLAYER, true),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        session = MediaSession.Builder(this, player)
+        session = MediaLibrarySession.Builder(this, player, SessionCallback())
             .setSessionActivity(activity)
-            .setCallback(SessionCallback())
             .build()
         setMediaNotificationProvider(
             DefaultMediaNotificationProvider.Builder(this).build().apply { setSmallIcon(R.drawable.ic_notification) },
@@ -131,7 +139,7 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
-    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
+    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         // Swiping the app away while paused stops the service; while playing, music keeps going.
@@ -284,7 +292,83 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
-    private inner class SessionCallback : MediaSession.Callback {
+    /**
+     * Browsing for Android Auto and other media browsers: Любимые, Плейлисты, Часто слушаю,
+     * Недавно добавленные — plus voice search over the library.
+     */
+    private inner class SessionCallback : MediaLibrarySession.Callback {
+        private fun folder(id: String, title: String, playable: Boolean = false) = MediaItem.Builder()
+            .setMediaId(id)
+            .setMediaMetadata(
+                androidx.media3.common.MediaMetadata.Builder().setTitle(title)
+                    .setIsBrowsable(true).setIsPlayable(playable)
+                    .setMediaType(androidx.media3.common.MediaMetadata.MEDIA_TYPE_FOLDER_MIXED).build(),
+            ).build()
+
+        override fun onGetLibraryRoot(
+            session: MediaLibrarySession,
+            browser: MediaSession.ControllerInfo,
+            params: LibraryParams?,
+        ): ListenableFuture<LibraryResult<MediaItem>> =
+            Futures.immediateFuture(LibraryResult.ofItem(folder(ROOT, "Palimpsest"), params))
+
+        override fun onGetChildren(
+            session: MediaLibrarySession,
+            browser: MediaSession.ControllerInfo,
+            parentId: String,
+            page: Int,
+            pageSize: Int,
+            params: LibraryParams?,
+        ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> = scope.future(Dispatchers.IO) {
+            val db = graph.db
+            val items: List<MediaItem> = when {
+                parentId == ROOT -> listOf(
+                    folder("liked", "Любимые"), folder("playlists", "Плейлисты"),
+                    folder("most", "Часто слушаю"), folder("recent", "Недавно добавленные"),
+                )
+                parentId == "liked" -> db.tracks().observeLiked().first().map(MediaItems::from)
+                parentId == "most" -> db.tracks().observeMostPlayed().first().map(MediaItems::from)
+                parentId == "recent" -> db.tracks().observeRecentlyAdded().first().map(MediaItems::from)
+                parentId == "playlists" -> db.playlists().observeAll().first().map { folder("pl:${it.id}", it.name) }
+                parentId.startsWith("pl:") -> db.playlists().observeTracks(parentId.removePrefix("pl:").toLong()).first().map(MediaItems::from)
+                else -> emptyList()
+            }
+            val from = (page * pageSize).coerceAtMost(items.size)
+            LibraryResult.ofItemList(items.subList(from, (from + pageSize).coerceAtMost(items.size)), params)
+        }
+
+        override fun onGetItem(
+            session: MediaLibrarySession,
+            browser: MediaSession.ControllerInfo,
+            mediaId: String,
+        ): ListenableFuture<LibraryResult<MediaItem>> = scope.future(Dispatchers.IO) {
+            val t = mediaId.toLongOrNull()?.let { graph.db.tracks().get(it) }
+            if (t != null) LibraryResult.ofItem(MediaItems.from(t), null) else LibraryResult.ofError(SessionError.ERROR_BAD_VALUE)
+        }
+
+        override fun onSearch(
+            session: MediaLibrarySession,
+            browser: MediaSession.ControllerInfo,
+            query: String,
+            params: LibraryParams?,
+        ): ListenableFuture<LibraryResult<Void>> = scope.future(Dispatchers.IO) {
+            session.notifySearchResultChanged(browser, query, graph.db.tracks().search(query).size, params)
+            LibraryResult.ofVoid()
+        }
+
+        override fun onGetSearchResult(
+            session: MediaLibrarySession,
+            browser: MediaSession.ControllerInfo,
+            query: String,
+            page: Int,
+            pageSize: Int,
+            params: LibraryParams?,
+        ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> = scope.future(Dispatchers.IO) {
+            val all = graph.db.tracks().search(query).map(MediaItems::from)
+            val from = (page * pageSize).coerceAtMost(all.size)
+            LibraryResult.ofItemList(all.subList(from, (from + pageSize).coerceAtMost(all.size)), params)
+        }
+
         /** Controllers send bare ids; turn them into playable items. */
         override fun onAddMediaItems(
             mediaSession: MediaSession,
