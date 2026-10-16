@@ -2,6 +2,18 @@
 
 **English** | [Русский](CHANGELOG.ru.md)
 
+## 0.3.1 — 2026-10-16
+
+### Changed
+- Lyrics are translated with Yandex Translate first (reachable from Russia without a VPN); Google is the fallback.
+- The Original · Both · Translation switch is a compact centred control that hides after 3 seconds and comes back
+  when you touch the lyrics. Under it you see what's going on: translating, already in your language, or why it failed.
+- In lyrics videos lines change smoothly: the current one grows and lights up, the previous one dims, the column
+  glides without jumps; before the song starts, the first line waits below the centre and eases in.
+
+### Fixed
+- After swiping the player down, the library flashed blurred for half a second.
+
 ## 0.3.0 — 2026-10-16
 
 ### New
