@@ -82,7 +82,7 @@ fun SearchScreen() {
             throw e
         } catch (e: Throwable) {
             failure = e
-            error = graph.errors.report(e, if (source == Service.YOUTUBE) "Поиск YouTube" else "Поиск Яндекс", show = false).title
+            error = graph.errors.report(e, if (source == Service.YOUTUBE) "Поиск YouTube" else "Поиск Яндекс", show = false)?.title
             remote = emptyList()
         }
         loading = false

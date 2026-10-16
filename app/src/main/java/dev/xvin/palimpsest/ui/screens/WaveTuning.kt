@@ -54,7 +54,8 @@ fun WaveTuningSheet(onDismiss: () -> Unit) {
             Group("Язык", w.language, listOf("" to "Любой", "russian" to "Русский", "not-russian" to "Иностранный", "without-words" to "Без слов")) { set(w.copy(language = it)) }
             Spacer(Modifier.height(16.dp))
             Button(onClick = {
-                scope.launch {
+                // The sheet closes right away, so its own scope would cancel the start mid-request.
+                graph.mainScope.launch {
                     graph.radio.start(RadioController.MY_WAVE, "Моя волна", w.seeds())
                         .onSuccess { nav.openPlayer() }.onFailure { nav.error(it, "Моя волна") }
                 }
@@ -67,7 +68,7 @@ fun WaveTuningSheet(onDismiss: () -> Unit) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     stations.take(40).forEach { st ->
                         Pill(st.name, false, {
-                            scope.launch {
+                            graph.mainScope.launch {
                                 graph.radio.start(st.seed, st.name).onSuccess { nav.openPlayer() }.onFailure { nav.error(it, st.name) }
                             }
                             onDismiss()

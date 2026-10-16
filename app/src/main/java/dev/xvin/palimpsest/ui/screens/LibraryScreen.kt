@@ -416,7 +416,7 @@ private fun MyWaveCard() {
                         .onSuccess { nav.openPlayer() }
                         .onFailure { e ->
                             // No network? Don't leave the user in silence — play the offline mix instead.
-                            if (graph.errors.report(e, "Моя волна", show = false).title == "Нет интернета" && graph.startOfflineWave()) {
+                            if (graph.errors.report(e, "Моя волна", show = false)?.title == "Нет интернета" && graph.startOfflineWave()) {
                                 nav.toast("Нет сети — включил офлайн-волну из скачанного")
                                 nav.openPlayer()
                             } else nav.error(e, "Моя волна")

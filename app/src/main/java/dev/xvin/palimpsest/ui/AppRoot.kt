@@ -201,7 +201,7 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
             override fun openWrapped() { nav.navigate(WrappedRoute) }
             override fun showActions(track: TrackEntity) { actionsFor = track }
             override fun toast(message: String) { toastMessage = message }
-            override fun error(t: Throwable, context: String) { errorShown = graph.errors.report(t, context, show = false) }
+            override fun error(t: Throwable, context: String) { graph.errors.report(t, context, show = false)?.let { errorShown = it } }
             override fun showError(info: dev.xvin.palimpsest.errors.ErrorInfo) { errorShown = info }
             override fun back() { if (playerOpen) playerOpen = false else nav.popBackStack() }
         }

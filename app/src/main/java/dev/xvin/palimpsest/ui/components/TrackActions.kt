@@ -93,7 +93,7 @@ fun TrackActionsSheet(initial: TrackEntity, onDismiss: () -> Unit) {
             if (t.remoteId != null && (t.path == null || t.updateAvailable)) {
                 Action(Icons.Rounded.Download, if (t.updateAvailable) "Скачать новую версию (старая сохранится)" else "Скачать") {
                     act {
-                        scope.launch { graph.downloads.enqueue(listOf(t.id)) }
+                        graph.appScope.launch { graph.downloads.enqueue(listOf(t.id)) }
                         nav.toast("Скачиваю «${t.title}»")
                     }
                 }
@@ -120,7 +120,7 @@ fun TrackActionsSheet(initial: TrackEntity, onDismiss: () -> Unit) {
         PlaylistPicker(
             onDismiss = { pickPlaylist = false },
             onPick = { p ->
-                scope.launch { graph.db.playlists().append(p.id, listOf(t.id)) }
+                graph.appScope.launch { graph.db.playlists().append(p.id, listOf(t.id)) }
                 nav.toast("Добавлено в «${p.name}»")
                 pickPlaylist = false
                 onDismiss()

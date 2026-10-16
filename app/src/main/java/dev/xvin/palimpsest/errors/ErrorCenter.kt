@@ -117,12 +117,20 @@ class ErrorCenter(private val context: Context) {
     /** Errors the UI should surface (as a snackbar with «Подробнее», or straight away). */
     val shown: SharedFlow<ErrorInfo> = _shown
 
-    fun report(t: Throwable, context: String? = null, show: Boolean = true): ErrorInfo {
+    /** Returns null when [t] is just a cancellation — nothing to show or log. */
+    fun report(t: Throwable, context: String? = null, show: Boolean = true): ErrorInfo? {
+        // A cancelled job (screen closed, user skipped) is not a failure; OkHttp surfaces it as a bare InterruptedIOException.
+        if (isCancellation(t)) return null
         val info = ErrorExplainer.explain(t, context, online())
         _log.update { (listOf(info) + it).take(MAX) }
         runCatching { persist() }
         if (show) _shown.tryEmit(info)
         return info
+    }
+
+    private fun isCancellation(t: Throwable): Boolean = generateSequence(t) { it.cause }.take(8).any {
+        it is kotlinx.coroutines.CancellationException ||
+            (it is java.io.InterruptedIOException && it !is SocketTimeoutException && it.message?.contains("timeout", true) != true)
     }
 
     private fun online(): Boolean = runCatching {
