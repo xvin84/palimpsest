@@ -33,8 +33,8 @@ enum class RenderAspect(val width: Int, val height: Int) { VERTICAL(1080, 1920),
  */
 enum class RenderQuality(val scale: Float, val fps: Int, val videoBitrate: Int, val audioBitrate: Int, val labelRes: Int) {
     STANDARD(1f, 30, 6_000_000, 256_000, dev.xvin.palimpsest.R.string.render_quality_standard),
-    HIGH(1f, 60, 10_000_000, 320_000, dev.xvin.palimpsest.R.string.render_quality_high),
-    MAX(4f / 3, 60, 16_000_000, 320_000, dev.xvin.palimpsest.R.string.render_quality_max);
+    HIGH(1f, 60, 8_000_000, 320_000, dev.xvin.palimpsest.R.string.render_quality_high),
+    MAX(4f / 3, 60, 12_000_000, 320_000, dev.xvin.palimpsest.R.string.render_quality_max);
 
     fun width(a: RenderAspect) = (a.width * scale).toInt() and 1.inv()
     fun height(a: RenderAspect) = (a.height * scale).toInt() and 1.inv()
@@ -223,7 +223,10 @@ class FrameRenderer(private val s: FrameSpec) {
             val base = (205 - dist * 38).coerceIn(50f, 170f)
             val layout = layoutFor(i, lines[i].text, big, width, center)
             // The sung line takes the track's colour, the rest stay white and fade with distance.
-            layout.paint.color = blend(Color.argb(base.toInt(), 255, 255, 255), s.accent, act)
+            val color = blend(Color.argb(base.toInt(), 255, 255, 255), s.accent, act)
+            layout.paint.color = color
+            // The shadow fades with the line, so dim lines stay clean instead of looking smudged.
+            layout.paint.setShadowLayer(9 * unit, 0f, 3 * unit, Color.argb(Color.alpha(color) * 2 / 3, 0, 0, 0))
             val sc = scales[j]
             c.save()
             // Scale around the line's horizontal anchor: its centre, or the left edge.
