@@ -40,7 +40,6 @@ import dev.xvin.palimpsest.ui.components.LocalGraph
 import dev.xvin.palimpsest.ui.components.Pill
 import dev.xvin.palimpsest.ui.components.SectionHeader
 import dev.xvin.palimpsest.ui.components.formatListening
-import dev.xvin.palimpsest.ui.components.pluralRu
 import dev.xvin.palimpsest.ui.theme.Ink
 import dev.xvin.palimpsest.ui.theme.LocalAccent
 import java.text.SimpleDateFormat
@@ -48,9 +47,12 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Date
 import java.util.Locale
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
+import dev.xvin.palimpsest.i18n.plural
 
 private enum class Period(val label: String, val days: Long?) {
-    WEEK("Неделя", 7), MONTH("Месяц", 30), YEAR("Год", 365), ALL("Всё время", null)
+    WEEK(tr(R.string.period_week), 7), MONTH(tr(R.string.period_month), 30), YEAR(tr(R.string.tag_year), 365), ALL(tr(R.string.period_all_time), null)
 }
 
 @Composable
@@ -71,8 +73,8 @@ fun StatsScreen() {
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(end = 8.dp)) {
-                Text("История", style = MaterialTheme.typography.displayMedium, modifier = Modifier.weight(1f).padding(start = 16.dp, top = 12.dp))
-                androidx.compose.material3.Button(onClick = nav::openWrapped, modifier = Modifier.padding(top = 12.dp)) { Text("Итоги ✦") }
+                Text(tr(R.string.tab_history), style = MaterialTheme.typography.displayMedium, modifier = Modifier.weight(1f).padding(start = 16.dp, top = 12.dp))
+                androidx.compose.material3.Button(onClick = nav::openWrapped, modifier = Modifier.padding(top = 12.dp)) { Text(tr(R.string.wrapped_button)) }
             }
         }
         item {
@@ -86,18 +88,18 @@ fun StatsScreen() {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 Column(Modifier.weight(1f)) {
                     Text(formatListening(totalMs), style = MaterialTheme.typography.headlineLarge, color = accent)
-                    Text("музыки", color = Ink.Muted, style = MaterialTheme.typography.labelMedium)
+                    Text(tr(R.string.stats_of_music), color = Ink.Muted, style = MaterialTheme.typography.labelMedium)
                 }
                 Column(Modifier.weight(1f)) {
                     Text("$totalPlays", style = MaterialTheme.typography.headlineLarge)
-                    Text(pluralRu(totalPlays, "прослушивание", "прослушивания", "прослушиваний").substringAfter(' '), color = Ink.Muted, style = MaterialTheme.typography.labelMedium)
+                    Text(plural(R.plurals.plays_word, totalPlays), color = Ink.Muted, style = MaterialTheme.typography.labelMedium)
                 }
             }
         }
         if (days.isNotEmpty()) item { DaysChart(days, period, Modifier.fillMaxWidth().height(120.dp).padding(16.dp)) }
 
         if (topTracks.isNotEmpty()) {
-            item { SectionHeader("Чаще всего") }
+            item { SectionHeader(tr(R.string.stats_top)) }
             itemsIndexed(topTracks.take(10)) { i, row ->
                 Row(
                     Modifier.fillMaxWidth().clickable(enabled = row.trackId != null) { row.trackId?.let { nav.openTrack(it, 0) } }
@@ -111,7 +113,7 @@ fun StatsScreen() {
             }
         }
         if (topArtists.isNotEmpty()) {
-            item { SectionHeader("Исполнители") }
+            item { SectionHeader(tr(R.string.lib_artists)) }
             itemsIndexed(topArtists) { i, row ->
                 Row(
                     Modifier.fillMaxWidth().clickable { nav.openArtist(row.label) }.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -124,8 +126,8 @@ fun StatsScreen() {
             }
         }
         if (recent.isNotEmpty()) {
-            item { SectionHeader("Недавно") }
-            val fmt = SimpleDateFormat("d MMM, HH:mm", Locale.forLanguageTag("ru"))
+            item { SectionHeader(tr(R.string.stats_recent)) }
+            val fmt = SimpleDateFormat("d MMM, HH:mm", Locale.getDefault())
             items(recent, key = { it.id }) { e ->
                 Row(
                     Modifier.fillMaxWidth().clickable(enabled = e.trackId != null) { e.trackId?.let { nav.openTrack(it, 0) } }
@@ -142,7 +144,7 @@ fun StatsScreen() {
         } else {
             item {
                 Text(
-                    "Здесь появится история: трек засчитывается после 30 секунд (или половины) прослушивания.",
+                    tr(R.string.stats_empty),
                     Modifier.padding(16.dp), color = Ink.Muted,
                 )
             }
@@ -176,7 +178,7 @@ private fun DaysChart(days: List<DayRow>, period: Period, modifier: Modifier) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
             Text(start.toString().substring(5).replace('-', '.'), style = MaterialTheme.typography.labelSmall, color = Ink.Faint)
             Spacer(Modifier.weight(1f))
-            Text("макс. ${formatListening(max)} в день", style = MaterialTheme.typography.labelSmall, color = Ink.Faint)
+            Text(tr(R.string.stats_max_per_day, formatListening(max)), style = MaterialTheme.typography.labelSmall, color = Ink.Faint)
         }
     }
 }

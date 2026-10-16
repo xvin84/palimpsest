@@ -59,20 +59,28 @@ data class EqProfile(
             )
         }
 
-        val FLAT = graphic("Без эквалайзера", List(10) { 0.0 })
+        val FLAT = graphic("Flat", List(10) { 0.0 })
 
         val PRESETS: List<EqProfile> = listOf(
             FLAT,
-            graphic("Бас", listOf(6.0, 5.0, 4.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0), preampDb = -5.0),
-            graphic("Рок", listOf(4.0, 3.0, 1.5, 0.0, -1.0, -0.5, 1.0, 2.5, 3.5, 4.0), preampDb = -4.0),
-            graphic("Электроника", listOf(5.0, 4.0, 1.0, 0.0, -2.0, 1.5, 0.5, 1.0, 4.0, 5.0), preampDb = -5.0),
-            graphic("Хип-хоп", listOf(5.0, 4.5, 1.5, 2.5, -1.0, -1.0, 1.0, -0.5, 1.5, 2.5), preampDb = -5.0),
-            graphic("Вокал", listOf(-2.0, -1.5, -1.0, 1.0, 3.0, 3.5, 3.0, 1.5, 0.0, -1.0), preampDb = -3.5),
-            graphic("Акустика", listOf(3.0, 2.5, 1.5, 0.5, 1.0, 1.0, 2.0, 2.5, 2.0, 1.5), preampDb = -3.0),
-            graphic("Классика", listOf(3.0, 2.0, 1.0, 0.0, 0.0, 0.0, -1.0, -1.5, -2.0, -3.0), preampDb = -3.0),
-            graphic("Громкость ночью", listOf(3.0, 2.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 2.0, 2.0), preampDb = -3.0),
-            graphic("Ярче", listOf(0.0, 0.0, 0.0, 0.0, 0.0, 0.5, 1.5, 3.0, 4.0, 4.5), preampDb = -4.5),
+            graphic("Bass", listOf(6.0, 5.0, 4.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0), preampDb = -5.0),
+            graphic("Rock", listOf(4.0, 3.0, 1.5, 0.0, -1.0, -0.5, 1.0, 2.5, 3.5, 4.0), preampDb = -4.0),
+            graphic("Electronic", listOf(5.0, 4.0, 1.0, 0.0, -2.0, 1.5, 0.5, 1.0, 4.0, 5.0), preampDb = -5.0),
+            graphic("Hip-hop", listOf(5.0, 4.5, 1.5, 2.5, -1.0, -1.0, 1.0, -0.5, 1.5, 2.5), preampDb = -5.0),
+            graphic("Vocal", listOf(-2.0, -1.5, -1.0, 1.0, 3.0, 3.5, 3.0, 1.5, 0.0, -1.0), preampDb = -3.5),
+            graphic("Acoustic", listOf(3.0, 2.5, 1.5, 0.5, 1.0, 1.0, 2.0, 2.5, 2.0, 1.5), preampDb = -3.0),
+            graphic("Classical", listOf(3.0, 2.0, 1.0, 0.0, 0.0, 0.0, -1.0, -1.5, -2.0, -3.0), preampDb = -3.0),
+            graphic("Night", listOf(3.0, 2.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 2.0, 2.0), preampDb = -3.0),
+            graphic("Brighter", listOf(0.0, 0.0, 0.0, 0.0, 0.0, 0.5, 1.5, 3.0, 4.0, 4.5), preampDb = -4.5),
         )
+
+        /** Built-in preset names before 0.3.0 (they were Russian) → current names, for saved settings. */
+        private val LEGACY_NAMES = mapOf(
+            "Без эквалайзера" to "Flat", "Бас" to "Bass", "Рок" to "Rock", "Электроника" to "Electronic", "Хип-хоп" to "Hip-hop",
+            "Вокал" to "Vocal", "Акустика" to "Acoustic", "Классика" to "Classical", "Громкость ночью" to "Night", "Ярче" to "Brighter",
+        )
+
+        fun canonicalName(name: String): String = LEGACY_NAMES[name] ?: name
     }
 }
 

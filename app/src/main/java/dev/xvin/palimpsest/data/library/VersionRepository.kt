@@ -13,6 +13,8 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
 
 /**
  * Track version history. Old audio is moved to `<music root>/.palimpsest/versions/<trackId>/`
@@ -38,7 +40,7 @@ class VersionRepository(
     private fun stamp() = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.ROOT).format(Date())
 
     private fun humanDate(at: Long = System.currentTimeMillis()) =
-        SimpleDateFormat("d MMMM yyyy", Locale.forLanguageTag("ru")).format(Date(at))
+        SimpleDateFormat("d MMMM yyyy", Locale.getDefault()).format(Date(at))
 
     /**
      * Puts freshly downloaded audio [incoming] at the track's place. If the track already has a
@@ -59,7 +61,7 @@ class VersionRepository(
             incoming.delete()
             return@withContext ReplaceResult.Identical
         }
-        val archived = if (keep) archive(track, existing, oldFp, "Была текущей до ${humanDate()}") else { existing.delete(); null }
+        val archived = if (keep) archive(track, existing, oldFp, tr(R.string.version_note_was_current, humanDate())) else { existing.delete(); null }
         // New file takes the old file's place (same name, so playlists in other players keep working).
         val dest = if (existing.extension.equals(target.extension, true)) existing else target
         moveFile(incoming, dest)
@@ -97,14 +99,14 @@ class VersionRepository(
     suspend fun restore(track: TrackEntity, version: TrackVersionEntity) = withContext(Dispatchers.IO) {
         val current = track.path?.let(::File)?.takeIf { it.isFile } ?: return@withContext
         val old = File(version.path).takeIf { it.isFile } ?: return@withContext
-        val archived = archive(track, current, Versions.audioFingerprint(current), "Заменена восстановленной версией")
+        val archived = archive(track, current, Versions.audioFingerprint(current), tr(R.string.version_note_replaced_by_restore))
         val dest = if (current.extension.equals(old.extension, true)) current else File(current.parentFile, current.nameWithoutExtension + "." + old.extension)
         old.copyTo(dest, overwrite = true)
         if (dest != current) current.delete()
         db.versions().delete(version.id)
         File(version.path).delete()
         if (dest.absolutePath != track.path) db.tracks().update(track.copy(path = dest.absolutePath))
-        recordCurrent(track.id, dest, "Восстановлена из истории (${humanDate(version.createdAt)})")
+        recordCurrent(track.id, dest, tr(R.string.version_note_restored, humanDate(version.createdAt)))
         scanner.rescanFile(dest.absolutePath)
         archived
     }

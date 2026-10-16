@@ -21,6 +21,8 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import javax.net.ssl.SSLException
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
 
 /** A failure explained for humans: what happened, what to try, and the raw details to copy. */
 data class ErrorInfo(
@@ -47,46 +49,46 @@ object ErrorExplainer {
         val networkish = chain.any { it is java.io.IOException } || playback != null
         return when {
             !online && networkish ->
-                info("Нет интернета", "Телефон сейчас не в сети.",
-                    "Включи Wi-Fi или мобильный интернет.", "Без сети играют скачанные треки — фильтр «Скачанные» в медиатеке.")
+                info(tr(R.string.err_offline_title), tr(R.string.err_offline_expl),
+                    tr(R.string.err_offline_hint_1), tr(R.string.err_offline_hint_2))
             chain.any { it is AuthRequiredException } || "401" in lower ->
-                info("Нужно войти заново", "Сервис не принял сохранённый вход — токен устарел или был отозван.",
-                    "Сервисы → Яндекс.Музыка → Выйти, затем снова «Войти».")
+                info(tr(R.string.err_auth_title), tr(R.string.err_auth_expl),
+                    tr(R.string.err_auth_hint))
             chain.any { it is UnknownHostException } || "unable to resolve host" in lower ->
-                info("Нет интернета или сервер недоступен", "Телефон не смог найти адрес сервера.",
-                    "Проверь, что есть интернет.",
-                    if (youtube || spotify) "YouTube и Spotify в России часто доступны только через VPN — включи его или укажи прокси в Настройки → Сеть." else "Если включён VPN — попробуй выключить его или сменить сервер.")
+                info(tr(R.string.err_dns_title), tr(R.string.err_dns_expl),
+                    tr(R.string.err_dns_hint),
+                    if (youtube || spotify) tr(R.string.err_blocked_hint) else tr(R.string.err_vpn_hint))
             chain.any { it is SocketTimeoutException || it is ConnectException } || "timeout" in lower || "network is unreachable" in lower || "failed to connect" in lower ->
-                info("Сервер не отвечает", "Соединение не установилось вовремя.",
-                    "Проверь интернет и попробуй ещё раз.",
-                    if (youtube || spotify) "Похоже на блокировку: включи VPN или прокси (Настройки → Сеть)." else "Если используешь VPN или прокси — проверь, что они работают.")
+                info(tr(R.string.err_timeout_title), tr(R.string.err_timeout_expl),
+                    tr(R.string.err_timeout_hint),
+                    if (youtube || spotify) tr(R.string.err_timeout_blocked) else tr(R.string.err_timeout_vpn))
             chain.any { it is SSLException } ->
-                info("Не удалось установить защищённое соединение", "Обычно это вмешательство сети: провайдер, VPN или прокси.",
-                    "Попробуй другой VPN-сервер или выключи прокси.", "Проверь, что на телефоне правильные дата и время.")
+                info(tr(R.string.err_ssl_title), tr(R.string.err_ssl_expl),
+                    tr(R.string.err_ssl_hint_1), tr(R.string.err_ssl_hint_2))
             "429" in lower || "recaptcha" in lower || "too many" in lower ->
-                info("Слишком много запросов", "Сервис временно ограничил доступ.",
-                    "Подожди несколько минут.", if (youtube) "Смена VPN-сервера обычно помогает сразу." else "Не запускай много загрузок одновременно.")
+                info(tr(R.string.err_rate_title), tr(R.string.err_rate_expl),
+                    tr(R.string.err_rate_hint), if (youtube) tr(R.string.err_rate_youtube) else tr(R.string.err_rate_other))
             "403" in lower ->
-                info("Сервис отказал в доступе", if (youtube) "YouTube не отдал этот поток (ограничение региона или защита от ботов)." else "Трек недоступен для твоего аккаунта или региона.",
-                    if (youtube) "Попробуй ещё раз или через VPN — ссылки YouTube иногда отклоняются случайно." else "Для lossless и части треков в Яндексе нужна подписка Плюс.",
-                    "Если повторяется — пришли подробности.")
+                info(tr(R.string.err_forbidden_title), if (youtube) tr(R.string.err_forbidden_youtube) else tr(R.string.err_forbidden_other),
+                    if (youtube) tr(R.string.err_forbidden_youtube_hint) else tr(R.string.err_forbidden_plus_hint),
+                    tr(R.string.err_send_details))
             "404" in lower || chain.any { it is FileNotFoundException && "/storage" !in (it.message ?: "") } ->
-                info("Не найдено", "Трека или страницы больше нет на сервисе.", "Возможно, его удалили или перезалили — попробуй найти поиском.")
+                info(tr(R.string.err_not_found_title), tr(R.string.err_not_found_expl), tr(R.string.err_not_found_hint))
             "enospc" in lower || "no space" in lower ->
-                info("Закончилось место", "На телефоне нет свободного места для файла.", "Освободи место или выбери другую папку загрузок в настройках.")
+                info(tr(R.string.err_space_title), tr(R.string.err_space_expl), tr(R.string.err_space_hint))
             "eacces" in lower || "permission denied" in lower || chain.any { it is SecurityException } ->
-                info("Нет доступа к файлам", "Android не дал приложению записать или прочитать файл.",
-                    "Настройки Android → Приложения → Palimpsest → Разрешения → «Все файлы».")
+                info(tr(R.string.err_access_title), tr(R.string.err_access_expl),
+                    tr(R.string.err_access_hint))
             "cannotwrite" in lower || "cannotread" in lower || "jaudiotagger" in lower ->
-                info("Не получилось прочитать или записать теги", "Файл повреждён, занят другим приложением или его формат не поддерживает теги.",
-                    "Попробуй ещё раз, закрыв другие плееры.", "Формат WebM теги не поддерживает — скачай трек заново как M4A.")
+                info(tr(R.string.err_tags_title), tr(R.string.err_tags_expl),
+                    tr(R.string.err_tags_hint_1), tr(R.string.err_tags_hint_2))
             playback != null && playback.errorCode in PlaybackException.ERROR_CODE_DECODING_FAILED..PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED ->
-                info("Файл не воспроизводится", "Телефон не умеет декодировать этот формат или файл повреждён.", "Проверь файл в другом плеере.", "Если это загрузка — скачай трек заново.")
+                info(tr(R.string.err_decode_title), tr(R.string.err_decode_expl), tr(R.string.err_decode_hint_1), tr(R.string.err_decode_hint_2))
             playback != null && playback.errorCode in PlaybackException.ERROR_CODE_IO_UNSPECIFIED..PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE ->
-                info("Трек не загрузился", "Не удалось получить звук — нет сети или сервис не отдал поток.",
-                    "Проверь интернет; без сети играют только скачанные треки (фильтр «Скачанные»).",
-                    if (youtube) "Для YouTube может понадобиться VPN." else "Скачай трек, чтобы слушать его офлайн.")
-            else -> info("Что-то пошло не так", t.message?.take(200) ?: t.javaClass.simpleName, "Попробуй ещё раз.", "Если повторяется — скопируй подробности и пришли их.")
+                info(tr(R.string.err_io_title), tr(R.string.err_io_expl),
+                    tr(R.string.err_io_hint),
+                    if (youtube) tr(R.string.err_io_youtube) else tr(R.string.err_io_download))
+            else -> info(tr(R.string.err_generic_title), t.message?.take(200) ?: t.javaClass.simpleName, tr(R.string.err_generic_hint), tr(R.string.err_generic_send))
         }
     }
 
@@ -97,7 +99,7 @@ object ErrorExplainer {
         return buildString {
             appendLine("Palimpsest ${BuildConfig.VERSION_NAME} · ${Build.MANUFACTURER} ${Build.MODEL} · Android ${Build.VERSION.RELEASE}")
             appendLine(SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ROOT).format(Date()))
-            context?.let { appendLine("Где: $it") }
+            context?.let { appendLine(tr(R.string.err_where, it)) }
             appendLine()
             append(trace)
         }

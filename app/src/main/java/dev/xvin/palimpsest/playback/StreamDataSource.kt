@@ -18,6 +18,8 @@ import kotlinx.coroutines.runBlocking
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import javax.crypto.Cipher
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
 
 /** `palimpsest://YANDEX/12345` → a real, short-lived stream URL. */
 class StreamResolver(
@@ -30,7 +32,7 @@ class StreamResolver(
     suspend fun resolve(service: Service, id: String): StreamInfo {
         val key = "$service:$id"
         cache[key]?.takeIf { it.expiresAt > System.currentTimeMillis() }?.let { return it.info }
-        val provider = providers[service] ?: throw IOException("Нет провайдера для $service")
+        val provider = providers[service] ?: throw IOException(tr(R.string.stream_no_provider, service))
         val info = provider.resolveStream(id, quality())
         // Signed links live for a while; refresh well before they expire.
         cache[key] = Entry(info, System.currentTimeMillis() + 10 * 60_000)
@@ -72,12 +74,12 @@ class ResolvingStreamDataSource(
     override fun addTransferListener(transferListener: TransferListener) { listeners += transferListener }
 
     override fun open(dataSpec: DataSpec): Long {
-        val (service, id) = StreamResolver.parse(dataSpec.uri) ?: throw IOException("Неизвестный URI ${dataSpec.uri}")
+        val (service, id) = StreamResolver.parse(dataSpec.uri) ?: throw IOException(tr(R.string.stream_unknown_uri, dataSpec.uri))
         val info = try {
             runBlocking(Dispatchers.IO) { resolver.resolve(service, id) }
         } catch (e: Throwable) {
             // Extractor bugs can surface as Errors; on the loader thread those would crash the app.
-            throw IOException("Не удалось получить поток: ${e.message ?: e.javaClass.simpleName}", e)
+            throw IOException(tr(R.string.stream_failed, e.message ?: e.javaClass.simpleName), e)
         }
         val real = dataSpec.buildUpon()
             .setUri(Uri.parse(info.url))

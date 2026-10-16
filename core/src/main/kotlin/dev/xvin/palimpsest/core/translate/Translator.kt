@@ -32,7 +32,7 @@ class Translator(private val http: OkHttpClient = Http.client) {
                     .header("User-Agent", "Mozilla/5.0")
                     .build(),
             ).fetch()
-            if (!r.isSuccessful) throw ProviderException("Перевод не удался: HTTP ${r.code}")
+            if (!r.isSuccessful) throw ProviderException("Translation failed: HTTP ${r.code}")
             val (text, lang) = parse(r.body)
             detected = detected ?: lang
             val translated = text.split("\n")

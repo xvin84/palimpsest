@@ -44,6 +44,8 @@ import dev.xvin.palimpsest.ui.components.Pill
 import dev.xvin.palimpsest.ui.components.SectionHeader
 import dev.xvin.palimpsest.ui.theme.Ink
 import kotlinx.coroutines.launch
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
 
 @Composable
 fun OnboardingScreen(onFullAccess: () -> Unit, onReadOnly: () -> Unit) {
@@ -51,21 +53,21 @@ fun OnboardingScreen(onFullAccess: () -> Unit, onReadOnly: () -> Unit) {
         Text("Palimpsest", style = MaterialTheme.typography.displayLarge)
         Spacer(Modifier.height(8.dp))
         Text(
-            "Плеер, в котором ничего не стирается: старые версии треков остаются под новыми, как текст на палимпсесте.",
+            tr(R.string.app_tagline),
             style = MaterialTheme.typography.bodyLarge, color = Ink.Muted,
         )
         Spacer(Modifier.height(32.dp))
-        Text("Нужен доступ к музыке", style = MaterialTheme.typography.titleLarge)
+        Text(tr(R.string.perm_title), style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(8.dp))
         Text(
-            "Полный доступ к файлам позволяет редактировать теги и обложки, читать .lrc-тексты и хранить версии треков. " +
-                "Без него приложение сможет только слушать.",
+            tr(R.string.perm_body_1) +
+                tr(R.string.perm_body_2),
             style = MaterialTheme.typography.bodyMedium, color = Ink.Muted,
         )
         Spacer(Modifier.height(20.dp))
-        Button(onClick = onFullAccess, modifier = Modifier.fillMaxWidth()) { Text("Дать полный доступ") }
+        Button(onClick = onFullAccess, modifier = Modifier.fillMaxWidth()) { Text(tr(R.string.perm_grant_full)) }
         Spacer(Modifier.height(8.dp))
-        OutlinedButton(onClick = onReadOnly, modifier = Modifier.fillMaxWidth()) { Text("Только чтение музыки") }
+        OutlinedButton(onClick = onReadOnly, modifier = Modifier.fillMaxWidth()) { Text(tr(R.string.perm_read_only)) }
     }
 }
 
@@ -81,17 +83,17 @@ fun SettingsScreen() {
 
     Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = nav::back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Назад") }
-            Text("Настройки", style = MaterialTheme.typography.headlineMedium)
+            IconButton(onClick = nav::back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, tr(R.string.back)) }
+            Text(tr(R.string.settings), style = MaterialTheme.typography.headlineMedium)
         }
 
-        SectionHeader("Папки с музыкой")
+        SectionHeader(tr(R.string.settings_music_folders))
         settings.musicRoots.forEach { root ->
             Row(Modifier.fillMaxWidth().padding(start = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(root, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                 if (settings.musicRoots.size > 1) IconButton(onClick = {
                     scope.launch { graph.settings.setMusicRoots(settings.musicRoots - root); graph.scanner.scan() }
-                }) { Icon(Icons.Rounded.Close, "Убрать", tint = Ink.Muted) }
+                }) { Icon(Icons.Rounded.Close, tr(R.string.remove), tint = Ink.Muted) }
             }
         }
         Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -100,165 +102,165 @@ fun SettingsScreen() {
                 val r = newRoot.trim().trimEnd('/')
                 if (r.isNotEmpty()) scope.launch { graph.settings.setMusicRoots((settings.musicRoots + r).distinct()); graph.scanner.scan() }
                 newRoot = ""
-            }) { Text("Добавить") }
+            }) { Text(tr(R.string.add)) }
         }
         Row(Modifier.padding(horizontal = 8.dp)) {
-            TextButton(onClick = nav::openDuplicates) { Text("Найти дубликаты") }
+            TextButton(onClick = nav::openDuplicates) { Text(tr(R.string.settings_find_duplicates)) }
             val cov by graph.covers.progress.collectAsStateWithLifecycle()
             TextButton(enabled = !cov.running, onClick = { graph.appScope.launch { graph.covers.run() } }) {
-                Text(if (cov.running) "Обложки: ${cov.done}/${cov.total}, найдено ${cov.found}" else "Найти обложки")
+                Text(if (cov.running) tr(R.string.covers_progress, cov.done, cov.total, cov.found) else tr(R.string.settings_find_covers))
             }
         }
         Row(Modifier.padding(horizontal = 8.dp)) {
-            TextButton(onClick = { scope.launch { graph.scanner.scan() } }) { Text("Обновить медиатеку") }
-            TextButton(onClick = { scope.launch { graph.scanner.scan(force = true) } }) { Text("Перечитать все теги") }
+            TextButton(onClick = { scope.launch { graph.scanner.scan() } }) { Text(tr(R.string.settings_refresh_library)) }
+            TextButton(onClick = { scope.launch { graph.scanner.scan(force = true) } }) { Text(tr(R.string.settings_reread_tags)) }
         }
 
-        SectionHeader("Скачивание")
+        SectionHeader(tr(R.string.settings_downloading))
         var downloadDir by remember(settings.downloadDir) { mutableStateOf(settings.downloadDir) }
         Text(
-            "Куда сохранять: внутри будут папки «Яндекс» и «YouTube». Можно указать, например, …/Music/Murglar, " +
-                "чтобы новые треки лежали рядом со старыми.",
+            tr(R.string.settings_download_dir_hint_1) +
+                tr(R.string.settings_download_dir_hint_2),
             Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = Ink.Muted,
         )
         Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(downloadDir, { downloadDir = it }, Modifier.weight(1f), singleLine = true, label = { Text("Папка загрузок") })
+            OutlinedTextField(downloadDir, { downloadDir = it }, Modifier.weight(1f), singleLine = true, label = { Text(tr(R.string.settings_download_dir)) })
             TextButton(
                 enabled = downloadDir.isNotBlank() && downloadDir != settings.downloadDir,
                 onClick = { scope.launch { graph.settings.setDownloadDir(downloadDir.trim().trimEnd('/')) } },
-            ) { Text("Сохранить") }
+            ) { Text(tr(R.string.save)) }
         }
         Spacer(Modifier.height(10.dp))
-        Text("Качество", Modifier.padding(horizontal = 16.dp))
+        Text(tr(R.string.settings_quality), Modifier.padding(horizontal = 16.dp))
         Row(Modifier.padding(16.dp, 8.dp), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
-            mapOf(Quality.LOSSLESS to "Lossless (FLAC)", Quality.HIGH to "Высокое", Quality.NORMAL to "Экономия").forEach { (q, label) ->
+            mapOf(Quality.LOSSLESS to "Lossless (FLAC)", Quality.HIGH to tr(R.string.quality_high), Quality.NORMAL to tr(R.string.quality_saver)).forEach { (q, label) ->
                 Pill(label, settings.quality == q, { scope.launch { graph.settings.setQuality(q) } })
             }
         }
         ToggleRow(
-            "Хранить старые версии",
-            "При перезаливке трека старый файл переезжает в историю версий, а не удаляется",
+            tr(R.string.settings_keep_versions),
+            tr(R.string.settings_keep_versions_hint),
             settings.keepVersions,
         ) { scope.launch { graph.settings.setKeepVersions(it) } }
 
         ToggleRow(
-            "Фоновая синхронизация",
-            "Каждые 3 часа: лайки и плейлисты Яндекса, проверка перезалитых треков",
+            tr(R.string.settings_background_sync),
+            tr(R.string.settings_background_sync_hint),
             settings.autoSync,
         ) { scope.launch { graph.settings.setAutoSync(it) } }
         ToggleRow(
-            "Скачивать избранное сразу",
-            "♥ в приложении — трек сразу скачивается; лайки из официального приложения — при синхронизации",
+            tr(R.string.settings_auto_download_likes),
+            tr(R.string.settings_auto_download_likes_hint),
             settings.autoDownloadLikes,
         ) { scope.launch { graph.settings.setAutoDownloadLikes(it) } }
 
-        SectionHeader("Громкость")
-        Text("Выравнивание громкости (ReplayGain)", Modifier.padding(horizontal = 16.dp))
+        SectionHeader(tr(R.string.settings_volume))
+        Text(tr(R.string.settings_replaygain), Modifier.padding(horizontal = 16.dp))
         Row(Modifier.padding(16.dp, 8.dp), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
             ReplayGainMode.entries.forEach { m -> Pill(m.label, settings.replayGain == m, { scope.launch { graph.settings.setReplayGain(m) } }) }
         }
-        Text("Предусиление: %+.1f дБ".format(settings.replayGainPreampDb), Modifier.padding(horizontal = 16.dp), color = Ink.Muted)
+        Text(tr(R.string.preamp_db).format(settings.replayGainPreampDb), Modifier.padding(horizontal = 16.dp), color = Ink.Muted)
         Slider(
             settings.replayGainPreampDb, { v -> scope.launch { graph.settings.setReplayGainPreamp((v * 2).toInt() / 2f) } },
             valueRange = -6f..12f, modifier = Modifier.padding(horizontal = 16.dp),
         )
 
-        Text("Плавные переходы: ${if (settings.fadeSec == 0) "выкл." else "${settings.fadeSec} с"}", Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
-        Text("Конец трека затухает, следующий плавно нарастает", Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
+        Text(tr(R.string.settings_fade, if (settings.fadeSec == 0) tr(R.string.settings_fade_off) else tr(R.string.settings_fade_sec, settings.fadeSec)), Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+        Text(tr(R.string.settings_fade_hint), Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
         Slider(
             settings.fadeSec.toFloat(), { v -> scope.launch { graph.settings.setFadeSec(v.toInt()) } },
             valueRange = 0f..12f, steps = 11, modifier = Modifier.padding(horizontal = 16.dp),
         )
 
-        SectionHeader("Внешний вид")
-        ToggleRow("Цвет из обложки", "Акцентный цвет подстраивается под текущий трек", settings.dynamicColor) {
+        SectionHeader(tr(R.string.settings_appearance))
+        ToggleRow(tr(R.string.settings_cover_color), tr(R.string.settings_cover_color_hint), settings.dynamicColor) {
             scope.launch { graph.settings.setDynamicColor(it) }
         }
 
-        SectionHeader("Сеть")
+        SectionHeader(tr(R.string.settings_network))
         Text(
-            "Прокси только для YouTube и Spotify (например, 127.0.0.1:10808 или socks://host:port). Яндекс и остальное ходят напрямую.",
+            tr(R.string.settings_proxy_hint),
             Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = Ink.Muted,
         )
         Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(proxy, { proxy = it }, Modifier.weight(1f), singleLine = true, label = { Text("host:port") })
-            TextButton(onClick = { scope.launch { graph.settings.setProxy(proxy) } }) { Text("Сохранить") }
+            TextButton(onClick = { scope.launch { graph.settings.setProxy(proxy) } }) { Text(tr(R.string.save)) }
         }
 
-        SectionHeader("Скробблинг")
+        SectionHeader(tr(R.string.settings_scrobbling))
         var lbToken by remember { mutableStateOf("") }
         var lbError by remember { mutableStateOf<String?>(null) }
         if (settings.listenBrainzToken != null) {
             Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("ListenBrainz: ${settings.listenBrainzUser ?: "подключено"}", Modifier.weight(1f))
-                TextButton(onClick = { scope.launch { graph.settings.setListenBrainz(null, null) } }) { Text("Отключить") }
+                TextButton(onClick = { scope.launch { graph.settings.setListenBrainz(null, null) } }) { Text(tr(R.string.turn_off)) }
             }
         } else {
             Text(
-                "ListenBrainz — открытая замена Last.fm. Токен: listenbrainz.org/settings. Прослушивания копятся офлайн и уходят при появлении сети.",
+                tr(R.string.settings_listenbrainz_hint),
                 Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = Ink.Muted,
             )
             Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(lbToken, { lbToken = it }, Modifier.weight(1f), singleLine = true, label = { Text("Токен ListenBrainz") })
+                OutlinedTextField(lbToken, { lbToken = it }, Modifier.weight(1f), singleLine = true, label = { Text(tr(R.string.settings_listenbrainz_token)) })
                 TextButton(enabled = lbToken.isNotBlank(), onClick = {
                     scope.launch {
                         val user = runCatching { graph.listenBrainz.validate(lbToken.trim()) }.getOrNull()
-                        if (user == null) lbError = "Токен не подошёл" else {
+                        if (user == null) lbError = tr(R.string.settings_token_rejected) else {
                             lbError = null
                             graph.settings.setListenBrainz(lbToken.trim(), user)
                         }
                     }
-                }) { Text("Подключить") }
+                }) { Text(tr(R.string.connect)) }
             }
             lbError?.let { Text(it, Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.error) }
         }
 
-        SectionHeader("Резервная копия")
+        SectionHeader(tr(R.string.backup))
         var backups by remember { mutableStateOf<List<java.io.File>>(emptyList()) }
         var confirmRestore by remember { mutableStateOf<java.io.File?>(null) }
         androidx.compose.runtime.LaunchedEffect(Unit) { backups = graph.backups.list() }
         Text(
-            "Медиатека, история, плейлисты, версии и настройки (без токенов входа). Лежит в Music/.palimpsest/backups — переживёт переустановку. Автоматически раз в неделю.",
+            tr(R.string.backup_hint),
             Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = Ink.Muted,
         )
         TextButton(onClick = {
             scope.launch {
-                runCatching { graph.backups.create() }.onSuccess { nav.toast("Копия сохранена: ${it.name}") }.onFailure { nav.error(it, "Резервная копия") }
+                runCatching { graph.backups.create() }.onSuccess { nav.toast(tr(R.string.backup_saved, it.name)) }.onFailure { nav.error(it, tr(R.string.backup)) }
                 backups = graph.backups.list()
             }
-        }, modifier = Modifier.padding(horizontal = 8.dp)) { Text("Создать копию сейчас") }
+        }, modifier = Modifier.padding(horizontal = 8.dp)) { Text(tr(R.string.backup_now)) }
         backups.take(5).forEach { f ->
             Row(Modifier.fillMaxWidth().padding(start = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(f.name.removePrefix("palimpsest-").removeSuffix(".zip").replace('_', ' '), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                TextButton(onClick = { confirmRestore = f }) { Text("Восстановить") }
+                TextButton(onClick = { confirmRestore = f }) { Text(tr(R.string.restore)) }
             }
         }
         confirmRestore?.let { f ->
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { confirmRestore = null },
                 containerColor = Ink.Paper2,
-                title = { Text("Восстановить копию?") },
-                text = { Text("Текущая медиатека, история и плейлисты заменятся содержимым копии ${f.name}. Приложение перезапустится. Файлы музыки не трогаются.") },
-                confirmButton = { TextButton(onClick = { graph.appScope.launch { runCatching { graph.backups.restore(f) } } }) { Text("Восстановить") } },
-                dismissButton = { TextButton(onClick = { confirmRestore = null }) { Text("Отмена") } },
+                title = { Text(tr(R.string.backup_restore_title)) },
+                text = { Text(tr(R.string.backup_restore_body, f.name)) },
+                confirmButton = { TextButton(onClick = { graph.appScope.launch { runCatching { graph.backups.restore(f) } } }) { Text(tr(R.string.restore)) } },
+                dismissButton = { TextButton(onClick = { confirmRestore = null }) { Text(tr(R.string.cancel)) } },
             )
         }
 
-        SectionHeader("Помощь")
+        SectionHeader(tr(R.string.settings_help))
         val errorCount by graph.errors.log.collectAsStateWithLifecycle()
         Row(Modifier.fillMaxWidth().clickable { nav.openErrors() }.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Журнал ошибок")
+                Text(tr(R.string.error_log))
                 Text(
-                    if (errorCount.isEmpty()) "Пусто" else "Записей: ${errorCount.size} — с объяснениями и подробностями для копирования",
+                    if (errorCount.isEmpty()) tr(R.string.empty) else tr(R.string.error_log_count, errorCount.size),
                     style = MaterialTheme.typography.bodySmall, color = Ink.Muted,
                 )
             }
         }
 
-        SectionHeader("О приложении")
+        SectionHeader(tr(R.string.settings_about))
         Text(
-            "Palimpsest 0.1 · Kotlin, Jetpack Compose, Media3.\nЯндекс.Музыка — через неофициальный API, YouTube — через NewPipe Extractor, тексты — LRCLIB.",
+            tr(R.string.about_body, dev.xvin.palimpsest.BuildConfig.VERSION_NAME),
             Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = Ink.Muted,
         )
     }

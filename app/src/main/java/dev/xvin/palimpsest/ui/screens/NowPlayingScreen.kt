@@ -107,6 +107,9 @@ import dev.xvin.palimpsest.ui.components.techLine
 import dev.xvin.palimpsest.ui.theme.Ink
 import dev.xvin.palimpsest.ui.theme.LocalAccent
 import kotlinx.coroutines.launch
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
+import dev.xvin.palimpsest.i18n.label
 
 @Composable
 fun NowPlayingScreen(onClose: () -> Unit) {
@@ -188,23 +191,23 @@ fun NowPlayingScreen(onClose: () -> Unit) {
 
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onClose) { Icon(Icons.Rounded.KeyboardArrowDown, "Свернуть", Modifier.size(30.dp)) }
+                IconButton(onClick = onClose) { Icon(Icons.Rounded.KeyboardArrowDown, tr(R.string.collapse), Modifier.size(30.dp)) }
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(station?.title?.uppercase() ?: "СЕЙЧАС ИГРАЕТ", style = MaterialTheme.typography.labelSmall, color = if (station != null) accent else Ink.Muted, maxLines = 1)
+                    Text(station?.title?.uppercase() ?: tr(R.string.now_playing_caps), style = MaterialTheme.typography.labelSmall, color = if (station != null) accent else Ink.Muted, maxLines = 1)
                     Text(
-                        track?.let { techLine(it) } ?: "Внешний файл",
+                        track?.let { techLine(it) } ?: tr(R.string.external_file),
                         style = MaterialTheme.typography.labelSmall, color = Ink.Faint, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                 }
                 Box {
-                    IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, "Ещё") }
+                    IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, tr(R.string.more)) }
                     DropdownMenu(menu, onDismissRequest = { menu = false }) {
-                        DropdownMenuItem(text = { Text("Таймер сна") }, leadingIcon = { Icon(Icons.Rounded.Bedtime, null) }, onClick = { menu = false; showSleep = true })
-                        DropdownMenuItem(text = { Text("Скорость и тон") }, leadingIcon = { Icon(Icons.Rounded.Speed, null) }, onClick = { menu = false; showSpeed = true })
-                        DropdownMenuItem(text = { Text("Эквалайзер") }, leadingIcon = { Icon(Icons.Rounded.Equalizer, null) }, onClick = { menu = false; nav.openEqualizer() })
-                        DropdownMenuItem(text = { Text("Поделиться карточкой") }, leadingIcon = { Icon(Icons.Rounded.Share, null) }, onClick = { menu = false; showShare = true })
+                        DropdownMenuItem(text = { Text(tr(R.string.sleep_timer)) }, leadingIcon = { Icon(Icons.Rounded.Bedtime, null) }, onClick = { menu = false; showSleep = true })
+                        DropdownMenuItem(text = { Text(tr(R.string.speed_pitch)) }, leadingIcon = { Icon(Icons.Rounded.Speed, null) }, onClick = { menu = false; showSpeed = true })
+                        DropdownMenuItem(text = { Text(tr(R.string.equalizer)) }, leadingIcon = { Icon(Icons.Rounded.Equalizer, null) }, onClick = { menu = false; nav.openEqualizer() })
+                        DropdownMenuItem(text = { Text(tr(R.string.share_card_action)) }, leadingIcon = { Icon(Icons.Rounded.Share, null) }, onClick = { menu = false; showShare = true })
                         track?.let { t ->
-                            DropdownMenuItem(text = { Text("Действия с треком") }, onClick = { menu = false; nav.showActions(t) })
+                            DropdownMenuItem(text = { Text(tr(R.string.track_actions)) }, onClick = { menu = false; nav.showActions(t) })
                         }
                     }
                 }
@@ -285,9 +288,9 @@ fun NowPlayingScreen(onClose: () -> Unit) {
                 }
                 track?.let { t ->
                     IconButton(onClick = {
-                        scope.launch { graph.setLiked(t, !t.liked).onFailure { nav.toast("В Яндексе не сохранилось: ${it.message}") } }
+                        scope.launch { graph.setLiked(t, !t.liked).onFailure { nav.toast(tr(R.string.like_not_saved_yandex, it.message)) } }
                     }) {
-                        Icon(if (t.liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, "Любимое", tint = if (t.liked) accent else Ink.Muted)
+                        Icon(if (t.liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, tr(R.string.favorite), tint = if (t.liked) accent else Ink.Muted)
                     }
                 }
             }
@@ -306,9 +309,9 @@ fun NowPlayingScreen(onClose: () -> Unit) {
 
             Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { graph.player.toggleShuffle() }) {
-                    Icon(Icons.Rounded.Shuffle, "Перемешать", tint = if (state.shuffle) accent else Ink.Muted)
+                    Icon(Icons.Rounded.Shuffle, tr(R.string.shuffle), tint = if (state.shuffle) accent else Ink.Muted)
                 }
-                IconButton(onClick = { graph.player.previous() }, Modifier.size(56.dp)) { Icon(Icons.Rounded.SkipPrevious, "Назад", Modifier.size(36.dp)) }
+                IconButton(onClick = { graph.player.previous() }, Modifier.size(56.dp)) { Icon(Icons.Rounded.SkipPrevious, tr(R.string.back), Modifier.size(36.dp)) }
                 val playInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                 val pressed by playInteraction.collectIsPressedAsState()
                 val playScale by animateFloatAsState(
@@ -330,32 +333,32 @@ fun NowPlayingScreen(onClose: () -> Unit) {
                     ) { mode ->
                         when (mode) {
                             2 -> CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(30.dp), strokeWidth = 3.dp)
-                            1 -> Icon(Icons.Rounded.Pause, "Пауза", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(40.dp))
-                            else -> Icon(Icons.Rounded.PlayArrow, "Играть", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(40.dp))
+                            1 -> Icon(Icons.Rounded.Pause, tr(R.string.pause), tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(40.dp))
+                            else -> Icon(Icons.Rounded.PlayArrow, tr(R.string.play), tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(40.dp))
                         }
                     }
                 }
-                IconButton(onClick = { graph.player.next() }, Modifier.size(56.dp)) { Icon(Icons.Rounded.SkipNext, "Вперёд", Modifier.size(36.dp)) }
+                IconButton(onClick = { graph.player.next() }, Modifier.size(56.dp)) { Icon(Icons.Rounded.SkipNext, tr(R.string.next), Modifier.size(36.dp)) }
                 IconButton(onClick = { graph.player.cycleRepeat() }) {
                     Icon(
                         if (state.repeatMode == Player.REPEAT_MODE_ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
-                        "Повтор", tint = if (state.repeatMode != Player.REPEAT_MODE_OFF) accent else Ink.Muted,
+                        tr(R.string.repeat), tint = if (state.repeatMode != Player.REPEAT_MODE_OFF) accent else Ink.Muted,
                     )
                 }
             }
 
             val sleep by graph.player.sleep.collectAsStateWithLifecycle()
             Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.SpaceAround) {
-                IconButton(onClick = { showLyrics = !showLyrics }) { Icon(Icons.Rounded.Lyrics, "Текст", tint = if (showLyrics) accent else Ink.Muted) }
+                IconButton(onClick = { showLyrics = !showLyrics }) { Icon(Icons.Rounded.Lyrics, tr(R.string.lyrics), tint = if (showLyrics) accent else Ink.Muted) }
                 IconButton(onClick = {
                     scope.launch { graph.settings.setVisualizer(VisualizerMode.entries[(vizMode.ordinal + 1) % VisualizerMode.entries.size]) }
-                    nav.toast("Визуализация: ${VisualizerMode.entries[(vizMode.ordinal + 1) % VisualizerMode.entries.size].label}")
-                }) { Icon(Icons.Rounded.GraphicEq, "Визуализация", tint = if (vizMode != VisualizerMode.OFF) accent else Ink.Muted) }
+                    nav.toast(tr(R.string.visualizer_mode, VisualizerMode.entries[(vizMode.ordinal + 1) % VisualizerMode.entries.size].label))
+                }) { Icon(Icons.Rounded.GraphicEq, tr(R.string.visualizer), tint = if (vizMode != VisualizerMode.OFF) accent else Ink.Muted) }
                 IconButton(onClick = { showSleep = true }) {
-                    Icon(Icons.Rounded.Bedtime, "Таймер сна", tint = if (sleep.endsAt != null || sleep.endOfTrack) accent else Ink.Muted)
+                    Icon(Icons.Rounded.Bedtime, tr(R.string.sleep_timer), tint = if (sleep.endsAt != null || sleep.endOfTrack) accent else Ink.Muted)
                 }
-                IconButton(onClick = { nav.openEqualizer() }) { Icon(Icons.Rounded.Equalizer, "Эквалайзер", tint = if (settings?.eqEnabled == true) accent else Ink.Muted) }
-                IconButton(onClick = { showQueue = true }) { Icon(Icons.AutoMirrored.Rounded.QueueMusic, "Очередь", tint = Ink.Muted) }
+                IconButton(onClick = { nav.openEqualizer() }) { Icon(Icons.Rounded.Equalizer, tr(R.string.equalizer), tint = if (settings?.eqEnabled == true) accent else Ink.Muted) }
+                IconButton(onClick = { showQueue = true }) { Icon(Icons.AutoMirrored.Rounded.QueueMusic, tr(R.string.queue), tint = Ink.Muted) }
             }
         }
     }
@@ -383,7 +386,7 @@ private fun LyricsPane(track: TrackEntity?, positionMs: Long, onSeek: (Long) -> 
     when {
         parsed == null -> CircularProgressIndicator()
         parsed.lines.isEmpty() -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Текста пока нет", style = MaterialTheme.typography.headlineSmall)
+            Text(tr(R.string.lyrics_none_yet), style = MaterialTheme.typography.headlineSmall)
             Spacer(Modifier.height(12.dp))
             if (track != null) {
                 OutlinedButton(enabled = !searching, onClick = {
@@ -391,9 +394,9 @@ private fun LyricsPane(track: TrackEntity?, positionMs: Long, onSeek: (Long) -> 
                     scope.launch {
                         val found = graph.lyrics.fetchOnline(track)
                         searching = false
-                        if (found != null) reload++ else nav.toast("Текст не нашёлся ни в LRCLIB, ни в Яндексе")
+                        if (found != null) reload++ else nav.toast(tr(R.string.lyrics_not_found))
                     }
-                }) { Text(if (searching) "Ищу…" else "Найти онлайн (LRCLIB / Яндекс)") }
+                }) { Text(if (searching) tr(R.string.searching) else tr(R.string.lyrics_find_online_sources)) }
             }
         }
         !parsed.isSynced -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 24.dp)) {
@@ -411,8 +414,8 @@ private fun LyricsPane(track: TrackEntity?, positionMs: Long, onSeek: (Long) -> 
                 if (!translateOn || translation != null || track == null) return@LaunchedEffect
                 translating = true
                 runCatching { graph.lyrics.translate(track.id, parsed.lines.map { it.text }) }
-                    .onSuccess { if (it == null) { nav.toast("Текст уже на русском"); translateOn = false } else translation = it }
-                    .onFailure { nav.error(it, "Перевод текста"); translateOn = false }
+                    .onSuccess { if (it == null) { nav.toast(tr(R.string.lyrics_already_native)); translateOn = false } else translation = it }
+                    .onFailure { nav.error(it, tr(R.string.ctx_lyrics_translate)); translateOn = false }
                 translating = false
             }
             LaunchedEffect(current) {
@@ -448,7 +451,7 @@ private fun LyricsPane(track: TrackEntity?, positionMs: Long, onSeek: (Long) -> 
             TextButton(
                 onClick = { translateOn = !translateOn },
                 modifier = Modifier.align(Alignment.TopEnd),
-            ) { Text(if (translating) "Перевожу…" else if (translateOn) "Оригинал" else "Перевод", color = accent) }
+            ) { Text(if (translating) tr(R.string.translating) else if (translateOn) tr(R.string.original) else tr(R.string.translation), color = accent) }
             }
         }
     }
@@ -463,7 +466,7 @@ private fun QueueSheet(onDismiss: () -> Unit) {
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = (state.index - 1).coerceAtLeast(0))
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ink.Paper2) {
         Row(Modifier.padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Очередь", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+            Text(tr(R.string.queue), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
             Text("${state.index + 1} / ${queue.size}", color = Ink.Muted, style = MaterialTheme.typography.labelMedium)
         }
         LazyColumn(state = listState, modifier = Modifier.fillMaxWidth().height(480.dp)) {
@@ -484,7 +487,7 @@ private fun QueueSheet(onDismiss: () -> Unit) {
                         Text(item.mediaMetadata.artist?.toString().orEmpty(), maxLines = 1, style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
                     }
                     Text(formatDuration(item.mediaMetadata.durationMs ?: 0), style = MaterialTheme.typography.labelSmall, color = Ink.Faint)
-                    if (!current) IconButton(onClick = { graph.player.remove(i) }) { Icon(Icons.Rounded.Close, "Убрать", tint = Ink.Faint) }
+                    if (!current) IconButton(onClick = { graph.player.remove(i) }) { Icon(Icons.Rounded.Close, tr(R.string.remove), tint = Ink.Faint) }
                     else Spacer(Modifier.width(48.dp))
                 }
             }
@@ -500,15 +503,15 @@ private fun SleepDialog(onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Ink.Paper2,
-        title = { Text("Таймер сна") },
+        title = { Text(tr(R.string.sleep_timer)) },
         text = {
             Column {
                 if (sleep.endsAt != null) {
                     val left = ((sleep.endsAt!! - System.currentTimeMillis()) / 60_000).coerceAtLeast(0)
-                    Text("Остановится через $left мин (с плавным затуханием)", color = Ink.Muted)
+                    Text(tr(R.string.sleep_in_minutes, left), color = Ink.Muted)
                     Spacer(Modifier.height(8.dp))
                 }
-                if (sleep.endOfTrack) { Text("Остановится в конце трека", color = Ink.Muted); Spacer(Modifier.height(8.dp)) }
+                if (sleep.endOfTrack) { Text(tr(R.string.sleep_end_of_track_set), color = Ink.Muted); Spacer(Modifier.height(8.dp)) }
                 listOf(10, 15, 30, 45, 60, 90).chunked(3).forEach { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         row.forEach { m ->
@@ -516,16 +519,16 @@ private fun SleepDialog(onDismiss: () -> Unit) {
                                 onClick = { graph.player.sleepIn(m); onDismiss() },
                                 modifier = Modifier.weight(1f),
                                 contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
-                            ) { Text("$m мин", maxLines = 1, softWrap = false) }
+                            ) { Text(tr(R.string.duration_minutes, m), maxLines = 1, softWrap = false) }
                         }
                     }
                 }
-                TextButton(onClick = { graph.player.sleepAtEndOfTrack(); onDismiss() }) { Text("В конце этого трека") }
+                TextButton(onClick = { graph.player.sleepAtEndOfTrack(); onDismiss() }) { Text(tr(R.string.sleep_end_of_track)) }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Закрыть") } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(tr(R.string.close)) } },
         dismissButton = {
-            if (sleep.endsAt != null || sleep.endOfTrack) TextButton(onClick = { graph.player.cancelSleep(); onDismiss() }) { Text("Отключить") }
+            if (sleep.endsAt != null || sleep.endOfTrack) TextButton(onClick = { graph.player.cancelSleep(); onDismiss() }) { Text(tr(R.string.turn_off)) }
         },
     )
 }
@@ -539,14 +542,14 @@ private fun SpeedDialog(onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Ink.Paper2,
-        title = { Text("Скорость: ${"%.2f".format(speed)}×") },
+        title = { Text(tr(R.string.speed_value, "%.2f".format(speed))) },
         text = {
             Column {
                 Slider(speed, { speed = (it * 20).toInt() / 20f; graph.player.setSpeed(speed, if (keepPitch) 1f else speed) }, valueRange = 0.5f..2f)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Сохранять тон")
-                        Text("Выключи для эффекта «nightcore» / «slowed»", style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
+                        Text(tr(R.string.keep_pitch))
+                        Text(tr(R.string.keep_pitch_hint), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
                     }
                     Switch(keepPitch, { keepPitch = it; graph.player.setSpeed(speed, if (it) 1f else speed) })
                 }
@@ -557,7 +560,7 @@ private fun SpeedDialog(onDismiss: () -> Unit) {
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Готово") } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(tr(R.string.done)) } },
     )
 }
 
@@ -598,10 +601,10 @@ fun MiniPlayer(onOpen: () -> Unit) {
             }
             IconButton(onClick = { graph.player.toggle() }) {
                 AnimatedContent(state.isPlaying, transitionSpec = { (fadeIn() + androidx.compose.animation.scaleIn(initialScale = 0.6f)) togetherWith fadeOut() }, label = "mini-play") { playing ->
-                    Icon(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, "Играть/пауза", Modifier.size(30.dp))
+                    Icon(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, tr(R.string.play_pause), Modifier.size(30.dp))
                 }
             }
-            IconButton(onClick = { graph.player.next() }) { Icon(Icons.Rounded.SkipNext, "Следующий", tint = Ink.Muted) }
+            IconButton(onClick = { graph.player.next() }) { Icon(Icons.Rounded.SkipNext, tr(R.string.next_track), tint = Ink.Muted) }
         }
     }
 }
@@ -621,17 +624,17 @@ private fun VersionChip(variant: String?, track: TrackEntity?, mediaId: String) 
     val actions = mutableListOf<Pair<String, () -> Unit>>()
     when {
         variant != null -> {
-            text = if (mediaId.startsWith(dev.xvin.palimpsest.playback.MediaItems.NEW_PREFIX)) "Играет новая версия с сервиса (не скачана)" else "Играет: ${variant.lowercase()}"
+            text = if (mediaId.startsWith(dev.xvin.palimpsest.playback.MediaItems.NEW_PREFIX)) tr(R.string.variant_playing_new) else tr(R.string.variant_playing, variant.lowercase())
             if (mediaId.startsWith(dev.xvin.palimpsest.playback.MediaItems.NEW_PREFIX)) {
-                actions += "Скачать" to { scope.launch { graph.downloads.enqueue(listOf(t.id)) }; nav.toast("Скачиваю — старая версия сохранится") }
+                actions += tr(R.string.download) to { scope.launch { graph.downloads.enqueue(listOf(t.id)) }; nav.toast(tr(R.string.downloading_keep_old)) }
             }
-            actions += "Все версии" to { nav.openTrack(t.id, 2) }
+            actions += tr(R.string.all_versions) to { nav.openTrack(t.id, 2) }
         }
         t.updateAvailable && t.path != null -> {
-            text = "Играет сохранённая версия · на ${t.service.displayName} новая: " +
-                "${formatDuration(t.remoteDurationMs ?: 0)} вместо ${formatDuration(t.durationMs)}"
-            actions += "Послушать новую" to { graph.player.playNewVersion(t.id) }
-            actions += "Скачать" to { scope.launch { graph.downloads.enqueue(listOf(t.id)) }; nav.toast("Скачиваю — старая версия сохранится") }
+            text = tr(R.string.variant_saved_new_on, t.service.label) +
+                tr(R.string.duration_instead, formatDuration(t.remoteDurationMs ?: 0), formatDuration(t.durationMs))
+            actions += tr(R.string.listen_new) to { graph.player.playNewVersion(t.id) }
+            actions += tr(R.string.download) to { scope.launch { graph.downloads.enqueue(listOf(t.id)) }; nav.toast(tr(R.string.downloading_keep_old)) }
         }
         else -> return
     }
@@ -656,7 +659,7 @@ private fun AbSwitch(ab: dev.xvin.palimpsest.playback.AbCompare, mediaId: String
     val isB = mediaId.startsWith(dev.xvin.palimpsest.playback.MediaItems.VERSION_PREFIX)
     Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Ink.Paper3)) {
-            listOf(false to "A · текущая", true to "B · ${ab.versionLabel.lowercase()}").forEach { (b, label) ->
+            listOf(false to tr(R.string.ab_current), true to "B · ${ab.versionLabel.lowercase()}").forEach { (b, label) ->
                 val selected = b == isB
                 val bg by androidx.compose.animation.animateColorAsState(if (selected) accent else Ink.Paper3, tween(200), label = "ab")
                 Box(
@@ -669,7 +672,7 @@ private fun AbSwitch(ab: dev.xvin.palimpsest.playback.AbCompare, mediaId: String
             }
         }
         TextButton(onClick = { graph.player.stopAb() }, contentPadding = PaddingValues(horizontal = 4.dp)) {
-            Text("Закончить сравнение", color = Ink.Muted, style = MaterialTheme.typography.labelMedium)
+            Text(tr(R.string.ab_finish), color = Ink.Muted, style = MaterialTheme.typography.labelMedium)
         }
     }
 }

@@ -57,9 +57,11 @@ import dev.xvin.palimpsest.ui.components.LocalGraph
 import dev.xvin.palimpsest.ui.components.RemoteTrackRow
 import dev.xvin.palimpsest.ui.components.SectionHeader
 import dev.xvin.palimpsest.ui.components.TrackRow
-import dev.xvin.palimpsest.ui.components.pluralRu
 import dev.xvin.palimpsest.ui.theme.Ink
 import kotlinx.coroutines.launch
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
+import dev.xvin.palimpsest.i18n.plural
 
 private sealed interface Loaded<out T> {
     data object Loading : Loaded<Nothing>
@@ -79,7 +81,7 @@ private fun rememberRemoteActions(): RemoteActions {
             download = { list ->
                 scope.launch {
                     graph.downloads.enqueue(list.filter { it.available }.map { graph.remote.ensureTrack(it).id })
-                    nav.toast(if (list.size == 1) "Скачиваю «${list.first().title}»" else "Скачиваю ${list.size}")
+                    nav.toast(if (list.size == 1) tr(R.string.downloading_one, list.first().title) else tr(R.string.downloading_n, list.size))
                 }
             },
             more = { r -> scope.launch { nav.showActions(graph.remote.ensureTrack(r)) } },
@@ -113,13 +115,13 @@ fun ArtistScreen(name: String, remoteId: String?) {
             Box(Modifier.fillMaxWidth().aspectRatio(1.25f)) {
                 Artwork(artist?.artist?.coverUrl ?: local.firstOrNull()?.let { dev.xvin.palimpsest.data.library.ArtProvider.uriFor(it.id, it.modifiedAt) }, name, Modifier.fillMaxSize(), corner = 0.dp)
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.35f to Ink.Paper.copy(alpha = 0f), 1f to Ink.Paper)))
-                IconButton(onClick = nav::back, modifier = Modifier.statusBarsPadding().padding(4.dp)) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Назад") }
+                IconButton(onClick = nav::back, modifier = Modifier.statusBarsPadding().padding(4.dp)) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, tr(R.string.back)) }
                 Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 16.dp, vertical = 8.dp)) {
                     Text(artist?.artist?.name ?: name, style = MaterialTheme.typography.displayMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     val meta = listOfNotNull(
                         artist?.genres?.take(3)?.joinToString(", ")?.ifBlank { null },
                         artist?.likes?.let { "♥ ${compact(it)}" },
-                        if (local.isNotEmpty()) "у тебя " + pluralRu(local.size, "трек", "трека", "треков") else null,
+                        if (local.isNotEmpty()) tr(R.string.artist_you_have, plural(R.plurals.tracks, local.size)) else null,
                     ).joinToString(" · ")
                     if (meta.isNotEmpty()) Text(meta, style = MaterialTheme.typography.labelMedium, color = Ink.Muted)
                 }
@@ -132,18 +134,18 @@ fun ArtistScreen(name: String, remoteId: String?) {
                 if (local.isNotEmpty()) {
                     Button(onClick = { graph.player.play(local) }, Modifier.weight(1f), contentPadding = compactPadding) {
                         Icon(Icons.Rounded.PlayArrow, null); Spacer(Modifier.width(4.dp))
-                        Text("Скачанное", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(tr(R.string.artist_play_downloaded), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    OutlinedButton(onClick = { graph.player.play(local, shuffle = true) }, contentPadding = compactPadding) { Icon(Icons.Rounded.Shuffle, "Перемешать") }
+                    OutlinedButton(onClick = { graph.player.play(local, shuffle = true) }, contentPadding = compactPadding) { Icon(Icons.Rounded.Shuffle, tr(R.string.shuffle)) }
                 }
                 artist?.let { a ->
                     OutlinedButton(onClick = {
                         scope.launch {
-                            graph.radio.start("artist:${a.artist.id}", "Радио: ${a.artist.name}").onFailure { nav.error(it, "Радио не запустилось") }
+                            graph.radio.start("artist:${a.artist.id}", tr(R.string.radio_title, a.artist.name)).onFailure { nav.error(it, tr(R.string.ctx_radio_start)) }
                         }
                     }, Modifier.weight(1f), contentPadding = compactPadding) {
                         Icon(Icons.Rounded.Radio, null); Spacer(Modifier.width(4.dp))
-                        Text("Радио", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(tr(R.string.radio), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
@@ -158,25 +160,25 @@ fun ArtistScreen(name: String, remoteId: String?) {
             }
         }
         if (info is Loaded.Loading) item { Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
-        if (info is Loaded.Failed) item { Text("Карточку из Яндекса загрузить не удалось", Modifier.padding(16.dp), color = Ink.Faint) }
+        if (info is Loaded.Failed) item { Text(tr(R.string.artist_card_failed), Modifier.padding(16.dp), color = Ink.Faint) }
 
         if (local.isNotEmpty()) {
-            item { SectionHeader("В медиатеке · ${local.size}") }
+            item { SectionHeader(tr(R.string.artist_in_library, local.size)) }
             val shown = if (showAllLocal) local else local.take(5)
             itemsIndexed(shown, key = { _, t -> "l${t.id}" }) { i, t ->
                 TrackRow(t, onClick = { graph.player.play(local, i) }, onMore = { nav.showActions(t) }, playing = playing.nowPlaying?.trackId == t.id, modifier = Modifier.animateItem())
             }
-            if (local.size > 5 && !showAllLocal) item { TextButton(onClick = { showAllLocal = true }, Modifier.padding(horizontal = 8.dp)) { Text("Показать все ${local.size}") } }
+            if (local.size > 5 && !showAllLocal) item { TextButton(onClick = { showAllLocal = true }, Modifier.padding(horizontal = 8.dp)) { Text(tr(R.string.show_all_n, local.size)) } }
         }
         artist?.let { a ->
             if (a.popular.isNotEmpty()) {
-                item { SectionHeader("Популярное") { TextButton(onClick = { actions.download(a.popular) }) { Icon(Icons.Rounded.Download, null); Text("Скачать") } } }
+                item { SectionHeader(tr(R.string.artist_popular)) { TextButton(onClick = { actions.download(a.popular) }) { Icon(Icons.Rounded.Download, null); Text(tr(R.string.download)) } } }
                 itemsIndexed(a.popular, key = { _, r -> "p${r.id}" }) { i, r ->
                     RemoteTrackRow(r, onPlay = { actions.play(a.popular, i) }, onDownload = { actions.download(listOf(r)) }, onMore = { actions.more(r) })
                 }
             }
             if (a.albums.isNotEmpty()) {
-                item { SectionHeader("Альбомы и синглы") }
+                item { SectionHeader(tr(R.string.artist_albums)) }
                 item {
                     LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         items(a.albums, key = { it.id }) { al ->
@@ -191,7 +193,7 @@ fun ArtistScreen(name: String, remoteId: String?) {
                 }
             }
             if (a.similar.isNotEmpty()) {
-                item { SectionHeader("Похожие") }
+                item { SectionHeader(tr(R.string.similar)) }
                 item {
                     LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         items(a.similar, key = { it.id }) { s ->
@@ -209,15 +211,15 @@ fun ArtistScreen(name: String, remoteId: String?) {
 }
 
 private fun albumType(t: String) = when (t) {
-    "single" -> "сингл"
-    "compilation" -> "сборник"
-    "podcast" -> "подкаст"
-    else -> "альбом"
+    "single" -> tr(R.string.album_type_single)
+    "compilation" -> tr(R.string.album_type_compilation)
+    "podcast" -> tr(R.string.album_type_podcast)
+    else -> tr(R.string.album_type_album)
 }
 
 private fun compact(n: Int) = when {
-    n >= 1_000_000 -> "%.1f млн".format(n / 1_000_000f)
-    n >= 1_000 -> "%.0f тыс".format(n / 1_000f)
+    n >= 1_000_000 -> tr(R.string.compact_millions).format(n / 1_000_000f)
+    n >= 1_000 -> tr(R.string.compact_thousands).format(n / 1_000f)
     else -> n.toString()
 }
 
@@ -251,8 +253,8 @@ fun SimilarScreen(trackRemoteId: String, title: String) {
         value = runCatching { graph.remote.similar(trackRemoteId) }.fold({ Loaded.Ok(it) }, { Loaded.Failed(it) })
     }
     RemoteListLayout(
-        title = "Похожие",
-        subtitle = "на «$title»",
+        title = tr(R.string.similar),
+        subtitle = tr(R.string.similar_to, title),
         cover = null,
         state = data,
         tracks = (data as? Loaded.Ok)?.value.orEmpty(),
@@ -277,7 +279,7 @@ private fun RemoteListLayout(
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
             Column(Modifier.fillMaxWidth().statusBarsPadding()) {
-                IconButton(onClick = nav::back, modifier = Modifier.padding(4.dp)) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Назад") }
+                IconButton(onClick = nav::back, modifier = Modifier.padding(4.dp)) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, tr(R.string.back)) }
                 Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (cover != null) { Artwork(cover, title, Modifier.size(112.dp), corner = 12.dp); Spacer(Modifier.width(16.dp)) }
                     Column(Modifier.weight(1f)) {
@@ -289,15 +291,15 @@ private fun RemoteListLayout(
                     }
                 }
                 Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button(onClick = { actions.play(tracks, 0) }, enabled = tracks.isNotEmpty()) { Icon(Icons.Rounded.PlayArrow, null); Spacer(Modifier.width(6.dp)); Text("Слушать") }
+                    Button(onClick = { actions.play(tracks, 0) }, enabled = tracks.isNotEmpty()) { Icon(Icons.Rounded.PlayArrow, null); Spacer(Modifier.width(6.dp)); Text(tr(R.string.listen)) }
                     OutlinedButton(onClick = { actions.play(tracks.shuffled(), 0) }, enabled = tracks.isNotEmpty()) { Icon(Icons.Rounded.Shuffle, null) }
-                    OutlinedButton(onClick = { actions.download(tracks) }, enabled = tracks.isNotEmpty()) { Icon(Icons.Rounded.Download, null); Spacer(Modifier.width(6.dp)); Text("Скачать") }
+                    OutlinedButton(onClick = { actions.download(tracks) }, enabled = tracks.isNotEmpty()) { Icon(Icons.Rounded.Download, null); Spacer(Modifier.width(6.dp)); Text(tr(R.string.download)) }
                 }
             }
         }
         when (state) {
             is Loaded.Loading -> item { Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
-            is Loaded.Failed -> item { Text("Не удалось загрузить: ${state.error?.message ?: ""}", Modifier.padding(16.dp), color = Ink.Faint) }
+            is Loaded.Failed -> item { Text(tr(R.string.load_failed, state.error?.message ?: ""), Modifier.padding(16.dp), color = Ink.Faint) }
             else -> Unit
         }
         itemsIndexed(tracks, key = { i, r -> "${r.id}#$i" }) { i, r ->

@@ -54,7 +54,6 @@ import dev.xvin.palimpsest.ui.LocalNav
 import dev.xvin.palimpsest.ui.components.Artwork
 import dev.xvin.palimpsest.ui.components.LocalGraph
 import dev.xvin.palimpsest.ui.components.Pill
-import dev.xvin.palimpsest.ui.components.pluralRu
 import dev.xvin.palimpsest.ui.theme.Ink
 import dev.xvin.palimpsest.ui.theme.LocalAccent
 import dev.xvin.palimpsest.ui.theme.Serif
@@ -62,6 +61,9 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
+import dev.xvin.palimpsest.i18n.plural
 
 private data class Wrapped(
     val minutes: Long,
@@ -98,22 +100,22 @@ fun WrappedScreen() {
         if (d == null) {
             CircularProgressIndicator(Modifier.align(Alignment.Center))
         } else if (d.plays == 0) {
-            Text("Пока нечего подводить — послушай что-нибудь 🙂", Modifier.align(Alignment.Center).padding(32.dp), color = Ink.Muted)
+            Text(tr(R.string.wrapped_empty), Modifier.align(Alignment.Center).padding(32.dp), color = Ink.Muted)
         } else {
             val pages = listOf<@Composable () -> Unit>(
-                { Big("${d.minutes}", "минут музыки", if (allTime) "за всё время" else "в ${LocalDate.now().year} году") },
-                { d.artists.firstOrNull()?.let { a -> Hero("Твой исполнитель", a.label, "${a.plays} прослушиваний", a.trackId) } },
-                { TopList("Треки, которые ты заслушал", d.tracks) },
+                { Big("${d.minutes}", tr(R.string.wrapped_minutes), if (allTime) tr(R.string.wrapped_all_time) else tr(R.string.wrapped_in_year, LocalDate.now().year)) },
+                { d.artists.firstOrNull()?.let { a -> Hero(tr(R.string.wrapped_your_artist), a.label, tr(R.string.wrapped_artist_plays, a.plays), a.trackId) } },
+                { TopList(tr(R.string.wrapped_top_tracks), d.tracks) },
                 { Hours(d.hours) },
                 {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         d.topDay?.let { day ->
-                            Big("${day.listenedMs / 60_000}", "минут в самый музыкальный день",
-                                LocalDate.parse(day.day).format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.forLanguageTag("ru"))))
+                            Big("${day.listenedMs / 60_000}", tr(R.string.wrapped_top_day),
+                                LocalDate.parse(day.day).format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.getDefault())))
                         }
                         d.first?.let {
                             Spacer(Modifier.height(32.dp))
-                            Text("Первым ${if (allTime) "был" else "в этом году был"} трек", color = Ink.Muted)
+                            Text(tr(if (allTime) R.string.wrapped_first_all else R.string.wrapped_first_year), color = Ink.Muted)
                             Text("${it.artist} — ${it.title}", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp))
                         }
                     }
@@ -128,11 +130,11 @@ fun WrappedScreen() {
                     }
                 }
                 Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Pill("Этот год", !allTime, { allTime = false })
+                    Pill(tr(R.string.wrapped_this_year), !allTime, { allTime = false })
                     Spacer(Modifier.width(8.dp))
-                    Pill("Всё время", allTime, { allTime = true })
+                    Pill(tr(R.string.period_all_time), allTime, { allTime = true })
                     Spacer(Modifier.weight(1f))
-                    IconButton(onClick = nav::back) { Icon(Icons.Rounded.Close, "Закрыть") }
+                    IconButton(onClick = nav::back) { Icon(Icons.Rounded.Close, tr(R.string.close)) }
                 }
                 HorizontalPager(pager, Modifier.weight(1f)) { page ->
                     // Each page rises in as it comes into view.
@@ -143,7 +145,7 @@ fun WrappedScreen() {
                         contentAlignment = Alignment.Center,
                     ) { pages[page]() }
                 }
-                Text("листай →", Modifier.align(Alignment.CenterHorizontally).padding(8.dp), color = Ink.Faint, style = MaterialTheme.typography.labelMedium)
+                Text(tr(R.string.wrapped_swipe), Modifier.align(Alignment.CenterHorizontally).padding(8.dp), color = Ink.Faint, style = MaterialTheme.typography.labelMedium)
             }
         }
     }
@@ -182,7 +184,7 @@ private fun TopList(caption: String, rows: List<CountRow>) {
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(r.label, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text(pluralRu(r.plays, "раз", "раза", "раз"), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
+                    Text(plural(R.plurals.times, r.plays), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
                 }
             }
         }
@@ -194,10 +196,10 @@ private fun Hours(hours: List<HourRow>) {
     val accent = LocalAccent.current
     val byHour = hours.associate { it.hour to it.plays }
     val peak = byHour.maxByOrNull { it.value }?.key ?: 0
-    val label = when (peak) { in 5..11 -> "утром"; in 12..17 -> "днём"; in 18..22 -> "вечером"; else -> "ночью" }
+    val label = when (peak) { in 5..11 -> tr(R.string.wrapped_morning); in 12..17 -> tr(R.string.wrapped_afternoon); in 18..22 -> tr(R.string.wrapped_evening); else -> tr(R.string.wrapped_night) }
     Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("Чаще всего ты слушаешь $label", style = MaterialTheme.typography.headlineMedium)
-        Text("пик — около $peak:00", color = Ink.Muted)
+        Text(tr(R.string.wrapped_listen_most, label), style = MaterialTheme.typography.headlineMedium)
+        Text(tr(R.string.wrapped_peak, peak), color = Ink.Muted)
         Spacer(Modifier.height(24.dp))
         val max = (byHour.values.maxOrNull() ?: 1).toFloat()
         Canvas(Modifier.fillMaxWidth().height(160.dp)) {

@@ -7,6 +7,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import kotlin.math.abs
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
 
 /**
  * Finds the same recording stored more than once (two folders, MP3 + FLAC, a file plus a cloud
@@ -57,7 +59,7 @@ class Duplicates(private val db: AppDatabase, private val versions: VersionRepos
         val dao = db.tracks()
         var kept = g.keep
         for (o in g.others) {
-            o.path?.let { p -> versions.absorb(kept, File(p), "Дубликат из «${o.folder ?: File(p).parent}»") }
+            o.path?.let { p -> versions.absorb(kept, File(p), tr(R.string.dup_note_from, o.folder ?: File(p).parent)) }
             dao.repointPlaylists(o.id, kept.id)
             dao.repointPlays(o.id, kept.id)
             dao.repointVersions(o.id, kept.id)

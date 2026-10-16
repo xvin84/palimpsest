@@ -43,10 +43,16 @@ import java.net.ProxySelector
 import java.net.SocketAddress
 import java.net.URI
 import java.util.concurrent.TimeUnit
+import dev.xvin.palimpsest.i18n.tr
 
 class PalimpsestApp : Application(), SingletonImageLoader.Factory {
     lateinit var graph: AppGraph
         private set
+
+    override fun attachBaseContext(base: android.content.Context) {
+        super.attachBaseContext(base)
+        dev.xvin.palimpsest.i18n.Strings.init(this)
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -144,7 +150,7 @@ class AppGraph(val app: Application) {
     val downloads = Downloads(app, db, settings, http, remote, versions) { e, ctx -> errors.report(e, ctx) }
 
     val player = PlayerConnection(app, mainScope) { settings.loadQueue() }.also { p ->
-        p.onError = { e -> errors.report(e, "Воспроизведение") }
+        p.onError = { e -> errors.report(e, tr(R.string.ctx_playback)) }
     }
     val radio = dev.xvin.palimpsest.playback.RadioController(remote, db, player, mainScope)
     val offlineWave = dev.xvin.palimpsest.playback.OfflineWave(db)

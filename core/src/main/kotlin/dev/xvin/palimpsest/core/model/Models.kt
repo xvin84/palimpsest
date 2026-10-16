@@ -2,11 +2,14 @@ package dev.xvin.palimpsest.core.model
 
 import kotlinx.serialization.Serializable
 
-/** A music service a track can come from. LOCAL means "only a file on this device". */
+/**
+ * A music service a track can come from. LOCAL means "only a file on this device".
+ * [displayName] is for logs and file notes; the app shows a translated label instead.
+ */
 @Serializable
 enum class Service(val displayName: String) {
-    LOCAL("Локальные"),
-    YANDEX("Яндекс.Музыка"),
+    LOCAL("Local"),
+    YANDEX("Yandex Music"),
     YOUTUBE("YouTube"),
     SPOTIFY("Spotify"),
 }
@@ -113,4 +116,4 @@ data class Lyrics(
 enum class Quality { LOSSLESS, HIGH, NORMAL }
 
 class ProviderException(message: String, cause: Throwable? = null) : Exception(message, cause)
-class AuthRequiredException(service: Service) : Exception("${service.displayName}: требуется вход")
+class AuthRequiredException(service: Service) : Exception("${service.displayName}: sign-in required")

@@ -10,6 +10,9 @@ import androidx.media3.common.MediaMetadata
 import dev.xvin.palimpsest.data.db.TrackEntity
 import dev.xvin.palimpsest.data.library.ArtProvider
 import java.io.File
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
+import dev.xvin.palimpsest.i18n.label
 
 object MediaItems {
     const val EXTRA_TRACK_ID = "track_id"
@@ -112,7 +115,7 @@ object MediaItems {
     fun fromRemoteNew(track: TrackEntity): MediaItem? {
         val rid = track.remoteId ?: return null
         val base = from(track)
-        val label = "Новая версия · ${track.service.displayName}"
+        val label = tr(R.string.variant_new_from, track.service.label)
         val meta = base.mediaMetadata.buildUpon()
             .setAlbumTitle(label)
             .setDurationMs(track.remoteDurationMs)

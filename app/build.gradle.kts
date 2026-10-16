@@ -6,6 +6,9 @@ plugins {
 }
 
 android {
+    // values/ is English, values-ru/ Russian; the generated locale config lists them for the
+    // per-app language picker (Android Settings → Apps → Palimpsest → Language).
+    androidResources { generateLocaleConfig = true }
     namespace = "dev.xvin.palimpsest"
     compileSdk = 37
 

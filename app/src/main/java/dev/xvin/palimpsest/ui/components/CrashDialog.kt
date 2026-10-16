@@ -27,6 +27,8 @@ import androidx.compose.ui.unit.dp
 import dev.xvin.palimpsest.CrashReporter
 import dev.xvin.palimpsest.ui.theme.Ink
 import kotlinx.coroutines.launch
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
 
 /** Shows the previous crash once, so it can be copied and sent. */
 @Composable
@@ -40,10 +42,10 @@ fun CrashDialog() {
     AlertDialog(
         onDismissRequest = ::close,
         containerColor = Ink.Paper2,
-        title = { Text("Прошлый запуск закончился падением") },
+        title = { Text(tr(R.string.crash_title)) },
         text = {
             Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
-                Text("Скопируй отчёт и пришли его — так проще всего найти причину.", color = Ink.Muted)
+                Text(tr(R.string.crash_body), color = Ink.Muted)
                 Spacer(Modifier.height(8.dp))
                 SelectionContainer {
                     Text(text, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace), color = Ink.Text)
@@ -54,8 +56,8 @@ fun CrashDialog() {
             TextButton(onClick = {
                 scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("crash", text))) }
                 close()
-            }) { Text("Скопировать") }
+            }) { Text(tr(R.string.copy)) }
         },
-        dismissButton = { TextButton(onClick = ::close) { Text("Закрыть") } },
+        dismissButton = { TextButton(onClick = ::close) { Text(tr(R.string.close)) } },
     )
 }

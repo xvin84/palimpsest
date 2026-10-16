@@ -31,6 +31,8 @@ import dev.xvin.palimpsest.ui.components.LocalGraph
 import dev.xvin.palimpsest.ui.components.Pill
 import dev.xvin.palimpsest.ui.theme.Ink
 import kotlinx.coroutines.launch
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
 
 /** «Настроить волну»: character, mood, language — plus Yandex's ready-made stations. */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -47,23 +49,23 @@ fun WaveTuningSheet(onDismiss: () -> Unit) {
 
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ink.Paper2) {
         Column(Modifier.navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 16.dp).verticalScroll(rememberScrollState())) {
-            Text("Моя волна", style = MaterialTheme.typography.headlineSmall)
-            Text("Настройки применяются при следующем запуске волны", style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
-            Group("Характер", w.diversity, listOf("" to "Любой", "favorite" to "Любимое", "discover" to "Незнакомое", "popular" to "Популярное")) { set(w.copy(diversity = it)) }
-            Group("Настроение", w.mood, listOf("" to "Любое", "active" to "Бодрое", "fun" to "Весёлое", "calm" to "Спокойное", "sad" to "Грустное")) { set(w.copy(mood = it)) }
-            Group("Язык", w.language, listOf("" to "Любой", "russian" to "Русский", "not-russian" to "Иностранный", "without-words" to "Без слов")) { set(w.copy(language = it)) }
+            Text(tr(R.string.my_wave), style = MaterialTheme.typography.headlineSmall)
+            Text(tr(R.string.wave_settings_hint), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
+            Group(tr(R.string.wave_character), w.diversity, listOf("" to tr(R.string.wave_any_m), "favorite" to tr(R.string.favorite), "discover" to tr(R.string.wave_discover), "popular" to tr(R.string.artist_popular))) { set(w.copy(diversity = it)) }
+            Group(tr(R.string.wave_mood), w.mood, listOf("" to tr(R.string.wave_any_n), "active" to tr(R.string.wave_mood_active), "fun" to tr(R.string.wave_mood_fun), "calm" to tr(R.string.wave_mood_calm), "sad" to tr(R.string.wave_mood_sad))) { set(w.copy(mood = it)) }
+            Group(tr(R.string.language), w.language, listOf("" to tr(R.string.wave_any_m), "russian" to tr(R.string.wave_lang_russian), "not-russian" to tr(R.string.wave_lang_foreign), "without-words" to tr(R.string.wave_lang_instrumental))) { set(w.copy(language = it)) }
             Spacer(Modifier.height(16.dp))
             Button(onClick = {
                 // The sheet closes right away, so its own scope would cancel the start mid-request.
                 graph.mainScope.launch {
-                    graph.radio.start(RadioController.MY_WAVE, "Моя волна", w.seeds())
-                        .onSuccess { nav.openPlayer() }.onFailure { nav.error(it, "Моя волна") }
+                    graph.radio.start(RadioController.MY_WAVE, tr(R.string.my_wave), w.seeds())
+                        .onSuccess { nav.openPlayer() }.onFailure { nav.error(it, tr(R.string.my_wave)) }
                 }
                 onDismiss()
-            }, modifier = Modifier.fillMaxWidth()) { Text("Запустить волну") }
+            }, modifier = Modifier.fillMaxWidth()) { Text(tr(R.string.wave_start)) }
             if (stations.isNotEmpty()) {
                 Spacer(Modifier.height(20.dp))
-                Text("ЗАНЯТИЯ И НАСТРОЕНИЯ", style = MaterialTheme.typography.labelSmall, color = Ink.Muted)
+                Text(tr(R.string.wave_stations), style = MaterialTheme.typography.labelSmall, color = Ink.Muted)
                 Spacer(Modifier.height(8.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     stations.take(40).forEach { st ->

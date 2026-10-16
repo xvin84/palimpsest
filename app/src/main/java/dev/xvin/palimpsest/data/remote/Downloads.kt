@@ -49,6 +49,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 import java.io.IOException
+import dev.xvin.palimpsest.i18n.tr
 
 enum class DownloadState { QUEUED, RUNNING, DONE, SKIPPED, FAILED }
 
@@ -122,7 +123,7 @@ class Downloads(
         val remoteId = track.remoteId ?: return@withContext
         if (_items.value[trackId] == null) _items.update { it + (trackId to DownloadItem(trackId, track.title, track.artist, DownloadState.QUEUED)) }
         if (track.path != null && File(track.path).isFile && !track.updateAvailable && !upgrade) {
-            set(trackId) { it.copy(state = DownloadState.SKIPPED, message = "Уже скачан") }
+            set(trackId) { it.copy(state = DownloadState.SKIPPED, message = tr(R.string.dl_already)) }
             return@withContext
         }
         set(trackId) { it.copy(state = DownloadState.RUNNING, progress = 0f) }
@@ -131,7 +132,7 @@ class Downloads(
         val temps = ArrayList<File>()
         try {
             val s = settings.state.filterNotNull().first()
-            val provider = remote.providers[track.service] ?: error("Нет провайдера ${track.service}")
+            val provider = remote.providers[track.service] ?: error(tr(R.string.dl_no_provider, track.service))
             val meta: RemoteTrack? = runCatching { provider.track(remoteId) }.getOrNull()
             val dir = File(s.downloadDir, serviceFolder(track.service)).apply { mkdirs() }
             val tmp = File(dir, ".download-$trackId.part").also { temps += it }
@@ -140,7 +141,7 @@ class Downloads(
             var attempt = 0
             var info = provider.resolveStream(remoteId, dev.xvin.palimpsest.core.model.Quality.LOSSLESS.takeIf { upgrade } ?: s.quality, forDownload = true)
             if (upgrade && !info.codec.startsWith("flac") && info.codec != "alac") {
-                set(trackId) { it.copy(state = DownloadState.SKIPPED, message = "Lossless недоступен (${info.codec})") }
+                set(trackId) { it.copy(state = DownloadState.SKIPPED, message = tr(R.string.dl_no_lossless, info.codec)) }
                 return@withContext
             }
             while (true) {
@@ -196,20 +197,20 @@ class Downloads(
                 target = File(dir, "$baseName ($remoteId).${info.extension}")
             }
 
-            val note = "Скачано: ${track.service.displayName}, ${info.codec}${if (info.bitrateKbps > 0) " ${info.bitrateKbps} kbps" else ""}"
+            val note = tr(R.string.dl_note, track.service.displayName, info.codec, if (info.bitrateKbps > 0) " ${info.bitrateKbps} kbps" else "")
             when (versions.installNewAudio(db.tracks().get(trackId)!!, tagged, target, note)) {
                 VersionRepository.ReplaceResult.Identical ->
-                    set(trackId) { it.copy(state = DownloadState.SKIPPED, progress = 1f, message = "Файл не изменился") }
+                    set(trackId) { it.copy(state = DownloadState.SKIPPED, progress = 1f, message = tr(R.string.dl_unchanged)) }
                 is VersionRepository.ReplaceResult.Replaced ->
                     set(trackId) { it.copy(state = DownloadState.DONE, progress = 1f) }
             }
         } catch (e: CancellationException) {
-            set(trackId) { it.copy(state = DownloadState.SKIPPED, message = "Пропущено") }
+            set(trackId) { it.copy(state = DownloadState.SKIPPED, message = tr(R.string.dl_skipped)) }
             throw e
         } catch (e: Exception) {
             Log.w(TAG, "download $trackId failed", e)
             set(trackId) { it.copy(state = DownloadState.FAILED, message = e.message ?: e.toString()) }
-            onFailure(e, "Скачивание «${track.title}»")
+            onFailure(e, tr(R.string.ctx_download, track.title))
         } finally {
             temps.forEach { if (it.exists()) it.delete() }
         }
@@ -307,21 +308,21 @@ class DownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
     private fun notification(item: DownloadItem?, done: Int, total: Int): android.app.Notification {
         val ctx = applicationContext
         val nm = ctx.getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(CHANNEL, "Загрузки", NotificationManager.IMPORTANCE_LOW))
+        nm.createNotificationChannel(NotificationChannel(CHANNEL, tr(R.string.downloads), NotificationManager.IMPORTANCE_LOW))
         fun action(action: String, code: Int) = PendingIntent.getBroadcast(
             ctx, code, Intent(ctx, DownloadActionReceiver::class.java).setAction(action), PendingIntent.FLAG_IMMUTABLE,
         )
         val open = PendingIntent.getActivity(ctx, 0, Intent(ctx, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val percent = ((item?.progress ?: 0f) * 100).toInt()
-        val counter = if (total > 1) "${done + 1} из $total" else null
+        val counter = if (total > 1) tr(R.string.n_of_m, done + 1, total) else null
         return NotificationCompat.Builder(ctx, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(item?.let { "${it.artist} — ${it.title}" } ?: "Скачивание треков")
-            .setContentText(listOfNotNull(counter, if (item != null) "$percent%" else null).joinToString(" · ").ifEmpty { "Готовлюсь…" })
+            .setContentTitle(item?.let { "${it.artist} — ${it.title}" } ?: tr(R.string.dl_notif_title))
+            .setContentText(listOfNotNull(counter, if (item != null) "$percent%" else null).joinToString(" · ").ifEmpty { tr(R.string.dl_preparing) })
             .setProgress(100, percent, item == null || item.state == DownloadState.QUEUED)
             .setContentIntent(open)
-            .addAction(0, "Пропустить", action(DownloadActionReceiver.SKIP, 1))
-            .addAction(0, "Остановить", action(DownloadActionReceiver.STOP, 2))
+            .addAction(0, tr(R.string.skip), action(DownloadActionReceiver.SKIP, 1))
+            .addAction(0, tr(R.string.stop), action(DownloadActionReceiver.STOP, 2))
             .setOngoing(true)
             .setSilent(true)
             .setOnlyAlertOnce(true)

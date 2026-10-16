@@ -50,6 +50,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        // The language changed while we were running: start over so no screen keeps old strings.
+        if (dev.xvin.palimpsest.i18n.Language.restartIfChanged(this)) return
         // Coming back from the "All files access" settings page.
         val before = hasStorageAccess.value
         refreshAccess()

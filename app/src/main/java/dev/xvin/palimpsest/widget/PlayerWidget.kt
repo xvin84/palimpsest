@@ -14,6 +14,7 @@ import android.widget.RemoteViews
 import dev.xvin.palimpsest.MainActivity
 import dev.xvin.palimpsest.R
 import dev.xvin.palimpsest.playback.PlaybackService
+import dev.xvin.palimpsest.i18n.tr
 
 /**
  * Home-screen widget: cover, title, artist and transport buttons. Buttons send media-button
@@ -63,7 +64,7 @@ class PlayerWidget : AppWidgetProvider() {
             if (ids.isEmpty()) return
             val v = RemoteViews(context.packageName, R.layout.widget_player)
             v.setTextViewText(R.id.widget_title, s.title ?: "Palimpsest")
-            v.setTextViewText(R.id.widget_artist, s.artist ?: "Нажми ▶, чтобы продолжить")
+            v.setTextViewText(R.id.widget_artist, s.artist ?: tr(R.string.widget_hint))
             if (s.cover != null) v.setImageViewBitmap(R.id.widget_cover, s.cover) else v.setImageViewResource(R.id.widget_cover, R.drawable.ic_launcher_foreground)
             v.setImageViewResource(R.id.widget_play, if (s.playing) R.drawable.ic_w_pause else R.drawable.ic_w_play)
             v.setOnClickPendingIntent(R.id.widget_play, mediaButton(context, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))

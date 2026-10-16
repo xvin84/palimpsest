@@ -126,7 +126,7 @@ class YandexMusicProvider(
 
     suspend fun albumWithTracks(albumId: String): AlbumWithTracks {
         val a: YAlbumFull = get("/albums/$albumId/with-tracks")
-        val album = a.toRemote() ?: throw ProviderException("Альбом $albumId не найден")
+        val album = a.toRemote() ?: throw ProviderException("Album $albumId not found")
         // Tracks inside an album often omit the album block; fill it in so tags/covers are right.
         val tracks = a.volumes.orEmpty().flatten().map { t ->
             val r = t.toRemote()
@@ -162,7 +162,7 @@ class YandexMusicProvider(
             if (queue.isNotEmpty()) put("queue", buildJsonArray { queue.forEach { add(JsonPrimitive(it)) } })
         }
         val r: YRotorSession = postJson("/rotor/session/new", body)
-        val id = r.radioSessionId ?: throw ProviderException("Радио: сессия не создана")
+        val id = r.radioSessionId ?: throw ProviderException("Radio: no session was created")
         return RadioBatch(id, r.batchId, r.sequence.mapNotNull { it.track?.toRemote() })
     }
 
@@ -237,7 +237,7 @@ class YandexMusicProvider(
         val modern = runCatching { fileInfo(id, q, "raw") }.recoverCatching { fileInfo(id, q, "encraw") }
         modern.getOrNull()?.let { return it }
         return runCatching { legacyDownload(id) }.getOrElse {
-            throw ProviderException("Не удалось получить ссылку на трек $id: ${modern.exceptionOrNull()?.message ?: it.message}", it)
+            throw ProviderException("Could not get a link for track $id: ${modern.exceptionOrNull()?.message ?: it.message}", it)
         }
     }
 
@@ -258,8 +258,8 @@ class YandexMusicProvider(
             ),
             extraHeaders = mapOf("X-Yandex-Music-Client" to DESKTOP_CLIENT),
         )
-        val d = info.downloadInfo ?: throw ProviderException("get-file-info: пустой ответ")
-        val url = d.url ?: d.urls.firstOrNull() ?: throw ProviderException("get-file-info: нет ссылки")
+        val d = info.downloadInfo ?: throw ProviderException("get-file-info: empty response")
+        val url = d.url ?: d.urls.firstOrNull() ?: throw ProviderException("get-file-info: no link")
         val key = d.key?.takeIf { d.transport == "encraw" && it.isNotBlank() }?.let(::hexToBytes)
         return StreamInfo(url = url, codec = d.codec, bitrateKbps = d.bitrate, aesCtrKey = key)
     }
@@ -267,10 +267,10 @@ class YandexMusicProvider(
     private suspend fun legacyDownload(trackId: String): StreamInfo {
         val infos: List<YLegacyDownloadInfo> = get("/tracks/$trackId/download-info")
         val best = infos.filter { !it.preview }.maxByOrNull { it.bitrateInKbps }
-            ?: throw ProviderException("Трек недоступен для скачивания")
+            ?: throw ProviderException("Track is not available for download")
         val xml = http.newCall(Request.Builder().url(best.downloadInfoUrl).build()).fetch().body
         fun tag(name: String) = Regex("<$name>(.*?)</$name>").find(xml)?.groupValues?.get(1)
-            ?: throw ProviderException("download-info: нет поля $name")
+            ?: throw ProviderException("download-info: no field $name")
         val host = tag("host"); val path = tag("path"); val ts = tag("ts"); val s = tag("s")
         val sign = md5Hex("XGRlBW9FXlekgbPrRHuSiA" + path.substring(1) + s)
         return StreamInfo(url = "https://$host/get-mp3/$sign/$ts$path", codec = best.codec, bitrateKbps = best.bitrateInKbps)
@@ -288,7 +288,7 @@ class YandexMusicProvider(
         val synced = fetch("LRC")
         val plain = if (synced == null) fetch("TEXT") else null
         if (synced == null && plain == null) return null
-        return Lyrics(plain = plain, synced = synced, source = "Яндекс.Музыка")
+        return Lyrics(plain = plain, synced = synced, source = "Yandex Music")
     }
 
     // --- HTTP plumbing -------------------------------------------------------------------------
@@ -321,7 +321,7 @@ class YandexMusicProvider(
         val env = runCatching { Http.json.decodeFromString<YEnvelope>(text) }.getOrNull()
         if (!resp.isSuccessful || env?.result == null) {
             val msg = (env?.error as? JsonObject)?.let { it["message"] ?: it["name"] }?.jsonPrimitive?.content
-            throw ProviderException("Яндекс ${resp.code}: ${msg ?: text.take(200)}")
+            throw ProviderException("Yandex ${resp.code}: ${msg ?: text.take(200)}")
         }
         return Http.json.decodeFromJsonElement<T>(env.result as JsonElement)
     }

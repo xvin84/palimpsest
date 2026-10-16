@@ -47,6 +47,8 @@ import dev.xvin.palimpsest.core.model.Service
 import dev.xvin.palimpsest.data.db.TrackEntity
 import dev.xvin.palimpsest.ui.theme.Ink
 import dev.xvin.palimpsest.ui.theme.LocalAccent
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
 
 val LocalGraph = compositionLocalOf<AppGraph> { error("no graph") }
 
@@ -59,20 +61,10 @@ fun formatDuration(ms: Long): String {
 fun formatListening(ms: Long): String {
     val m = ms / 60_000
     return when {
-        m >= 60 * 24 -> "%d д %d ч".format(m / (60 * 24), (m / 60) % 24)
-        m >= 60 -> "%d ч %d мин".format(m / 60, m % 60)
-        else -> "$m мин"
+        m >= 60 * 24 -> tr(R.string.duration_days_hours).format(m / (60 * 24), (m / 60) % 24)
+        m >= 60 -> tr(R.string.duration_hours_minutes).format(m / 60, m % 60)
+        else -> tr(R.string.duration_minutes, m)
     }
-}
-
-fun pluralRu(n: Int, one: String, few: String, many: String): String {
-    val m10 = n % 10; val m100 = n % 100
-    val w = when {
-        m10 == 1 && m100 != 11 -> one
-        m10 in 2..4 && m100 !in 12..14 -> few
-        else -> many
-    }
-    return "$n $w"
 }
 
 @Composable
@@ -119,11 +111,11 @@ fun TrackRow(
                     Spacer(Modifier.width(4.dp))
                 }
                 if (track.path == null && track.service != Service.LOCAL) {
-                    Icon(Icons.Rounded.CloudQueue, "Не скачан", Modifier.size(13.dp), tint = Ink.Muted)
+                    Icon(Icons.Rounded.CloudQueue, tr(R.string.not_downloaded), Modifier.size(13.dp), tint = Ink.Muted)
                     Spacer(Modifier.width(4.dp))
                 }
                 if (track.updateAvailable) {
-                    Icon(Icons.Rounded.NewReleases, "Есть новая версия", Modifier.size(13.dp), tint = accent)
+                    Icon(Icons.Rounded.NewReleases, tr(R.string.new_version_available), Modifier.size(13.dp), tint = accent)
                     Spacer(Modifier.width(4.dp))
                 }
                 Text(
@@ -136,7 +128,7 @@ fun TrackRow(
             }
         }
         Text(formatDuration(track.durationMs), style = MaterialTheme.typography.labelSmall, color = Ink.Faint)
-        IconButton(onClick = onMore) { Icon(Icons.Rounded.MoreVert, "Ещё", tint = Ink.Muted) }
+        IconButton(onClick = onMore) { Icon(Icons.Rounded.MoreVert, tr(R.string.more), tint = Ink.Muted) }
     }
 }
 

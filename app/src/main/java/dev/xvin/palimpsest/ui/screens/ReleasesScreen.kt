@@ -36,6 +36,8 @@ import dev.xvin.palimpsest.ui.components.Artwork
 import dev.xvin.palimpsest.ui.components.LocalGraph
 import dev.xvin.palimpsest.ui.theme.Ink
 import kotlinx.coroutines.launch
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
 
 /** New albums and singles from the artists in your library. */
 @Composable
@@ -49,26 +51,26 @@ fun ReleasesScreen() {
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = nav::back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Назад") }
-                Text("Новые релизы", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+                IconButton(onClick = nav::back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, tr(R.string.back)) }
+                Text(tr(R.string.new_releases), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
             }
             Text(
-                "Проверяю раз в день исполнителей, которых у тебя больше всего, и присылаю уведомление о новинках.",
+                tr(R.string.releases_hint),
                 Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = Ink.Muted,
             )
             TextButton(enabled = !checking, onClick = {
                 checking = true
                 scope.launch {
-                    runCatching { graph.releases.check(force = true) }.onFailure { nav.error(it, "Новые релизы") }
+                    runCatching { graph.releases.check(force = true) }.onFailure { nav.error(it, tr(R.string.new_releases)) }
                     list = graph.releases.recent()
                     checking = false
                 }
-            }, modifier = Modifier.padding(horizontal = 8.dp)) { Text(if (checking) "Проверяю…" else "Проверить сейчас") }
+            }, modifier = Modifier.padding(horizontal = 8.dp)) { Text(if (checking) tr(R.string.checking) else tr(R.string.check_now)) }
             if (checking) LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 16.dp))
         }
         if (list.isEmpty() && !checking) item {
             Text(
-                "Пока ничего нового. Первая проверка только запоминает дискографию — новинки появятся здесь, когда выйдут.",
+                tr(R.string.releases_empty),
                 Modifier.padding(16.dp), color = Ink.Muted,
             )
         }
@@ -82,7 +84,7 @@ fun ReleasesScreen() {
                 Column(Modifier.weight(1f)) {
                     Text(r.album.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(
-                        listOfNotNull(r.artist, if (r.album.type == "single") "сингл" else "альбом", r.album.year?.toString()).joinToString(" · "),
+                        listOfNotNull(r.artist, if (r.album.type == "single") tr(R.string.album_type_single) else tr(R.string.album_type_album), r.album.year?.toString()).joinToString(" · "),
                         style = MaterialTheme.typography.bodySmall, color = Ink.Muted, maxLines = 1,
                     )
                 }

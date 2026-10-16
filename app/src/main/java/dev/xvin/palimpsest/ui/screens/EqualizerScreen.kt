@@ -52,6 +52,9 @@ import dev.xvin.palimpsest.ui.theme.LocalAccent
 import kotlinx.coroutines.launch
 import kotlin.math.log10
 import kotlin.math.pow
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
+import dev.xvin.palimpsest.i18n.eqPresetLabel
 
 @Composable
 fun EqualizerScreen() {
@@ -74,7 +77,7 @@ fun EqualizerScreen() {
         if (deviceProfileName != null) {
             // An untouched preset is referenced by name; anything edited becomes this device's own profile.
             val pristine = EqProfile.PRESETS.contains(p) || settings.customEqProfiles.contains(p)
-            val custom = if (pristine) p else p.copy(name = "Профиль · ${device.label}")
+            val custom = if (pristine) p else p.copy(name = tr(R.string.eq_profile_for, device.label))
             if (!pristine) {
                 graph.settings.setCustomEqProfiles(settings.customEqProfiles.filter { it.name != custom.name } + custom)
             }
@@ -87,19 +90,19 @@ fun EqualizerScreen() {
 
     Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = nav::back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Назад") }
-            Text("Эквалайзер", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+            IconButton(onClick = nav::back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, tr(R.string.back)) }
+            Text(tr(R.string.equalizer), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
             Switch(settings.eqEnabled, { scope.launch { graph.settings.setEqEnabled(it) } }, Modifier.padding(end = 16.dp))
         }
         Text(
-            profile.name, style = MaterialTheme.typography.titleMedium, color = if (settings.eqEnabled) LocalAccent.current else Ink.Muted,
+            eqPresetLabel(profile.name), style = MaterialTheme.typography.titleMedium, color = if (settings.eqEnabled) LocalAccent.current else Ink.Muted,
             modifier = Modifier.padding(horizontal = 16.dp),
         )
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Сейчас: ${device.label}", style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
+                Text(tr(R.string.eq_now, device.label), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
                 Text(
-                    if (deviceProfileName != null) "Свой профиль для этого устройства" else "Общий профиль",
+                    if (deviceProfileName != null) tr(R.string.eq_device_own) else tr(R.string.eq_device_shared),
                     style = MaterialTheme.typography.bodySmall, color = Ink.Faint,
                 )
             }
@@ -125,7 +128,7 @@ fun EqualizerScreen() {
                             onChange = { v ->
                                 val filters = profile.filters.toMutableList()
                                 filters[i] = f.copy(gainDb = Math.round(v * 2) / 2.0)
-                                val p = profile.copy(name = "Свой", filters = filters)
+                                val p = profile.copy(name = tr(R.string.eq_custom), filters = filters)
                                 // Auto-preamp: cut by the biggest boost so the EQ itself never clips.
                                 set(p.copy(preampDb = -p.peakBoostDb().coerceAtLeast(0.0)))
                             },
@@ -137,34 +140,34 @@ fun EqualizerScreen() {
             }
         } else {
             Text(
-                "Параметрический профиль: ${profile.filters.size} фильтров. Ползунки доступны для 10-полосных пресетов.",
+                tr(R.string.eq_parametric, profile.filters.size),
                 Modifier.padding(16.dp), color = Ink.Muted, style = MaterialTheme.typography.bodySmall,
             )
         }
 
-        Text("Предусиление: %+.1f дБ".format(profile.preampDb), Modifier.padding(horizontal = 16.dp), color = Ink.Muted)
+        Text(tr(R.string.preamp_db).format(profile.preampDb), Modifier.padding(horizontal = 16.dp), color = Ink.Muted)
         Slider(
             profile.preampDb.toFloat(), { v -> set(profile.copy(preampDb = (v * 2).toInt() / 2.0)) },
             valueRange = -15f..6f, modifier = Modifier.padding(horizontal = 16.dp),
         )
 
-        SectionHeader("Пресеты")
+        SectionHeader(tr(R.string.eq_presets))
         Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            EqProfile.PRESETS.forEach { p -> Pill(p.name, profile.name == p.name, { set(p) }) }
+            EqProfile.PRESETS.forEach { p -> Pill(eqPresetLabel(p.name), EqProfile.canonicalName(profile.name) == p.name, { set(p) }) }
         }
         if (settings.customEqProfiles.isNotEmpty()) {
-            SectionHeader("Мои профили")
+            SectionHeader(tr(R.string.eq_my_profiles))
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 settings.customEqProfiles.forEach { p -> Pill(p.name, profile.name == p.name, { set(p) }) }
             }
         }
         Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { saving = true }) { Text("Сохранить как…") }
-            OutlinedButton(onClick = { importing = true }) { Text("Импорт AutoEQ") }
+            OutlinedButton(onClick = { saving = true }) { Text(tr(R.string.save_as)) }
+            OutlinedButton(onClick = { importing = true }) { Text(tr(R.string.eq_autoeq_import)) }
         }
         Text(
-            "AutoEQ — готовые корректирующие кривые для тысяч наушников: github.com/jaakkopasanen/AutoEq → results → твоя модель → ParametricEQ.txt. " +
-                "Скопируй содержимое и вставь сюда.",
+            tr(R.string.eq_autoeq_hint_1) +
+                tr(R.string.eq_autoeq_hint_2),
             Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = Ink.Faint,
         )
     }
@@ -176,10 +179,10 @@ fun EqualizerScreen() {
         AlertDialog(
             onDismissRequest = { importing = false },
             containerColor = Ink.Paper2,
-            title = { Text("Импорт AutoEQ") },
+            title = { Text(tr(R.string.eq_autoeq_import)) },
             text = {
                 Column {
-                    OutlinedTextField(name, { name = it }, label = { Text("Наушники") }, singleLine = true)
+                    OutlinedTextField(name, { name = it }, label = { Text(tr(R.string.headphones)) }, singleLine = true)
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(text, { text = it }, label = { Text("ParametricEQ.txt") }, minLines = 5, maxLines = 10)
                     error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -197,13 +200,13 @@ fun EqualizerScreen() {
                             importing = false
                         }
                         .onFailure { error = it.message }
-                }) { Text("Импорт") }
+                }) { Text(tr(R.string.import_label)) }
             },
-            dismissButton = { TextButton(onClick = { importing = false }) { Text("Отмена") } },
+            dismissButton = { TextButton(onClick = { importing = false }) { Text(tr(R.string.cancel)) } },
         )
     }
     if (saving) {
-        NameDialog("Название профиля", profile.name, onDismiss = { saving = false }) { name ->
+        NameDialog(tr(R.string.eq_profile_name), profile.name, onDismiss = { saving = false }) { name ->
             val p = profile.copy(name = name)
             scope.launch {
                 graph.settings.setCustomEqProfiles(settings.customEqProfiles.filter { it.name != name } + p)

@@ -17,6 +17,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import java.io.File
 import java.time.Year
+import dev.xvin.palimpsest.i18n.tr
 
 @Serializable
 data class FoundRelease(val album: RemoteAlbum, val artist: String, val foundAt: Long)
@@ -70,13 +71,13 @@ class ReleaseWatcher(
 
     private fun notify(r: FoundRelease) {
         val nm = context.getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(CHANNEL, "Новые релизы", NotificationManager.IMPORTANCE_DEFAULT))
+        nm.createNotificationChannel(NotificationChannel(CHANNEL, tr(R.string.new_releases), NotificationManager.IMPORTANCE_DEFAULT))
         val open = PendingIntent.getActivity(
             context, r.album.id.hashCode(),
             Intent(context, MainActivity::class.java).putExtra(MainActivity.EXTRA_OPEN_ALBUM, r.album.id),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val kind = if (r.album.type == "single") "Новый сингл" else "Новый релиз"
+        val kind = if (r.album.type == "single") tr(R.string.release_new_single) else tr(R.string.release_new)
         nm.notify(
             r.album.id.hashCode(),
             NotificationCompat.Builder(context, CHANNEL)

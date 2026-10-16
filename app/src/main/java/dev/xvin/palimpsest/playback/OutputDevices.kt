@@ -8,6 +8,8 @@ import android.os.Handler
 import android.os.Looper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
 
 data class OutputDevice(val key: String, val label: String)
 
@@ -30,7 +32,7 @@ class OutputDevices(context: Context) {
     private fun detect(): OutputDevice {
         val outs = audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
         val best = outs.maxByOrNull { priority(it.type) }?.takeIf { priority(it.type) > 0 }
-            ?: return OutputDevice("speaker", "Динамик телефона")
+            ?: return OutputDevice("speaker", tr(R.string.output_speaker))
         val name = best.productName?.toString()?.takeIf { it.isNotBlank() } ?: kind(best.type)
         return OutputDevice("${best.type}:$name", name)
     }
@@ -43,8 +45,8 @@ class OutputDevices(context: Context) {
     }
 
     private fun kind(type: Int) = when (type) {
-        AudioDeviceInfo.TYPE_WIRED_HEADPHONES, AudioDeviceInfo.TYPE_WIRED_HEADSET -> "Проводные наушники"
-        AudioDeviceInfo.TYPE_USB_HEADSET, AudioDeviceInfo.TYPE_USB_DEVICE -> "USB-аудио"
+        AudioDeviceInfo.TYPE_WIRED_HEADPHONES, AudioDeviceInfo.TYPE_WIRED_HEADSET -> tr(R.string.output_wired)
+        AudioDeviceInfo.TYPE_USB_HEADSET, AudioDeviceInfo.TYPE_USB_DEVICE -> tr(R.string.output_usb)
         else -> "Bluetooth"
     }
 }

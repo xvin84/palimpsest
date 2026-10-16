@@ -45,12 +45,15 @@ import dev.xvin.palimpsest.ui.components.LocalGraph
 import dev.xvin.palimpsest.ui.components.TrackArtwork
 import dev.xvin.palimpsest.ui.components.TrackRow
 import dev.xvin.palimpsest.ui.components.formatListening
-import dev.xvin.palimpsest.ui.components.pluralRu
 import dev.xvin.palimpsest.ui.theme.Ink
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
+import dev.xvin.palimpsest.i18n.plural
+import dev.xvin.palimpsest.i18n.label
 
 @Serializable
 enum class TrackListKind { ALBUM, ARTIST, FOLDER, PLAYLIST, LIKED, UPDATES, MOST_PLAYED, RECENT, FORGOTTEN }
@@ -86,27 +89,27 @@ fun TrackListScreen(kind: TrackListKind, key: String, extra: String?) {
         TrackListKind.ALBUM, TrackListKind.ARTIST -> key
         TrackListKind.FOLDER -> key.substringAfterLast('/')
         TrackListKind.PLAYLIST -> playlist?.name ?: ""
-        TrackListKind.LIKED -> "Любимые треки"
-        TrackListKind.UPDATES -> "Новые версии"
-        TrackListKind.MOST_PLAYED -> "Часто слушаю"
-        TrackListKind.RECENT -> "Недавно добавленные"
-        TrackListKind.FORGOTTEN -> "Давно не слушал"
+        TrackListKind.LIKED -> tr(R.string.smart_favorites)
+        TrackListKind.UPDATES -> tr(R.string.smart_new_versions)
+        TrackListKind.MOST_PLAYED -> tr(R.string.smart_most_played)
+        TrackListKind.RECENT -> tr(R.string.smart_recently_added)
+        TrackListKind.FORGOTTEN -> tr(R.string.smart_forgotten)
     }
     val subtitle = when (kind) {
         TrackListKind.ALBUM -> extra
         TrackListKind.FOLDER -> key.substringBeforeLast('/', "").ifEmpty { null }
-        TrackListKind.UPDATES -> "Исполнители перезалили эти треки. Скачай новую версию — старая сохранится в истории версий."
-        TrackListKind.MOST_PLAYED -> "50 самых заслушанных"
-        TrackListKind.RECENT -> "Последние 50, что появились в медиатеке"
-        TrackListKind.FORGOTTEN -> "Любимое, что ты не включал больше двух месяцев"
-        else -> playlist?.service?.displayName
+        TrackListKind.UPDATES -> tr(R.string.new_versions_hint)
+        TrackListKind.MOST_PLAYED -> tr(R.string.smart_most_played_hint)
+        TrackListKind.RECENT -> tr(R.string.smart_recently_added_hint)
+        TrackListKind.FORGOTTEN -> tr(R.string.smart_forgotten_hint)
+        else -> playlist?.service?.label
     }
     val remoteOnly = tracks.filter { it.remoteId != null && (it.path == null || it.updateAvailable) }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
             Column(Modifier.fillMaxWidth().statusBarsPadding()) {
-                IconButton(onClick = nav::back, modifier = Modifier.padding(4.dp)) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Назад") }
+                IconButton(onClick = nav::back, modifier = Modifier.padding(4.dp)) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, tr(R.string.back)) }
                 Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     tracks.firstOrNull()?.let { TrackArtwork(it, Modifier.size(112.dp), corner = 12.dp) }
                     Spacer(Modifier.width(16.dp))
@@ -115,33 +118,33 @@ fun TrackListScreen(kind: TrackListKind, key: String, extra: String?) {
                         subtitle?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Ink.Muted, maxLines = 4) }
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            pluralRu(tracks.size, "трек", "трека", "треков") + " · " + formatListening(tracks.sumOf { it.durationMs }),
+                            plural(R.plurals.tracks, tracks.size) + " · " + formatListening(tracks.sumOf { it.durationMs }),
                             style = MaterialTheme.typography.labelMedium, color = Ink.Faint,
                         )
                     }
                 }
                 Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Button(onClick = { graph.player.play(tracks) }, enabled = tracks.isNotEmpty()) {
-                        Icon(Icons.Rounded.PlayArrow, null); Spacer(Modifier.width(6.dp)); Text("Слушать")
+                        Icon(Icons.Rounded.PlayArrow, null); Spacer(Modifier.width(6.dp)); Text(tr(R.string.listen))
                     }
                     OutlinedButton(onClick = { graph.player.play(tracks, shuffle = true) }, enabled = tracks.isNotEmpty()) {
-                        Icon(Icons.Rounded.Shuffle, null); Spacer(Modifier.width(6.dp)); Text("Вперемешку")
+                        Icon(Icons.Rounded.Shuffle, null); Spacer(Modifier.width(6.dp)); Text(tr(R.string.shuffled))
                     }
                     if (remoteOnly.isNotEmpty()) {
                         IconButton(onClick = {
                             scope.launch { graph.downloads.enqueue(remoteOnly.map { it.id }) }
-                            nav.toast("Скачиваю ${remoteOnly.size}")
-                        }) { Icon(Icons.Rounded.Download, "Скачать всё") }
+                            nav.toast(tr(R.string.downloading_n, remoteOnly.size))
+                        }) { Icon(Icons.Rounded.Download, tr(R.string.download_all)) }
                     }
                     if (kind == TrackListKind.ALBUM && tracks.any { it.path != null }) {
-                        IconButton(onClick = { editingAlbum = true }) { Icon(Icons.Rounded.Edit, "Изменить альбом", tint = Ink.Muted) }
+                        IconButton(onClick = { editingAlbum = true }) { Icon(Icons.Rounded.Edit, tr(R.string.album_edit), tint = Ink.Muted) }
                     }
                     if (kind == TrackListKind.PLAYLIST && playlist?.service == null) {
-                        Box { IconButton(onClick = { renaming = true }) { Icon(Icons.Rounded.Edit, "Переименовать", tint = Ink.Muted) } }
+                        Box { IconButton(onClick = { renaming = true }) { Icon(Icons.Rounded.Edit, tr(R.string.rename), tint = Ink.Muted) } }
                         IconButton(onClick = {
                             scope.launch { playlist?.let { graph.db.playlists().delete(it.id) } }
                             nav.back()
-                        }) { Icon(Icons.Rounded.Delete, "Удалить", tint = Ink.Muted) }
+                        }) { Icon(Icons.Rounded.Delete, tr(R.string.delete), tint = Ink.Muted) }
                     }
                 }
             }
@@ -149,10 +152,10 @@ fun TrackListScreen(kind: TrackListKind, key: String, extra: String?) {
         if (tracks.isEmpty()) item {
             Text(
                 when (kind) {
-                    TrackListKind.FORGOTTEN -> "Пока нечего вспоминать: сюда попадут любимые треки, которые ты не слушал два месяца."
-                    TrackListKind.MOST_PLAYED -> "Послушай что-нибудь — здесь соберутся самые заслушанные треки."
-                    TrackListKind.UPDATES -> "Все треки актуальны."
-                    else -> "Здесь пока пусто."
+                    TrackListKind.FORGOTTEN -> tr(R.string.smart_forgotten_empty)
+                    TrackListKind.MOST_PLAYED -> tr(R.string.smart_most_played_empty)
+                    TrackListKind.UPDATES -> tr(R.string.all_tracks_current)
+                    else -> tr(R.string.list_empty)
                 },
                 Modifier.padding(horizontal = 16.dp), color = Ink.Muted,
             )
@@ -167,14 +170,14 @@ fun TrackListScreen(kind: TrackListKind, key: String, extra: String?) {
                 index = if (kind == TrackListKind.ALBUM) (t.trackNumber ?: (i + 1)) else null,
                 subtitle = when (kind) {
                     TrackListKind.ALBUM -> t.artist
-                    TrackListKind.UPDATES -> "${t.artist} · сохранено ${dev.xvin.palimpsest.ui.components.formatDuration(t.durationMs)} → новая ${dev.xvin.palimpsest.ui.components.formatDuration(t.remoteDurationMs ?: 0)}"
+                    TrackListKind.UPDATES -> tr(R.string.new_version_row, t.artist, dev.xvin.palimpsest.ui.components.formatDuration(t.durationMs), dev.xvin.palimpsest.ui.components.formatDuration(t.remoteDurationMs ?: 0))
                     else -> null
                 },
             )
         }
     }
     if (renaming) {
-        NameDialog("Переименовать", playlist?.name.orEmpty(), onDismiss = { renaming = false }) { name ->
+        NameDialog(tr(R.string.rename), playlist?.name.orEmpty(), onDismiss = { renaming = false }) { name ->
             scope.launch { playlist?.let { graph.db.playlists().rename(it.id, name) } }
             renaming = false
         }

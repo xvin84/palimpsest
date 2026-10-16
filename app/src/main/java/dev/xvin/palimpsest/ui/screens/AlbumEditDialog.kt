@@ -35,6 +35,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
 
 /** Edits the shared tags of a whole album at once (title, album artist, year, genre, cover). */
 @Composable
@@ -58,18 +60,18 @@ fun AlbumEditDialog(tracks: List<TrackEntity>, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = { if (progress < 0) onDismiss() },
         containerColor = Ink.Paper2,
-        title = { Text("Изменить альбом") },
+        title = { Text(tr(R.string.album_edit)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Изменится у ${files.size} из ${tracks.size} треков (у остальных формат не поддерживает теги или они не скачаны).", color = Ink.Muted)
-                OutlinedTextField(album, { album = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Альбом") })
-                OutlinedTextField(albumArtist, { albumArtist = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Исполнитель альбома") })
+                Text(tr(R.string.album_edit_hint, files.size, tracks.size), color = Ink.Muted)
+                OutlinedTextField(album, { album = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text(tr(R.string.tag_album)) })
+                OutlinedTextField(albumArtist, { albumArtist = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text(tr(R.string.tag_album_artist)) })
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(year, { year = it }, Modifier.weight(1f), singleLine = true, label = { Text("Год") })
-                    OutlinedTextField(genre, { genre = it }, Modifier.weight(1f), singleLine = true, label = { Text("Жанр") })
+                    OutlinedTextField(year, { year = it }, Modifier.weight(1f), singleLine = true, label = { Text(tr(R.string.tag_year)) })
+                    OutlinedTextField(genre, { genre = it }, Modifier.weight(1f), singleLine = true, label = { Text(tr(R.string.tag_genre)) })
                 }
                 OutlinedButton(onClick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) {
-                    Text(if (cover != null) "Обложка выбрана ✓" else "Обложка для всех треков")
+                    Text(if (cover != null) tr(R.string.cover_picked) else tr(R.string.album_cover_all))
                 }
                 if (progress >= 0) LinearProgressIndicator(progress = { progress }, Modifier.fillMaxWidth())
             }
@@ -89,11 +91,11 @@ fun AlbumEditDialog(tracks: List<TrackEntity>, onDismiss: () -> Unit) {
                             progress = (i + 1f) / files.size
                         }
                     }
-                    failed?.let { nav.error(it, "Изменение альбома") } ?: nav.toast("Альбом обновлён")
+                    failed?.let { nav.error(it, tr(R.string.ctx_album_edit)) } ?: nav.toast(tr(R.string.album_updated))
                     onDismiss()
                 }
-            }) { Text("Сохранить") }
+            }) { Text(tr(R.string.save)) }
         },
-        dismissButton = { TextButton(enabled = progress < 0, onClick = onDismiss) { Text("Отмена") } },
+        dismissButton = { TextButton(enabled = progress < 0, onClick = onDismiss) { Text(tr(R.string.cancel)) } },
     )
 }

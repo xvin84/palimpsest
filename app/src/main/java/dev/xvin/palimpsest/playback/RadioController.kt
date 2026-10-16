@@ -6,6 +6,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
 
 /**
  * Endless radio from Yandex ("Моя волна", radio by track or artist). Fills the queue batch by
@@ -42,7 +44,7 @@ class RadioController(
         val batch = if (extraSeeds.isEmpty()) remote.radioStart(listOf(seed))
         else runCatching { remote.radioStart(listOf(seed) + extraSeeds) }.getOrNull()?.takeIf { it.tracks.isNotEmpty() }
             ?: remote.radioStart(listOf(seed))
-        if (batch.tracks.isEmpty()) error("Станция пока пустая")
+        if (batch.tracks.isEmpty()) error(tr(R.string.radio_empty))
         val rows = batch.tracks.map { remote.ensureTrack(it) }
         player.play(rows) // replaces the queue → would stop a previous station
         received.clear(); received += batch.tracks.map { it.id }

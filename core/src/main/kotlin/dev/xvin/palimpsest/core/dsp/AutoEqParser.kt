@@ -41,7 +41,7 @@ object AutoEqParser {
                 enabled = m.groupValues[1].equals("ON", ignoreCase = true),
             )
         }
-        require(filters.isNotEmpty()) { "Не найдено ни одного фильтра" }
+        require(filters.isNotEmpty()) { "No filters found" }
         return EqProfile(name = name, preampDb = preamp, filters = filters)
     }
 

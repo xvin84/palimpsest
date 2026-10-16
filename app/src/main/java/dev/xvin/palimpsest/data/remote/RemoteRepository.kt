@@ -21,6 +21,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
 
 data class SyncStatus(val running: Boolean = false, val message: String? = null, val error: String? = null)
 
@@ -154,7 +156,7 @@ class RemoteRepository(
         val e = TrackEntity(
             path = null,
             title = r.title,
-            artist = r.artistLine.ifBlank { "Неизвестный исполнитель" },
+            artist = r.artistLine.ifBlank { tr(R.string.unknown_artist) },
             album = r.album,
             albumArtist = null,
             year = r.year,
@@ -176,14 +178,14 @@ class RemoteRepository(
 
     suspend fun syncYandex(): Unit = withContext(Dispatchers.IO) {
         if (!yandex.isReady) return@withContext
-        _status.value = SyncStatus(true, "Загружаю лайки…")
+        _status.value = SyncStatus(true, tr(R.string.sync_loading_likes))
         try {
             val liked = yandexCall { yandex.likedTracks() }
             val likedIds = HashSet<Long>()
             var index = unlinkedLocalIndex()
             var linkedLocal = 0
             liked.forEachIndexed { i, r ->
-                if (i % 50 == 0) _status.value = SyncStatus(true, "Лайки: $i / ${liked.size}")
+                if (i % 50 == 0) _status.value = SyncStatus(true, tr(R.string.sync_likes_progress, i, liked.size))
                 val row = ensureTrack(r, liked = true, localIndex = index)
                 if (row.path != null && row.remoteId == r.id && index.values.any { list -> list.any { it.id == row.id } }) {
                     linkedLocal++
@@ -194,10 +196,10 @@ class RemoteRepository(
             // Un-like tracks that were removed from likes on another device.
             db.tracks().linkedTo(Service.YANDEX).filter { it.liked && it.id !in likedIds }.forEach { db.tracks().setLiked(it.id, false) }
 
-            _status.value = SyncStatus(true, "Загружаю плейлисты…")
+            _status.value = SyncStatus(true, tr(R.string.sync_loading_playlists))
             val playlists = yandexCall { yandex.playlists() }
             for (p in playlists) {
-                _status.value = SyncStatus(true, "Плейлист «${p.title}»")
+                _status.value = SyncStatus(true, tr(R.string.sync_playlist, p.title))
                 val tracks = runCatching { yandex.playlistTracks(p.id) }.getOrElse { continue }
                 val ids = tracks.map { ensureTrack(it).id }
                 val local = db.playlists().byRemote(Service.YANDEX, p.id)
@@ -209,16 +211,16 @@ class RemoteRepository(
             }
             // "Мне нравится" as a playlist too, newest first like in the official app.
             val likesPl = db.playlists().byRemote(Service.YANDEX, "likes")?.id
-                ?: db.playlists().insert(PlaylistEntity(name = "Мне нравится · Яндекс", service = Service.YANDEX, remoteId = "likes"))
+                ?: db.playlists().insert(PlaylistEntity(name = tr(R.string.yandex_liked_playlist), service = Service.YANDEX, remoteId = "likes"))
             db.playlists().replace(likesPl, liked.mapNotNull { db.tracks().byRemote(Service.YANDEX, it.id)?.id })
             _status.value = SyncStatus(
                 false,
-                "Готово: ${liked.size} лайков, ${playlists.size} плейлистов" +
-                    if (linkedLocal > 0) "; уже на телефоне нашлось $linkedLocal — не дублирую" else "",
+                tr(R.string.sync_done, liked.size, playlists.size) +
+                    if (linkedLocal > 0) tr(R.string.sync_linked_local, linkedLocal) else "",
             )
         } catch (e: Exception) {
             _status.value = SyncStatus(false, error = e.message ?: e.toString())
-            onError(e, "Синхронизация с Яндексом")
+            onError(e, tr(R.string.ctx_yandex_sync))
         }
     }
 
@@ -229,7 +231,7 @@ class RemoteRepository(
      */
     suspend fun checkForUpdates(): Int = withContext(Dispatchers.IO) {
         if (!yandex.isReady) return@withContext 0
-        _status.value = SyncStatus(true, "Проверяю обновления треков…")
+        _status.value = SyncStatus(true, tr(R.string.updates_checking))
         try {
             val linked = db.tracks().linkedTo(Service.YANDEX).filter { it.path != null }
             val ids = linked.map { t -> t.remoteAlbumId?.let { "${t.remoteId}:$it" } ?: t.remoteId!! }
@@ -243,11 +245,11 @@ class RemoteRepository(
                     db.tracks().update(t.copy(updateAvailable = diff, remoteDurationMs = r.durationMs))
                 }
             }
-            _status.value = SyncStatus(false, if (changed == 0) "Все треки актуальны" else "Изменилось треков: $changed")
+            _status.value = SyncStatus(false, if (changed == 0) tr(R.string.updates_none) else tr(R.string.updates_changed, changed))
             changed
         } catch (e: Exception) {
             _status.value = SyncStatus(false, error = e.message ?: e.toString())
-            onError(e, "Проверка новых версий")
+            onError(e, tr(R.string.ctx_update_check))
             0
         }
     }
@@ -257,13 +259,13 @@ class RemoteRepository(
      * and YouTube, the best match by title/artist/duration wins. Returns (matched, total).
      */
     suspend fun importSpotify(url: String, importer: SpotifyImporter): Pair<Int, Int> = withContext(Dispatchers.IO) {
-        _status.value = SyncStatus(true, "Читаю Spotify…")
+        _status.value = SyncStatus(true, tr(R.string.spotify_reading))
         try {
             val c = importer.fetch(url)
             val sources = listOfNotNull(yandex.takeIf { it.isReady }, providers[Service.YOUTUBE])
             val ids = ArrayList<Long>()
             c.items.forEachIndexed { i, item ->
-                _status.value = SyncStatus(true, "Ищу ${i + 1}/${c.items.size}: ${item.artists} — ${item.title}")
+                _status.value = SyncStatus(true, tr(R.string.spotify_searching, i + 1, c.items.size, item.artists, item.title))
                 val match = sources.firstNotNullOfOrNull { p ->
                     runCatching { p.search("${item.artists} ${item.title}") }.getOrNull().orEmpty().take(8)
                         .map { it to TrackMatcher.score(item.title, item.artists, item.durationMs, it.title, it.artistLine, it.durationMs) }
@@ -280,12 +282,12 @@ class RemoteRepository(
             val missed = c.items.size - ids.size
             _status.value = SyncStatus(
                 false,
-                "«${c.name}»: найдено ${ids.size} из ${c.items.size}" + if (missed > 0) " (не нашлось: $missed)" else "",
+                tr(R.string.spotify_found, c.name, ids.size, c.items.size) + if (missed > 0) tr(R.string.spotify_missed, missed) else "",
             )
             ids.size to c.items.size
         } catch (e: Exception) {
             _status.value = SyncStatus(false, error = e.message ?: e.toString())
-            onError(e, "Импорт из Spotify")
+            onError(e, tr(R.string.ctx_spotify_import))
             0 to 0
         }
     }

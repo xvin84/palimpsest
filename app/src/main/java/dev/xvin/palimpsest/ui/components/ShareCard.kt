@@ -57,6 +57,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
 
 /** What goes into the share sheet. */
 private enum class ShareWhat { CARD, FILE, BOTH }
@@ -79,7 +81,7 @@ fun ShareCardDialog(np: NowPlaying, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Ink.Paper2,
-        title = { Text("Поделиться") },
+        title = { Text(tr(R.string.share)) },
         text = {
             Column {
                 Box(
@@ -103,7 +105,7 @@ fun ShareCardDialog(np: NowPlaying, onDismiss: () -> Unit) {
                     Box(Modifier.fillMaxSize().background(accent.copy(alpha = 0.28f)))
                     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.18f), Color.Black.copy(alpha = 0.62f)))))
                     Column(Modifier.fillMaxSize().padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("СЕЙЧАС СЛУШАЮ", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.85f))
+                        Text(tr(R.string.share_now_listening), style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.85f))
                         Spacer(Modifier.height(14.dp))
                         Artwork(cover, np.album ?: np.title, Modifier.fillMaxWidth(0.78f).aspectRatio(1f).shadow(18.dp, RoundedCornerShape(14.dp)), corner = 14.dp)
                         Spacer(Modifier.height(16.dp))
@@ -116,9 +118,9 @@ fun ShareCardDialog(np: NowPlaying, onDismiss: () -> Unit) {
                 if (audio != null) {
                     Spacer(Modifier.height(12.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Pill("Карточка", what == ShareWhat.CARD, { what = ShareWhat.CARD })
-                        Pill("Файл", what == ShareWhat.FILE, { what = ShareWhat.FILE })
-                        Pill("Оба", what == ShareWhat.BOTH, { what = ShareWhat.BOTH })
+                        Pill(tr(R.string.share_card), what == ShareWhat.CARD, { what = ShareWhat.CARD })
+                        Pill(tr(R.string.file), what == ShareWhat.FILE, { what = ShareWhat.FILE })
+                        Pill(tr(R.string.share_both), what == ShareWhat.BOTH, { what = ShareWhat.BOTH })
                     }
                 }
             }
@@ -147,12 +149,12 @@ fun ShareCardDialog(np: NowPlaying, onDismiss: () -> Unit) {
                     send.putExtra(Intent.EXTRA_TEXT, "${np.artist} — ${np.title}").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     // Read grants travel with ClipData: without it the chooser (and SEND_MULTIPLE targets) can't open the files.
                     send.clipData = ClipData.newRawUri(null, uris[0]).apply { uris.drop(1).forEach { addItem(ClipData.Item(it)) } }
-                    context.startActivity(Intent.createChooser(send, "Поделиться треком").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
+                    context.startActivity(Intent.createChooser(send, tr(R.string.share_track)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
                     onDismiss()
                 }
-            }) { Text("Поделиться") }
+            }) { Text(tr(R.string.share)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Закрыть") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr(R.string.close)) } },
     )
 }
 

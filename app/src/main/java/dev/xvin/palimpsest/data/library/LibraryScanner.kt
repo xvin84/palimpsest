@@ -22,6 +22,8 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
 
 data class ScanProgress(val running: Boolean = false, val done: Int = 0, val total: Int = 0, val changed: Int = 0, val error: String? = null)
 
@@ -185,6 +187,6 @@ class LibraryScanner(private val db: AppDatabase, private val settings: Settings
     }
 
     companion object {
-        const val UNKNOWN_ARTIST = "Неизвестный исполнитель"
+        val UNKNOWN_ARTIST get() = tr(R.string.unknown_artist)
     }
 }

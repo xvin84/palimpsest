@@ -44,6 +44,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.guava.future
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import dev.xvin.palimpsest.i18n.tr
 
 @OptIn(UnstableApi::class)
 class PlaybackService : MediaLibraryService() {
@@ -323,8 +324,8 @@ class PlaybackService : MediaLibraryService() {
             val db = graph.db
             val items: List<MediaItem> = when {
                 parentId == ROOT -> listOf(
-                    folder("liked", "Любимые"), folder("playlists", "Плейлисты"),
-                    folder("most", "Часто слушаю"), folder("recent", "Недавно добавленные"),
+                    folder("liked", tr(R.string.favorites)), folder("playlists", tr(R.string.playlists)),
+                    folder("most", tr(R.string.smart_most_played)), folder("recent", tr(R.string.smart_recently_added)),
                 )
                 parentId == "liked" -> db.tracks().observeLiked().first().map(MediaItems::from)
                 parentId == "most" -> db.tracks().observeMostPlayed().first().map(MediaItems::from)
@@ -384,7 +385,7 @@ class PlaybackService : MediaLibraryService() {
                     item.mediaId.startsWith(MediaItems.VERSION_PREFIX) -> {
                         val v = graph.db.versions().byId(item.mediaId.removePrefix(MediaItems.VERSION_PREFIX).toLong())
                         val t = v?.let { graph.db.tracks().get(it.trackId) }
-                        if (v != null && t != null) MediaItems.fromVersion(t, v, "Версия от " + java.text.SimpleDateFormat("d MMMM yyyy", java.util.Locale.forLanguageTag("ru")).format(java.util.Date(v.createdAt))) else null
+                        if (v != null && t != null) MediaItems.fromVersion(t, v, tr(R.string.version_from_prefix) + java.text.SimpleDateFormat("d MMMM yyyy", java.util.Locale.getDefault()).format(java.util.Date(v.createdAt))) else null
                     }
                     item.mediaId.startsWith(MediaItems.NEW_PREFIX) ->
                         graph.db.tracks().get(item.mediaId.removePrefix(MediaItems.NEW_PREFIX).toLong())?.let(MediaItems::fromRemoteNew)

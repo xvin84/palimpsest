@@ -46,7 +46,7 @@ class YandexAuth(private val http: OkHttpClient = Http.client) {
             when (err?.error) {
                 "authorization_pending", "slow_down" -> continue
                 "expired_token" -> return null
-                else -> throw ProviderException("Яндекс OAuth: ${err?.error_description ?: err?.error ?: resp.code}")
+                else -> throw ProviderException("Yandex OAuth: ${err?.error_description ?: err?.error ?: resp.code}")
             }
         }
         return null
@@ -65,7 +65,7 @@ class YandexAuth(private val http: OkHttpClient = Http.client) {
     private suspend inline fun <reified T> post(url: String, body: FormBody): T {
         val resp = http.newCall(Request.Builder().url(url).post(body).build()).fetch()
         val text = resp.body
-        if (!resp.isSuccessful) throw ProviderException("Яндекс OAuth ${resp.code}: $text")
+        if (!resp.isSuccessful) throw ProviderException("Yandex OAuth ${resp.code}: $text")
         return Http.json.decodeFromString<T>(text)
     }
 

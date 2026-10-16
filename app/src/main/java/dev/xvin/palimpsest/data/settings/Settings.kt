@@ -22,10 +22,12 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.serialization.Serializable
 import java.io.File
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore("settings")
 
-enum class ReplayGainMode(val label: String) { OFF("Выкл."), TRACK("По треку"), ALBUM("По альбому") }
+enum class ReplayGainMode(val label: String) { OFF(tr(R.string.off_short)), TRACK(tr(R.string.rg_track)), ALBUM(tr(R.string.rg_album)) }
 
 /** «Моя волна» tuning, sent as extra seeds. "" = no preference. */
 data class WavePrefs(val diversity: String = "", val mood: String = "", val language: String = "") {
@@ -36,7 +38,7 @@ data class WavePrefs(val diversity: String = "", val mood: String = "", val lang
     )
 }
 
-enum class VisualizerMode(val label: String) { BARS("Полосы"), MIRROR("Зеркало"), RING("Кольцо"), OFF("Выкл.") }
+enum class VisualizerMode(val label: String) { BARS(tr(R.string.viz_bars)), MIRROR(tr(R.string.viz_mirror)), RING(tr(R.string.viz_ring)), OFF(tr(R.string.off_short)) }
 
 @Serializable
 data class SavedQueue(val trackIds: List<Long> = emptyList(), val index: Int = 0, val positionMs: Long = 0)
@@ -71,7 +73,7 @@ data class AppSettings(
     /** Profile for [deviceKey]: its own if one is assigned, otherwise the global one. */
     fun eqFor(deviceKey: String): EqProfile {
         val name = deviceEq[deviceKey] ?: return eqProfile
-        return (customEqProfiles + EqProfile.PRESETS).firstOrNull { it.name == name } ?: eqProfile
+        return (customEqProfiles + EqProfile.PRESETS).firstOrNull { it.name == EqProfile.canonicalName(name) } ?: eqProfile
     }
 }
 
@@ -118,7 +120,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
             replayGain = p[K.rg]?.let { runCatching { ReplayGainMode.valueOf(it) }.getOrNull() } ?: ReplayGainMode.TRACK,
             replayGainPreampDb = p[K.rgPreamp] ?: 0f,
             eqEnabled = p[K.eqEnabled] ?: false,
-            eqProfile = p[K.eqProfile]?.let { runCatching { json.decodeFromString<EqProfile>(it) }.getOrNull() } ?: EqProfile.FLAT,
+            eqProfile = p[K.eqProfile]?.let { runCatching { json.decodeFromString<EqProfile>(it) }.getOrNull()?.let { e -> e.copy(name = EqProfile.canonicalName(e.name)) } } ?: EqProfile.FLAT,
             customEqProfiles = p[K.eqCustom]?.let { runCatching { json.decodeFromString<List<EqProfile>>(it) }.getOrNull() } ?: emptyList(),
             visualizer = p[K.visualizer]?.let { runCatching { VisualizerMode.valueOf(it) }.getOrNull() } ?: VisualizerMode.BARS,
             dynamicColor = p[K.dynamicColor] ?: true,

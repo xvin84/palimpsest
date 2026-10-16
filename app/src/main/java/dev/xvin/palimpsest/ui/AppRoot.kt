@@ -80,6 +80,8 @@ import dev.xvin.palimpsest.ui.theme.PalimpsestTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
 
 @Serializable object LibraryRoute
 @Serializable object SearchRoute
@@ -181,7 +183,7 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
         graph.errors.shown.collect { info ->
             val r = snackbar.showSnackbar(
                 message = info.title + (info.context?.let { " · $it" } ?: ""),
-                actionLabel = "Подробнее",
+                actionLabel = tr(R.string.details),
                 duration = androidx.compose.material3.SnackbarDuration.Long,
             )
             if (r == androidx.compose.material3.SnackbarResult.ActionPerformed) errorShown = info
@@ -297,10 +299,10 @@ private data class Tab(val route: Any, val label: String, val icon: androidx.com
 @Composable
 private fun BottomBar(nav: androidx.navigation.NavHostController) {
     val tabs = listOf(
-        Tab(LibraryRoute, "Медиатека", Icons.Rounded.LibraryMusic),
-        Tab(SearchRoute, "Поиск", Icons.Rounded.Search),
-        Tab(SourcesRoute, "Сервисы", Icons.Rounded.Hub),
-        Tab(StatsRoute, "История", Icons.Rounded.Insights),
+        Tab(LibraryRoute, tr(R.string.tab_library), Icons.Rounded.LibraryMusic),
+        Tab(SearchRoute, tr(R.string.tab_search), Icons.Rounded.Search),
+        Tab(SourcesRoute, tr(R.string.tab_services), Icons.Rounded.Hub),
+        Tab(StatsRoute, tr(R.string.tab_history), Icons.Rounded.Insights),
     )
     val entry by nav.currentBackStackEntryAsState()
     val dest = entry?.destination

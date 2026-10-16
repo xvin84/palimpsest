@@ -34,6 +34,8 @@ import dev.xvin.palimpsest.errors.ErrorInfo
 import dev.xvin.palimpsest.ui.theme.Ink
 import dev.xvin.palimpsest.ui.theme.LocalAccent
 import kotlinx.coroutines.launch
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
 
 /** What went wrong, what to try, and the technical details one tap away (copyable). */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -51,7 +53,7 @@ fun ErrorSheet(info: ErrorInfo, onDismiss: () -> Unit) {
             Text(info.explanation, color = Ink.Muted)
             if (info.hints.isNotEmpty()) {
                 Spacer(Modifier.height(14.dp))
-                Text("ЧТО МОЖНО СДЕЛАТЬ", style = MaterialTheme.typography.labelSmall, color = Ink.Muted)
+                Text(tr(R.string.error_what_to_do), style = MaterialTheme.typography.labelSmall, color = Ink.Muted)
                 info.hints.forEach { h ->
                     Row(Modifier.padding(top = 6.dp)) {
                         Text("•  ", color = LocalAccent.current)
@@ -75,11 +77,11 @@ fun ErrorSheet(info: ErrorInfo, onDismiss: () -> Unit) {
                 Button(onClick = {
                     scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("Palimpsest error", "${info.title}\n${info.explanation}\n\n${info.details}"))) }
                     copied = true
-                }) { Text(if (copied) "Скопировано ✓" else "Скопировать подробности") }
+                }) { Text(if (copied) tr(R.string.copied) else tr(R.string.copy_details)) }
                 Spacer(Modifier.padding(4.dp))
-                OutlinedButton(onClick = { showDetails = !showDetails }) { Text(if (showDetails) "Скрыть" else "Подробности") }
+                OutlinedButton(onClick = { showDetails = !showDetails }) { Text(if (showDetails) tr(R.string.hide) else tr(R.string.details_full)) }
             }
-            TextButton(onClick = onDismiss) { Text("Закрыть") }
+            TextButton(onClick = onDismiss) { Text(tr(R.string.close)) }
         }
     }
 }

@@ -12,6 +12,8 @@ import dev.xvin.palimpsest.data.library.TagIO
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
 
 /**
  * Lyrics lookup order: what the user saved in the app → the file's LYRICS tag → a sidecar
@@ -47,9 +49,9 @@ class LyricsRepository(
         db.lyrics().get(track.id)?.let { return@withContext Lyrics(it.plain, it.synced, it.source) }
         val path = track.path ?: return@withContext null
         val file = File(path)
-        runCatching { TagIO.read(file).lyrics }.getOrNull()?.let { return@withContext fromText(it, "Тег файла") }
+        runCatching { TagIO.read(file).lyrics }.getOrNull()?.let { return@withContext fromText(it, tr(R.string.lyrics_src_tag)) }
         val lrc = File(file.parentFile, file.nameWithoutExtension + ".lrc")
-        if (lrc.isFile) return@withContext fromText(lrc.readText(), ".lrc файл")
+        if (lrc.isFile) return@withContext fromText(lrc.readText(), tr(R.string.lyrics_src_lrc))
         null
     }
 
@@ -68,7 +70,7 @@ class LyricsRepository(
 
     /** Saves edited lyrics; optionally also writes them into the file's tag. */
     suspend fun save(track: TrackEntity, text: String, embed: Boolean) = withContext(Dispatchers.IO) {
-        val l = fromText(text, "Изменено вручную")
+        val l = fromText(text, tr(R.string.lyrics_src_manual))
         if (text.isBlank()) db.lyrics().delete(track.id)
         else db.lyrics().put(LyricsEntity(track.id, l.synced, l.plain, l.source))
         if (embed && track.path != null && TagIO.canEdit(File(track.path))) {

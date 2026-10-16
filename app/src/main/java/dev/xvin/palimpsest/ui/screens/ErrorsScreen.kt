@@ -36,6 +36,8 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
 
 /** Settings → «Журнал ошибок»: every error with its explanation; tap for hints and details. */
 @Composable
@@ -45,24 +47,24 @@ fun ErrorsScreen() {
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
     val log by graph.errors.log.collectAsStateWithLifecycle()
-    val fmt = remember { SimpleDateFormat("d MMM, HH:mm:ss", Locale.forLanguageTag("ru")) }
+    val fmt = remember { SimpleDateFormat("d MMM, HH:mm:ss", Locale.getDefault()) }
 
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = nav::back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Назад") }
-                Text("Журнал ошибок", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+                IconButton(onClick = nav::back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, tr(R.string.back)) }
+                Text(tr(R.string.error_log), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
             }
             Row(Modifier.padding(horizontal = 8.dp)) {
                 TextButton(enabled = log.isNotEmpty(), onClick = {
                     val all = log.joinToString("\n\n========\n\n") { "${it.title}\n${it.explanation}\n\n${it.details}" }
                     scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("Palimpsest errors", all))) }
-                    nav.toast("Журнал скопирован")
-                }) { Text("Скопировать всё") }
-                TextButton(enabled = log.isNotEmpty(), onClick = { graph.errors.clear() }) { Text("Очистить", color = Ink.Muted) }
+                    nav.toast(tr(R.string.error_log_copied))
+                }) { Text(tr(R.string.copy_all)) }
+                TextButton(enabled = log.isNotEmpty(), onClick = { graph.errors.clear() }) { Text(tr(R.string.clear), color = Ink.Muted) }
             }
         }
-        if (log.isEmpty()) item { Text("Ошибок не было 🎉", Modifier.padding(16.dp), color = Ink.Muted) }
+        if (log.isEmpty()) item { Text(tr(R.string.error_log_empty), Modifier.padding(16.dp), color = Ink.Muted) }
         items(log, key = { "${it.at}${it.title}" }) { e ->
             Column(Modifier.fillMaxWidth().clickable { nav.showError(e) }.padding(horizontal = 16.dp, vertical = 10.dp)) {
                 Text(e.title, style = MaterialTheme.typography.bodyLarge)

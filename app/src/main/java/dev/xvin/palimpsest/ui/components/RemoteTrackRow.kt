@@ -22,6 +22,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.xvin.palimpsest.core.model.RemoteTrack
 import dev.xvin.palimpsest.ui.theme.Ink
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
 
 /** A track from a service (search, artist page, album, radio) that isn't necessarily in the library. */
 @Composable
@@ -51,7 +53,7 @@ fun RemoteTrackRow(
             )
         }
         Text(formatDuration(r.durationMs), style = MaterialTheme.typography.labelSmall, color = Ink.Faint)
-        IconButton(onClick = onDownload, enabled = r.available) { Icon(Icons.Rounded.Download, "Скачать", tint = Ink.Muted) }
-        IconButton(onClick = onMore) { Icon(Icons.Rounded.MoreVert, "Ещё", tint = Ink.Muted) }
+        IconButton(onClick = onDownload, enabled = r.available) { Icon(Icons.Rounded.Download, tr(R.string.download), tint = Ink.Muted) }
+        IconButton(onClick = onMore) { Icon(Icons.Rounded.MoreVert, tr(R.string.more), tint = Ink.Muted) }
     }
 }

@@ -52,6 +52,9 @@ import dev.xvin.palimpsest.ui.LocalNav
 import dev.xvin.palimpsest.ui.screens.TrackListKind
 import dev.xvin.palimpsest.ui.theme.Ink
 import kotlinx.coroutines.launch
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
+import dev.xvin.palimpsest.i18n.label
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,36 +85,36 @@ fun TrackActionsSheet(initial: TrackEntity, onDismiss: () -> Unit) {
                 }
             }
             HorizontalDivider(Modifier.padding(vertical = 8.dp), color = Ink.Line)
-            Action(Icons.Rounded.SkipNext, "Играть следующим") { act { graph.player.playNext(listOf(t)) } }
-            Action(Icons.AutoMirrored.Rounded.QueueMusic, "Добавить в очередь") { act { graph.player.enqueue(listOf(t)) } }
-            Action(Icons.AutoMirrored.Rounded.PlaylistAdd, "Добавить в плейлист…") { pickPlaylist = true }
-            Action(if (t.liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, if (t.liked) "Убрать из любимых" else "В любимые") {
+            Action(Icons.Rounded.SkipNext, tr(R.string.action_play_next)) { act { graph.player.playNext(listOf(t)) } }
+            Action(Icons.AutoMirrored.Rounded.QueueMusic, tr(R.string.action_enqueue)) { act { graph.player.enqueue(listOf(t)) } }
+            Action(Icons.AutoMirrored.Rounded.PlaylistAdd, tr(R.string.action_add_to_playlist)) { pickPlaylist = true }
+            Action(if (t.liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, if (t.liked) tr(R.string.action_unlike) else tr(R.string.action_like)) {
                 scope.launch {
-                    graph.setLiked(t, !t.liked).onFailure { nav.toast("В Яндексе не сохранилось: ${it.message}") }
+                    graph.setLiked(t, !t.liked).onFailure { nav.toast(tr(R.string.like_not_saved_yandex, it.message)) }
                 }
             }
             if (t.remoteId != null && (t.path == null || t.updateAvailable)) {
-                Action(Icons.Rounded.Download, if (t.updateAvailable) "Скачать новую версию (старая сохранится)" else "Скачать") {
+                Action(Icons.Rounded.Download, if (t.updateAvailable) tr(R.string.action_download_new_version) else tr(R.string.download)) {
                     act {
                         graph.appScope.launch { graph.downloads.enqueue(listOf(t.id)) }
-                        nav.toast("Скачиваю «${t.title}»")
+                        nav.toast(tr(R.string.downloading_one, t.title))
                     }
                 }
             }
-            if (t.path != null) Action(Icons.Rounded.Edit, "Теги, обложка и текст") { act { nav.openTrack(t.id, 0) } }
-            Action(Icons.Rounded.History, "История версий") { act { nav.openTrack(t.id, 2) } }
-            t.album?.let { album -> Action(Icons.Rounded.Album, "Альбом «$album»") { act { nav.openList(TrackListKind.ALBUM, album, t.albumArtist ?: t.artist) } } }
+            if (t.path != null) Action(Icons.Rounded.Edit, tr(R.string.action_tags)) { act { nav.openTrack(t.id, 0) } }
+            Action(Icons.Rounded.History, tr(R.string.action_versions)) { act { nav.openTrack(t.id, 2) } }
+            t.album?.let { album -> Action(Icons.Rounded.Album, tr(R.string.action_album, album)) { act { nav.openList(TrackListKind.ALBUM, album, t.albumArtist ?: t.artist) } } }
             artists.forEach { a -> Action(Icons.Rounded.Person, a.name) { act { nav.openArtist(a.name, a.remoteId) } } }
             if (t.service == Service.YANDEX && t.remoteId != null && graph.yandex.isReady) {
-                Action(Icons.Rounded.Radio, "Радио по треку") {
+                Action(Icons.Rounded.Radio, tr(R.string.action_track_radio)) {
                     act {
                         graph.mainScope.launch {
-                            graph.radio.start("track:${t.remoteId}", "Радио: ${t.title}").onFailure { nav.error(it, "Радио по треку") }
+                            graph.radio.start("track:${t.remoteId}", tr(R.string.radio_title, t.title)).onFailure { nav.error(it, tr(R.string.action_track_radio)) }
                         }
                     }
                 }
-                Action(Icons.Rounded.AutoAwesome, "Похожие треки") { act { nav.openSimilar(t.remoteId, t.title) } }
-                t.remoteAlbumId?.let { id -> Action(Icons.Rounded.Album, "Альбом в Яндексе") { act { nav.openRemoteAlbum(id) } } }
+                Action(Icons.Rounded.AutoAwesome, tr(R.string.action_similar)) { act { nav.openSimilar(t.remoteId, t.title) } }
+                t.remoteAlbumId?.let { id -> Action(Icons.Rounded.Album, tr(R.string.action_yandex_album)) { act { nav.openRemoteAlbum(id) } } }
             }
         }
     }
@@ -121,7 +124,7 @@ fun TrackActionsSheet(initial: TrackEntity, onDismiss: () -> Unit) {
             onDismiss = { pickPlaylist = false },
             onPick = { p ->
                 graph.appScope.launch { graph.db.playlists().append(p.id, listOf(t.id)) }
-                nav.toast("Добавлено в «${p.name}»")
+                nav.toast(tr(R.string.added_to_playlist, p.name))
                 pickPlaylist = false
                 onDismiss()
             },
@@ -131,10 +134,10 @@ fun TrackActionsSheet(initial: TrackEntity, onDismiss: () -> Unit) {
 
 fun techLine(t: TrackEntity): String = listOfNotNull(
     t.codec?.uppercase(),
-    t.bitsPerSample?.takeIf { it > 0 }?.let { "$it бит" },
-    t.sampleRate?.let { "%.1f кГц".format(it / 1000f) },
-    t.bitrateKbps?.let { "$it кбит/с" },
-    if (t.path == null) "стрим · ${t.service.displayName}" else null,
+    t.bitsPerSample?.takeIf { it > 0 }?.let { tr(R.string.tech_bits, it) },
+    t.sampleRate?.let { tr(R.string.tech_khz).format(it / 1000f) },
+    t.bitrateKbps?.let { tr(R.string.tech_kbps, it) },
+    if (t.path == null) tr(R.string.tech_stream, t.service.label) else null,
 ).joinToString(" · ")
 
 @Composable
@@ -158,16 +161,16 @@ fun PlaylistPicker(onDismiss: () -> Unit, onPick: (PlaylistEntity) -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Ink.Paper2,
-        title = { Text("В плейлист") },
+        title = { Text(tr(R.string.to_playlist)) },
         text = {
             LazyColumn {
                 item {
                     Text(
-                        "+ Новый плейлист",
+                        tr(R.string.new_playlist_plus),
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.fillMaxWidth().clickable {
                             scope.launch {
-                                val name = "Плейлист ${own.size + 1}"
+                                val name = tr(R.string.playlist_n, own.size + 1)
                                 val id = graph.db.playlists().insert(PlaylistEntity(name = name))
                                 onPick(PlaylistEntity(id = id, name = name))
                             }
@@ -179,6 +182,6 @@ fun PlaylistPicker(onDismiss: () -> Unit, onPick: (PlaylistEntity) -> Unit) {
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(tr(R.string.cancel)) } },
     )
 }

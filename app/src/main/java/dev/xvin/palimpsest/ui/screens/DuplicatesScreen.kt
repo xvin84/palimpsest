@@ -43,6 +43,9 @@ import dev.xvin.palimpsest.ui.components.techLine
 import dev.xvin.palimpsest.ui.theme.Ink
 import dev.xvin.palimpsest.ui.theme.LocalAccent
 import kotlinx.coroutines.launch
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
+import dev.xvin.palimpsest.i18n.label
 
 @Composable
 fun DuplicatesScreen() {
@@ -57,32 +60,32 @@ fun DuplicatesScreen() {
     fun mergeAll(list: List<Duplicates.Group>) {
         busy = true
         scope.launch {
-            runCatching { list.forEach { graph.duplicates.merge(it) } }.onFailure { nav.error(it, "Объединение дубликатов") }
+            runCatching { list.forEach { graph.duplicates.merge(it) } }.onFailure { nav.error(it, tr(R.string.ctx_dup_merge)) }
             busy = false
             reload++
-            nav.toast("Объединено: ${list.size}")
+            nav.toast(tr(R.string.dup_merged, list.size))
         }
     }
 
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = nav::back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Назад") }
-                Text("Дубликаты", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+                IconButton(onClick = nav::back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, tr(R.string.back)) }
+                Text(tr(R.string.duplicates), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
             }
             Text(
-                "Один и тот же трек, сохранённый несколько раз. При объединении остаётся лучшая копия (файл, lossless, выше битрейт), " +
-                    "а лишние файлы не удаляются — уходят в её историю версий. Плейлисты, история и лайки переносятся.",
+                tr(R.string.dup_hint_1) +
+                    tr(R.string.dup_hint_2),
                 Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = Ink.Muted,
             )
             val g = groups
             if (g != null && g.isNotEmpty()) {
-                Button(onClick = { mergeAll(g) }, enabled = !busy, modifier = Modifier.padding(16.dp)) { Text("Объединить все (${g.size})") }
+                Button(onClick = { mergeAll(g) }, enabled = !busy, modifier = Modifier.padding(16.dp)) { Text(tr(R.string.dup_merge_all, g.size)) }
             }
         }
         when {
             groups == null || busy -> item { Row(Modifier.fillMaxWidth().padding(24.dp), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.Center) { CircularProgressIndicator() } }
-            groups!!.isEmpty() -> item { Text("Дубликатов не нашлось ✓", Modifier.padding(16.dp), color = Ink.Muted) }
+            groups!!.isEmpty() -> item { Text(tr(R.string.dup_none), Modifier.padding(16.dp), color = Ink.Muted) }
             else -> items(groups!!, key = { it.keep.id }) { g ->
                 Column(
                     Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).clip(RoundedCornerShape(14.dp)).background(Ink.Paper2).padding(12.dp),
@@ -91,7 +94,7 @@ fun DuplicatesScreen() {
                     Spacer(Modifier.height(6.dp))
                     Copy(g.keep, keep = true)
                     g.others.forEach { Copy(it, keep = false) }
-                    TextButton(onClick = { mergeAll(listOf(g)) }, enabled = !busy) { Text("Объединить", color = LocalAccent.current) }
+                    TextButton(onClick = { mergeAll(listOf(g)) }, enabled = !busy) { Text(tr(R.string.dup_merge), color = LocalAccent.current) }
                 }
             }
         }
@@ -104,7 +107,7 @@ private fun Copy(t: TrackEntity, keep: Boolean) {
         Text(if (keep) "✓ " else "→ ", color = if (keep) LocalAccent.current else Ink.Faint)
         Column {
             Text(techLine(t), style = MaterialTheme.typography.labelMedium, color = if (keep) Ink.Text else Ink.Muted)
-            Text(t.path ?: "облако · ${t.service.displayName}", style = MaterialTheme.typography.labelSmall, color = Ink.Faint, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(t.path ?: tr(R.string.cloud_from, t.service.label), style = MaterialTheme.typography.labelSmall, color = Ink.Faint, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }

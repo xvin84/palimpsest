@@ -68,13 +68,16 @@ import dev.xvin.palimpsest.ui.components.EmptyState
 import dev.xvin.palimpsest.ui.components.LocalGraph
 import dev.xvin.palimpsest.ui.components.Pill
 import dev.xvin.palimpsest.ui.components.TrackRow
-import dev.xvin.palimpsest.ui.components.pluralRu
 import dev.xvin.palimpsest.ui.theme.Ink
 import dev.xvin.palimpsest.ui.theme.LocalAccent
 import kotlinx.coroutines.launch
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
+import dev.xvin.palimpsest.i18n.plural
+import dev.xvin.palimpsest.i18n.label
 
-private enum class LibTab(val label: String) { TRACKS("Треки"), ALBUMS("Альбомы"), ARTISTS("Исполнители"), FOLDERS("Папки"), PLAYLISTS("Плейлисты") }
-private enum class SortMode(val label: String) { TITLE("По названию"), ARTIST("По исполнителю"), ADDED("Недавно добавленные"), DURATION("По длительности") }
+private enum class LibTab(val label: String) { TRACKS(tr(R.string.lib_tracks)), ALBUMS(tr(R.string.lib_albums)), ARTISTS(tr(R.string.lib_artists)), FOLDERS(tr(R.string.lib_folders)), PLAYLISTS(tr(R.string.playlists)) }
+private enum class SortMode(val label: String) { TITLE(tr(R.string.sort_title)), ARTIST(tr(R.string.sort_artist)), ADDED(tr(R.string.smart_recently_added)), DURATION(tr(R.string.sort_duration)) }
 
 @Composable
 fun LibraryScreen() {
@@ -88,18 +91,18 @@ fun LibraryScreen() {
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 12.dp), verticalAlignment = Alignment.Bottom) {
             Column(Modifier.weight(1f)) {
-                Text("Медиатека", style = MaterialTheme.typography.displayMedium)
-                Text(pluralRu(count, "трек", "трека", "треков"), style = MaterialTheme.typography.labelMedium, color = Ink.Muted)
+                Text(tr(R.string.tab_library), style = MaterialTheme.typography.displayMedium)
+                Text(plural(R.plurals.tracks, count), style = MaterialTheme.typography.labelMedium, color = Ink.Muted)
             }
             IconButton(onClick = { scope.launch { graph.scanner.scan() } }, enabled = !scan.running) {
-                Icon(Icons.Rounded.Refresh, "Пересканировать", tint = Ink.Muted)
+                Icon(Icons.Rounded.Refresh, tr(R.string.rescan), tint = Ink.Muted)
             }
-            IconButton(onClick = nav::openSettings) { Icon(Icons.Rounded.Settings, "Настройки", tint = Ink.Muted) }
+            IconButton(onClick = nav::openSettings) { Icon(Icons.Rounded.Settings, tr(R.string.settings), tint = Ink.Muted) }
         }
         if (scan.running) {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Text(
-                    if (scan.total > 0) "Читаю теги: ${scan.done} из ${scan.total}" else "Ищу музыку…",
+                    if (scan.total > 0) tr(R.string.scan_reading_tags, scan.done, scan.total) else tr(R.string.scan_looking),
                     style = MaterialTheme.typography.labelMedium, color = Ink.Muted,
                 )
                 Spacer(Modifier.height(6.dp))
@@ -107,7 +110,7 @@ fun LibraryScreen() {
                 else LinearProgressIndicator(Modifier.fillMaxWidth())
             }
         }
-        scan.error?.let { Text("Ошибка сканирования: $it", color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }
+        scan.error?.let { Text(tr(R.string.scan_error, it), color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }
 
         Row(
             Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 12.dp),
@@ -159,8 +162,8 @@ private fun TracksTab() {
 
     if (list.isEmpty()) {
         EmptyState(
-            "Пока пусто",
-            "Положи музыку в папку Music на телефоне или подключи Яндекс.Музыку во вкладке «Сервисы».",
+            tr(R.string.lib_empty_title),
+            tr(R.string.lib_empty_hint),
         )
         return
     }
@@ -174,10 +177,10 @@ private fun TracksTab() {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Pill("Все", source == null && !onlyLiked && !onlyOffline, { source = null; onlyLiked = false; onlyOffline = false })
-                Pill("♥ Любимые", onlyLiked, { onlyLiked = !onlyLiked })
-                if (list.any { it.path == null }) Pill("Скачанные", onlyOffline, { onlyOffline = !onlyOffline })
-                services.forEach { s -> Pill(s.displayName, source == s, { source = if (source == s) null else s }) }
+                Pill(tr(R.string.filter_all), source == null && !onlyLiked && !onlyOffline, { source = null; onlyLiked = false; onlyOffline = false })
+                Pill(tr(R.string.filter_favorites), onlyLiked, { onlyLiked = !onlyLiked })
+                if (list.any { it.path == null }) Pill(tr(R.string.filter_downloaded), onlyOffline, { onlyOffline = !onlyOffline })
+                services.forEach { s -> Pill(s.label, source == s, { source = if (source == s) null else s }) }
             }
         }
         item {
@@ -185,7 +188,7 @@ private fun TracksTab() {
                 TextButton(onClick = { graph.player.play(tracks, shuffle = true) }) {
                     Icon(Icons.Rounded.Shuffle, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Перемешать · ${tracks.size}")
+                    Text(tr(R.string.shuffle_n, tracks.size))
                 }
                 Spacer(Modifier.weight(1f))
                 Box {
@@ -217,7 +220,7 @@ private fun AlbumsTab() {
     val graph = LocalGraph.current
     val nav = LocalNav.current
     val albums by graph.db.tracks().observeAlbums().collectAsStateWithLifecycle(emptyList())
-    if (albums.isEmpty()) { EmptyState("Нет альбомов", "Альбомы появятся, когда у треков будет тег «Альбом»."); return }
+    if (albums.isEmpty()) { EmptyState(tr(R.string.lib_no_albums), tr(R.string.lib_no_albums_hint)); return }
     LazyVerticalGrid(
         GridCells.Adaptive(150.dp),
         contentPadding = PaddingValues(16.dp),
@@ -257,7 +260,7 @@ private fun ArtistsTab() {
                 Column(Modifier.weight(1f)) {
                     Text(a.artist, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(
-                        pluralRu(a.trackCount, "трек", "трека", "треков") + if (a.albumCount > 1) " · " + pluralRu(a.albumCount, "альбом", "альбома", "альбомов") else "",
+                        plural(R.plurals.tracks, a.trackCount) + if (a.albumCount > 1) " · " + plural(R.plurals.albums, a.albumCount) else "",
                         style = MaterialTheme.typography.bodySmall, color = Ink.Muted,
                     )
                 }
@@ -284,7 +287,7 @@ private fun FoldersTab() {
                 Column(Modifier.weight(1f)) {
                     Text(f.folder.substringAfterLast('/'), style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(
-                        (if ('/' in f.folder) f.folder.substringBeforeLast('/') + " · " else "") + pluralRu(f.trackCount, "трек", "трека", "треков"),
+                        (if ('/' in f.folder) f.folder.substringBeforeLast('/') + " · " else "") + plural(R.plurals.tracks, f.trackCount),
                         style = MaterialTheme.typography.bodySmall, color = Ink.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                 }
@@ -311,7 +314,7 @@ private fun PlaylistsTab() {
                     Icon(Icons.Rounded.Add, null, tint = LocalAccent.current)
                 }
                 Spacer(Modifier.width(14.dp))
-                Text("Новый плейлист", style = MaterialTheme.typography.bodyLarge)
+                Text(tr(R.string.new_playlist), style = MaterialTheme.typography.bodyLarge)
             }
         }
         item {
@@ -323,17 +326,17 @@ private fun PlaylistsTab() {
                     Text("♥", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleLarge)
                 }
                 Spacer(Modifier.width(14.dp))
-                Text("Любимые треки", style = MaterialTheme.typography.bodyLarge)
+                Text(tr(R.string.smart_favorites), style = MaterialTheme.typography.bodyLarge)
             }
         }
-        item { SmartRow("Часто слушаю", "↑") { nav.openList(TrackListKind.MOST_PLAYED, "smart") } }
-        item { SmartRow("Недавно добавленные", "+") { nav.openList(TrackListKind.RECENT, "smart") } }
-        item { SmartRow("Давно не слушал", "↺") { nav.openList(TrackListKind.FORGOTTEN, "smart") } }
-        item { SmartRow("Новые релизы", "✦") { nav.openReleases() } }
+        item { SmartRow(tr(R.string.smart_most_played), "↑") { nav.openList(TrackListKind.MOST_PLAYED, "smart") } }
+        item { SmartRow(tr(R.string.smart_recently_added), "+") { nav.openList(TrackListKind.RECENT, "smart") } }
+        item { SmartRow(tr(R.string.smart_forgotten), "↺") { nav.openList(TrackListKind.FORGOTTEN, "smart") } }
+        item { SmartRow(tr(R.string.new_releases), "✦") { nav.openReleases() } }
         items(playlists, key = { it.id }) { p -> PlaylistRow(p) { nav.openList(TrackListKind.PLAYLIST, p.id.toString()) } }
     }
     if (creating) {
-        NameDialog("Новый плейлист", "", onDismiss = { creating = false }) { name ->
+        NameDialog(tr(R.string.new_playlist), "", onDismiss = { creating = false }) { name ->
             scope.launch { graph.db.playlists().insert(PlaylistEntity(name = name)) }
             creating = false
         }
@@ -352,7 +355,7 @@ private fun SmartRow(title: String, glyph: String, onClick: () -> Unit) {
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
-            Text("Умный плейлист", style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
+            Text(tr(R.string.smart_playlist), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
         }
     }
 }
@@ -370,7 +373,7 @@ private fun PlaylistRow(p: PlaylistEntity, onClick: () -> Unit) {
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(p.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            p.service?.let { Text(it.displayName, style = MaterialTheme.typography.bodySmall, color = Ink.Muted) }
+            p.service?.let { Text(it.label, style = MaterialTheme.typography.bodySmall, color = Ink.Muted) }
         }
     }
 }
@@ -381,9 +384,9 @@ fun NameDialog(title: String, initial: String, onDismiss: () -> Unit, onConfirm:
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
-        text = { OutlinedTextField(text, { text = it }, singleLine = true, label = { Text("Название") }) },
-        confirmButton = { TextButton(onClick = { if (text.isNotBlank()) onConfirm(text.trim()) }) { Text("Готово") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
+        text = { OutlinedTextField(text, { text = it }, singleLine = true, label = { Text(tr(R.string.tag_title)) }) },
+        confirmButton = { TextButton(onClick = { if (text.isNotBlank()) onConfirm(text.trim()) }) { Text(tr(R.string.done)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr(R.string.cancel)) } },
         containerColor = Ink.Paper2,
     )
 }
@@ -412,14 +415,14 @@ private fun MyWaveCard() {
                 if (active) { nav.openPlayer(); return@clickable }
                 starting = true
                 scope.launch {
-                    graph.radio.start(dev.xvin.palimpsest.playback.RadioController.MY_WAVE, "Моя волна", settings?.wave?.seeds().orEmpty())
+                    graph.radio.start(dev.xvin.palimpsest.playback.RadioController.MY_WAVE, tr(R.string.my_wave), settings?.wave?.seeds().orEmpty())
                         .onSuccess { nav.openPlayer() }
                         .onFailure { e ->
                             // No network? Don't leave the user in silence — play the offline mix instead.
-                            if (graph.errors.report(e, "Моя волна", show = false)?.title == "Нет интернета" && graph.startOfflineWave()) {
-                                nav.toast("Нет сети — включил офлайн-волну из скачанного")
+                            if (graph.errors.report(e, tr(R.string.my_wave), show = false)?.title == tr(R.string.err_offline_title) && graph.startOfflineWave()) {
+                                nav.toast(tr(R.string.wave_offline_fallback))
                                 nav.openPlayer()
-                            } else nav.error(e, "Моя волна")
+                            } else nav.error(e, tr(R.string.my_wave))
                         }
                     starting = false
                 }
@@ -428,13 +431,13 @@ private fun MyWaveCard() {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text("Моя волна", style = MaterialTheme.typography.headlineSmall)
+            Text(tr(R.string.my_wave), style = MaterialTheme.typography.headlineSmall)
             Text(
-                if (active) "Играет сейчас" else "Бесконечный поток под твой вкус",
+                if (active) tr(R.string.playing_now) else tr(R.string.wave_subtitle),
                 style = MaterialTheme.typography.bodySmall, color = Ink.Text.copy(alpha = 0.8f),
             )
         }
-        IconButton(onClick = { tuning = true }) { Icon(Icons.Rounded.Tune, "Настроить волну", tint = Ink.Text) }
+        IconButton(onClick = { tuning = true }) { Icon(Icons.Rounded.Tune, tr(R.string.wave_tune), tint = Ink.Text) }
         Box(Modifier.size(48.dp).clip(CircleShape).background(Ink.Text), contentAlignment = Alignment.Center) {
             if (starting) androidx.compose.material3.CircularProgressIndicator(Modifier.size(22.dp), color = Ink.Paper, strokeWidth = 2.dp)
             else Text(if (active) "≋" else "▶", color = Ink.Paper, style = MaterialTheme.typography.titleLarge)
@@ -452,15 +455,15 @@ private fun OfflineWaveRow() {
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp).clip(RoundedCornerShape(14.dp)).background(Ink.Paper2)
             .clickable {
                 scope.launch {
-                    if (graph.startOfflineWave()) nav.openPlayer() else nav.toast("Пока нечего играть: в медиатеке нет скачанных треков")
+                    if (graph.startOfflineWave()) nav.openPlayer() else nav.toast(tr(R.string.offline_wave_empty))
                 }
             }
             .padding(horizontal = 18.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text("Офлайн-волна", style = MaterialTheme.typography.titleMedium)
-            Text("Микс из скачанного под твой вкус — без интернета", style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
+            Text(tr(R.string.offline_wave), style = MaterialTheme.typography.titleMedium)
+            Text(tr(R.string.offline_wave_subtitle), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
         }
         Text("▶", color = LocalAccent.current, style = MaterialTheme.typography.titleLarge)
     }

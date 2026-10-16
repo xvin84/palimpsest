@@ -52,6 +52,8 @@ import dev.xvin.palimpsest.ui.components.SectionHeader
 import dev.xvin.palimpsest.ui.theme.Ink
 import dev.xvin.palimpsest.ui.theme.LocalAccent
 import kotlinx.coroutines.launch
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
 
 @Composable
 fun SourcesScreen() {
@@ -65,7 +67,7 @@ fun SourcesScreen() {
     var login by remember { mutableStateOf(false) }
 
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 24.dp)) {
-        item { Text("Сервисы", style = MaterialTheme.typography.displayMedium, modifier = Modifier.padding(start = 16.dp, top = 12.dp)) }
+        item { Text(tr(R.string.tab_services), style = MaterialTheme.typography.displayMedium, modifier = Modifier.padding(start = 16.dp, top = 12.dp)) }
         // One status line for sync, update checks and imports.
         if (status.running || status.message != null || status.error != null) item {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
@@ -77,46 +79,46 @@ fun SourcesScreen() {
         }
 
         item {
-            Card("Яндекс.Музыка") {
+            Card(tr(R.string.service_yandex)) {
                 val loginName = settings?.yandexLogin
                 if (settings?.yandexToken == null) {
-                    Text("Лайки, плейлисты, поиск, lossless-стриминг и скачивание с тегами, обложками и синхронными текстами.", color = Ink.Muted)
+                    Text(tr(R.string.yandex_hint), color = Ink.Muted)
                     Spacer(Modifier.height(12.dp))
-                    Button(onClick = { login = true }) { Text("Войти") }
+                    Button(onClick = { login = true }) { Text(tr(R.string.sign_in)) }
                 } else {
-                    Text("Вход выполнен: ${loginName ?: "аккаунт"}", color = Ink.Muted)
+                    Text(tr(R.string.sources_signed_in, loginName ?: tr(R.string.sources_account)), color = Ink.Muted)
                     Spacer(Modifier.height(12.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { graph.appScope.launch { graph.syncYandex() } }, enabled = !status.running) { Text("Синхронизировать") }
-                        OutlinedButton(onClick = { graph.appScope.launch { graph.remote.checkForUpdates() } }, enabled = !status.running) { Text("Новые версии?") }
+                        Button(onClick = { graph.appScope.launch { graph.syncYandex() } }, enabled = !status.running) { Text(tr(R.string.sync)) }
+                        OutlinedButton(onClick = { graph.appScope.launch { graph.remote.checkForUpdates() } }, enabled = !status.running) { Text(tr(R.string.check_new_versions)) }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         TextButton(onClick = {
                             scope.launch {
                                 val liked = graph.db.tracks().linkedTo(Service.YANDEX).filter { it.liked && it.path == null }
                                 graph.downloads.enqueue(liked.map { it.id })
-                                nav.toast(if (liked.isEmpty()) "Все лайки уже скачаны" else "Скачиваю ${liked.size}")
+                                nav.toast(if (liked.isEmpty()) tr(R.string.likes_all_downloaded) else tr(R.string.downloading_n, liked.size))
                             }
-                        }) { Text("Скачать все лайки") }
-                        TextButton(onClick = { scope.launch { graph.remote.logoutYandex() } }) { Text("Выйти", color = Ink.Muted) }
+                        }) { Text(tr(R.string.download_all_likes)) }
+                        TextButton(onClick = { scope.launch { graph.remote.logoutYandex() } }) { Text(tr(R.string.sign_out), color = Ink.Muted) }
                     }
                 }
                 val lossy by graph.db.tracks().observeLossyYandex().collectAsStateWithLifecycle(emptyList())
                 if (lossy.isNotEmpty()) {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "Улучшить качество: ${lossy.size} скачанных треков в MP3/AAC можно заменить на FLAC. Старые файлы останутся в истории версий.",
+                        tr(R.string.flac_upgrade_hint, lossy.size),
                         style = MaterialTheme.typography.bodySmall, color = Ink.Muted,
                     )
                     TextButton(onClick = {
                         scope.launch { graph.downloads.enqueue(lossy.map { it.id }, upgrade = true) }
-                        nav.toast("Ищу FLAC для ${lossy.size} треков")
-                    }) { Text("Заменить на FLAC", color = LocalAccent.current) }
+                        nav.toast(tr(R.string.flac_upgrade_searching, lossy.size))
+                    }) { Text(tr(R.string.flac_upgrade), color = LocalAccent.current) }
                 }
                 if (updates.isNotEmpty()) {
                     Spacer(Modifier.height(8.dp))
                     TextButton(onClick = { nav.openList(TrackListKind.UPDATES, "updates") }) {
-                        Text("Перезалитых треков: ${updates.size} — посмотреть", color = LocalAccent.current)
+                        Text(tr(R.string.reuploaded_count, updates.size), color = LocalAccent.current)
                     }
                 }
             }
@@ -125,8 +127,8 @@ fun SourcesScreen() {
         item {
             Card("YouTube Music") {
                 Text(
-                    "Работает без входа: поиск по YouTube Music, стриминг и скачивание (M4A с тегами). " +
-                        "Если YouTube недоступен напрямую — укажи прокси в настройках.",
+                    tr(R.string.youtube_hint_1) +
+                        tr(R.string.youtube_hint_2),
                     color = Ink.Muted,
                 )
             }
@@ -136,8 +138,8 @@ fun SourcesScreen() {
             Card("Spotify") {
                 var link by remember { mutableStateOf("") }
                 Text(
-                    "Spotify не отдаёт звук сторонним приложениям, поэтому импортирую плейлисты: вставь ссылку на публичный " +
-                        "плейлист или альбом — каждый трек найдётся в Яндексе (если вошёл) или на YouTube.",
+                    tr(R.string.spotify_hint_1) +
+                        tr(R.string.spotify_hint_2),
                     color = Ink.Muted,
                 )
                 Spacer(Modifier.height(8.dp))
@@ -146,16 +148,16 @@ fun SourcesScreen() {
                 Button(
                     enabled = !status.running && dev.xvin.palimpsest.core.spotify.SpotifyImporter.parse(link) != null,
                     onClick = { graph.appScope.launch { graph.remote.importSpotify(link, graph.spotify) } },
-                ) { Text("Импортировать") }
+                ) { Text(tr(R.string.import_action)) }
             }
         }
 
         if (downloads.isNotEmpty()) {
             item {
-                SectionHeader("Загрузки") {
+                SectionHeader(tr(R.string.downloads)) {
                     Row {
-                        TextButton(onClick = graph.downloads::clearFinished) { Text("Очистить") }
-                        TextButton(onClick = graph.downloads::cancelAll) { Text("Отменить") }
+                        TextButton(onClick = graph.downloads::clearFinished) { Text(tr(R.string.clear)) }
+                        TextButton(onClick = graph.downloads::cancelAll) { Text(tr(R.string.cancel_action)) }
                     }
                 }
             }
@@ -168,11 +170,11 @@ fun SourcesScreen() {
                         }
                         Text(
                             when (d.state) {
-                                DownloadState.QUEUED -> "в очереди"
+                                DownloadState.QUEUED -> tr(R.string.dl_state_queued)
                                 DownloadState.RUNNING -> "${(d.progress * 100).toInt()}%"
-                                DownloadState.DONE -> "готово"
-                                DownloadState.SKIPPED -> d.message ?: "пропущен"
-                                DownloadState.FAILED -> "ошибка"
+                                DownloadState.DONE -> tr(R.string.dl_state_done)
+                                DownloadState.SKIPPED -> d.message ?: tr(R.string.dl_state_skipped)
+                                DownloadState.FAILED -> tr(R.string.dl_state_failed)
                             },
                             style = MaterialTheme.typography.labelSmall,
                             color = if (d.state == DownloadState.FAILED) MaterialTheme.colorScheme.error else Ink.Muted,
@@ -223,7 +225,7 @@ private fun YandexLoginDialog(onDismiss: () -> Unit) {
                 // The dialog (and this effect) goes away; the sync must outlive it.
                 graph.appScope.launch { graph.syncYandex() }
                 onDismiss()
-            } else error = "Код истёк — попробуй ещё раз"
+            } else error = tr(R.string.login_code_expired)
         } catch (e: Exception) {
             error = e.message ?: e.toString()
         }
@@ -232,14 +234,14 @@ private fun YandexLoginDialog(onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Ink.Paper2,
-        title = { Text("Вход в Яндекс") },
+        title = { Text(tr(R.string.login_yandex_title)) },
         text = {
             Column {
                 if (!manual) {
                     val c = code
                     if (c == null && error == null) LinearProgressIndicator(Modifier.fillMaxWidth())
                     if (c != null) {
-                        Text("Открой ya.ru/device и введи код:", color = Ink.Muted)
+                        Text(tr(R.string.login_open_device), color = Ink.Muted)
                         Spacer(Modifier.height(12.dp))
                         Text(c.user_code, fontFamily = FontFamily.Monospace, fontSize = 34.sp, color = LocalAccent.current)
                         Spacer(Modifier.height(12.dp))
@@ -247,13 +249,13 @@ private fun YandexLoginDialog(onDismiss: () -> Unit) {
                             Button(onClick = {
                                 scope.launch { clipboard.setClipEntry(ClipData.newPlainText("code", c.user_code).toClipEntry()) }
                                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(c.verification_url)))
-                            }) { Text("Открыть") }
+                            }) { Text(tr(R.string.open)) }
                         }
                         Spacer(Modifier.height(8.dp))
-                        Text("Код скопирован при нажатии «Открыть». Жду подтверждения…", style = MaterialTheme.typography.bodySmall, color = Ink.Faint)
+                        Text(tr(R.string.login_waiting), style = MaterialTheme.typography.bodySmall, color = Ink.Faint)
                     }
                 } else {
-                    Text("Вставь OAuth-токен Яндекс.Музыки:", color = Ink.Muted)
+                    Text(tr(R.string.login_paste_token), color = Ink.Muted)
                     OutlinedTextField(token, { token = it }, singleLine = true, modifier = Modifier.fillMaxWidth())
                     TextButton(onClick = {
                         scope.launch {
@@ -261,12 +263,12 @@ private fun YandexLoginDialog(onDismiss: () -> Unit) {
                                 .onSuccess { graph.appScope.launch { graph.syncYandex() }; onDismiss() }
                                 .onFailure { error = it.message }
                         }
-                    }) { Text("Войти") }
+                    }) { Text(tr(R.string.sign_in)) }
                 }
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
-        dismissButton = { TextButton(onClick = { manual = !manual }) { Text(if (manual) "По коду" else "Ввести токен") } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(tr(R.string.cancel)) } },
+        dismissButton = { TextButton(onClick = { manual = !manual }) { Text(if (manual) tr(R.string.login_by_code) else tr(R.string.login_enter_token)) } },
     )
 }

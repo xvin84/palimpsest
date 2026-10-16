@@ -23,6 +23,8 @@ import java.util.Locale
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 import java.util.zip.ZipOutputStream
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
 
 /** Settings worth carrying over. Tokens are deliberately left out of backups. */
 @Serializable
@@ -95,7 +97,7 @@ class Backups(private val context: Context, private val db: AppDatabase, private
                 settings.setAutoDownloadLikes(s.autoDownloadLikes); settings.setFadeSec(s.fadeSec)
                 settings.setWave(WavePrefs(s.waveDiversity, s.waveMood, s.waveLanguage))
             }
-            val entry = zip.getEntry(DB) ?: error("В копии нет базы")
+            val entry = zip.getEntry(DB) ?: error(tr(R.string.backup_no_db))
             db.close()
             val target = context.getDatabasePath(DB_NAME)
             File(target.path + "-wal").delete(); File(target.path + "-shm").delete()

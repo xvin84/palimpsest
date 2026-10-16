@@ -53,6 +53,8 @@ import dev.xvin.palimpsest.ui.components.formatDuration
 import dev.xvin.palimpsest.ui.theme.Ink
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.i18n.tr
 
 /** One search box for the library and every connected service. */
 @Composable
@@ -82,29 +84,29 @@ fun SearchScreen() {
             throw e
         } catch (e: Throwable) {
             failure = e
-            error = graph.errors.report(e, if (source == Service.YOUTUBE) "Поиск YouTube" else "Поиск Яндекс", show = false)?.title
+            error = graph.errors.report(e, if (source == Service.YOUTUBE) tr(R.string.ctx_search_youtube) else tr(R.string.ctx_search_yandex), show = false)?.title
             remote = emptyList()
         }
         loading = false
     }
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        Text("Поиск", style = MaterialTheme.typography.displayMedium, modifier = Modifier.padding(start = 16.dp, top = 12.dp))
+        Text(tr(R.string.tab_search), style = MaterialTheme.typography.displayMedium, modifier = Modifier.padding(start = 16.dp, top = 12.dp))
         OutlinedTextField(
             query, { query = it },
             Modifier.fillMaxWidth().padding(16.dp),
             singleLine = true,
             leadingIcon = { Icon(Icons.Rounded.Search, null) },
-            placeholder = { Text("Трек, исполнитель, альбом") },
+            placeholder = { Text(tr(R.string.search_hint)) },
             shape = RoundedCornerShape(14.dp),
         )
         Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Pill("Медиатека", source == null, { source = null })
-            Pill("Яндекс.Музыка", source == Service.YANDEX, { source = Service.YANDEX })
+            Pill(tr(R.string.tab_library), source == null, { source = null })
+            Pill(tr(R.string.service_yandex), source == Service.YANDEX, { source = Service.YANDEX })
             Pill("YouTube Music", source == Service.YOUTUBE, { source = Service.YOUTUBE })
         }
         if (source == Service.YANDEX && settings?.yandexToken == null) {
-            EmptyState("Яндекс не подключён", "Войди во вкладке «Сервисы», чтобы искать и слушать треки Яндекс.Музыки.")
+            EmptyState(tr(R.string.yandex_not_connected), tr(R.string.yandex_not_connected_hint))
             return@Column
         }
         if (loading) Row(Modifier.fillMaxWidth().padding(24.dp), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator() }
@@ -113,8 +115,8 @@ fun SearchScreen() {
                 Text(msg, color = MaterialTheme.colorScheme.error, modifier = Modifier.weight(1f))
                 failure?.let { f ->
                     androidx.compose.material3.TextButton(onClick = {
-                        graph.errors.log.value.firstOrNull()?.let(nav::showError) ?: nav.error(f, "Поиск")
-                    }) { Text("Подробнее") }
+                        graph.errors.log.value.firstOrNull()?.let(nav::showError) ?: nav.error(f, tr(R.string.tab_search))
+                    }) { Text(tr(R.string.details)) }
                 }
             }
         }
@@ -139,7 +141,7 @@ fun SearchScreen() {
                             scope.launch {
                                 val row = graph.remote.ensureTrack(r)
                                 graph.downloads.enqueue(listOf(row.id))
-                                nav.toast("Скачиваю «${r.title}»")
+                                nav.toast(tr(R.string.downloading_one, r.title))
                             }
                         },
                         onMore = { scope.launch { nav.showActions(graph.remote.ensureTrack(r)) } },
@@ -166,7 +168,7 @@ private fun RemoteRow(r: RemoteTrack, onPlay: () -> Unit, onDownload: () -> Unit
             )
         }
         Text(formatDuration(r.durationMs), style = MaterialTheme.typography.labelSmall, color = Ink.Faint)
-        IconButton(onClick = onDownload, enabled = r.available) { Icon(Icons.Rounded.Download, "Скачать", tint = Ink.Muted) }
-        IconButton(onClick = onMore) { Icon(Icons.Rounded.MoreVert, "Ещё", tint = Ink.Muted) }
+        IconButton(onClick = onDownload, enabled = r.available) { Icon(Icons.Rounded.Download, tr(R.string.download), tint = Ink.Muted) }
+        IconButton(onClick = onMore) { Icon(Icons.Rounded.MoreVert, tr(R.string.more), tint = Ink.Muted) }
     }
 }

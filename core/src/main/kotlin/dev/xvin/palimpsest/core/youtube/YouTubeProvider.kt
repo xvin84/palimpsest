@@ -81,7 +81,7 @@ class YouTubeProvider(http: OkHttpClient = Http.client) : MusicProvider {
         // Opus/WebM sounds better, but M4A can hold tags and a cover, which matters for kept files.
         val m4a = streams.filter { it.format?.suffix == "m4a" }
         val stream = pickAudio(if (forDownload && m4a.isNotEmpty()) m4a else streams, quality)
-            ?: throw ProviderException("YouTube: нет аудиопотока для $id")
+            ?: throw ProviderException("YouTube: no audio stream for $id")
         StreamInfo(
             url = stream.content,
             codec = stream.format?.suffix ?: "webm",
