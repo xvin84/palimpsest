@@ -157,6 +157,12 @@ interface PlayEventDao {
     @Query("UPDATE play_events SET listenedMs = :listenedMs, completed = :completed WHERE id = :id")
     suspend fun updateProgress(id: Long, listenedMs: Long, completed: Boolean)
 
+    @Query("SELECT * FROM play_events WHERE scrobbled = 0 AND startedAt > :since ORDER BY startedAt LIMIT 500")
+    suspend fun unscrobbled(since: Long): List<PlayEventEntity>
+
+    @Query("UPDATE play_events SET scrobbled = 1 WHERE id IN (:ids)")
+    suspend fun markScrobbled(ids: List<Long>)
+
     @Query("SELECT * FROM play_events ORDER BY startedAt DESC LIMIT :limit")
     fun observeRecent(limit: Int = 300): Flow<List<PlayEventEntity>>
 

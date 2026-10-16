@@ -133,6 +133,8 @@ class AppGraph(val app: Application) {
     val remote = RemoteRepository(db, settings, yandexAuth, yandex, providers)
     val lyrics = LyricsRepository(db, yandex, LrcLibClient(http))
     val spotify = dev.xvin.palimpsest.core.spotify.SpotifyImporter(http)
+    val listenBrainz = dev.xvin.palimpsest.core.scrobble.ListenBrainz(http)
+    val scrobbler = dev.xvin.palimpsest.data.remote.Scrobbler(db, settings, listenBrainz)
     val downloads = Downloads(app, db, settings, http, remote, versions)
 
     val player = PlayerConnection(app, mainScope) { settings.loadQueue() }

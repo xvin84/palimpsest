@@ -1,5 +1,6 @@
 package dev.xvin.palimpsest.data.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -68,6 +69,8 @@ data class PlayEventEntity(
     val startedAt: Long,
     val listenedMs: Long,
     val completed: Boolean,
+    /** Sent to ListenBrainz (added in schema v2). */
+    @ColumnInfo(defaultValue = "0") val scrobbled: Boolean = false,
 )
 
 /** An archived (or the current) audio file of a track. */

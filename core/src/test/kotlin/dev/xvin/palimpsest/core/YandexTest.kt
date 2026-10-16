@@ -82,3 +82,21 @@ class YandexTest {
         assertEquals("track-ids=555", r.body!!.utf8())
     }
 }
+
+class ListenBrainzTest {
+    @Test fun submitsImportBatch() = runBlocking {
+        val server = MockWebServer().apply { start() }
+        server.enqueue(MockResponse.Builder().code(200).body("""{"status":"ok"}""").build())
+        val lb = dev.xvin.palimpsest.core.scrobble.ListenBrainz(base = server.url("").toString().trimEnd('/'))
+        lb.submit("tok", listOf(
+            dev.xvin.palimpsest.core.scrobble.ListenBrainz.Listen("Coldplay", "Yellow", "Parachutes", 1_700_000_000, 0),
+            dev.xvin.palimpsest.core.scrobble.ListenBrainz.Listen("УННВ", "На грустной ноте", null, 1_700_000_300, 0),
+        ))
+        val r = server.takeRequest()
+        assertEquals("Token tok", r.headers["Authorization"])
+        val body = r.body!!.utf8()
+        assertTrue(body.contains("\"listen_type\":\"import\""))
+        assertTrue(body.contains("\"track_name\":\"На грустной ноте\""))
+        server.close()
+    }
+}

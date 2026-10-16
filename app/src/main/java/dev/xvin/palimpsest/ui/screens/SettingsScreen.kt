@@ -171,6 +171,34 @@ fun SettingsScreen() {
             TextButton(onClick = { scope.launch { graph.settings.setProxy(proxy) } }) { Text("Сохранить") }
         }
 
+        SectionHeader("Скробблинг")
+        var lbToken by remember { mutableStateOf("") }
+        var lbError by remember { mutableStateOf<String?>(null) }
+        if (settings.listenBrainzToken != null) {
+            Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("ListenBrainz: ${settings.listenBrainzUser ?: "подключено"}", Modifier.weight(1f))
+                TextButton(onClick = { scope.launch { graph.settings.setListenBrainz(null, null) } }) { Text("Отключить") }
+            }
+        } else {
+            Text(
+                "ListenBrainz — открытая замена Last.fm. Токен: listenbrainz.org/settings. Прослушивания копятся офлайн и уходят при появлении сети.",
+                Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = Ink.Muted,
+            )
+            Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(lbToken, { lbToken = it }, Modifier.weight(1f), singleLine = true, label = { Text("Токен ListenBrainz") })
+                TextButton(enabled = lbToken.isNotBlank(), onClick = {
+                    scope.launch {
+                        val user = runCatching { graph.listenBrainz.validate(lbToken.trim()) }.getOrNull()
+                        if (user == null) lbError = "Токен не подошёл" else {
+                            lbError = null
+                            graph.settings.setListenBrainz(lbToken.trim(), user)
+                        }
+                    }
+                }) { Text("Подключить") }
+            }
+            lbError?.let { Text(it, Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.error) }
+        }
+
         SectionHeader("О приложении")
         Text(
             "Palimpsest 0.1 · Kotlin, Jetpack Compose, Media3.\nЯндекс.Музыка — через неофициальный API, YouTube — через NewPipe Extractor, тексты — LRCLIB.",

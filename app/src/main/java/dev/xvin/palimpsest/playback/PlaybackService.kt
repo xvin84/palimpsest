@@ -247,7 +247,10 @@ class PlaybackService : MediaSessionService() {
                 listenedMs = ms,
                 completed = completed,
             )
-            graph.appScope.launch(Dispatchers.IO) { recordedId = graph.db.plays().insert(event) }
+            graph.appScope.launch(Dispatchers.IO) {
+                recordedId = graph.db.plays().insert(event)
+                graph.scrobbler.flush()
+            }
         }
 
         fun flush() {

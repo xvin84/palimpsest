@@ -53,6 +53,8 @@ data class AppSettings(
     val autoDownloadLikes: Boolean,
     /** Output device key → EQ profile name. */
     val deviceEq: Map<String, String>,
+    val listenBrainzToken: String?,
+    val listenBrainzUser: String?,
 ) {
     /** Profile for [deviceKey]: its own if one is assigned, otherwise the global one. */
     fun eqFor(deviceKey: String): EqProfile {
@@ -83,6 +85,8 @@ class Settings(private val context: Context, scope: CoroutineScope) {
         val autoSync = booleanPreferencesKey("auto_sync")
         val autoDownloadLikes = booleanPreferencesKey("auto_download_likes")
         val deviceEq = stringPreferencesKey("device_eq")
+        val lbToken = stringPreferencesKey("listenbrainz_token")
+        val lbUser = stringPreferencesKey("listenbrainz_user")
     }
 
     val defaultMusicRoot: String =
@@ -111,6 +115,8 @@ class Settings(private val context: Context, scope: CoroutineScope) {
             autoSync = p[K.autoSync] ?: true,
             autoDownloadLikes = p[K.autoDownloadLikes] ?: false,
             deviceEq = p[K.deviceEq]?.let { runCatching { json.decodeFromString<Map<String, String>>(it) }.getOrNull() } ?: emptyMap(),
+            listenBrainzToken = p[K.lbToken],
+            listenBrainzUser = p[K.lbUser],
         )
     }
 
@@ -133,6 +139,9 @@ class Settings(private val context: Context, scope: CoroutineScope) {
     suspend fun setAutoSync(on: Boolean) = edit { it[K.autoSync] = on }
     suspend fun setAutoDownloadLikes(on: Boolean) = edit { it[K.autoDownloadLikes] = on }
     suspend fun setDeviceEq(map: Map<String, String>) = edit { it[K.deviceEq] = json.encodeToString(map) }
+    suspend fun setListenBrainz(token: String?, user: String?) = edit {
+        if (token == null) { it.remove(K.lbToken); it.remove(K.lbUser) } else { it[K.lbToken] = token; if (user != null) it[K.lbUser] = user }
+    }
 
     suspend fun setYandexAuth(token: String?, refresh: String?, login: String?) = edit {
         if (token == null) { it.remove(K.yToken); it.remove(K.yRefresh); it.remove(K.yLogin) } else {

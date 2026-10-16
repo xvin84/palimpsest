@@ -24,6 +24,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
         val s = graph.settings.state.filterNotNull().first()
         if (!s.autoSync) return Result.success()
         graph.scanner.scan()
+        graph.scrobbler.flush()
         if (graph.yandex.isReady) {
             graph.remote.syncYandex()
             graph.remote.checkForUpdates()
