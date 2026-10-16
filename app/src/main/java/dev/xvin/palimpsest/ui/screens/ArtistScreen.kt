@@ -126,17 +126,25 @@ fun ArtistScreen(name: String, remoteId: String?) {
             }
         }
         item {
-            Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Weights + single-line labels: on narrow phones or with large fonts the labels used to wrap letter by letter.
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val compactPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                 if (local.isNotEmpty()) {
-                    Button(onClick = { graph.player.play(local) }) { Icon(Icons.Rounded.PlayArrow, null); Spacer(Modifier.width(4.dp)); Text("Скачанное") }
-                    OutlinedButton(onClick = { graph.player.play(local, shuffle = true) }) { Icon(Icons.Rounded.Shuffle, null) }
+                    Button(onClick = { graph.player.play(local) }, Modifier.weight(1f), contentPadding = compactPadding) {
+                        Icon(Icons.Rounded.PlayArrow, null); Spacer(Modifier.width(4.dp))
+                        Text("Скачанное", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    OutlinedButton(onClick = { graph.player.play(local, shuffle = true) }, contentPadding = compactPadding) { Icon(Icons.Rounded.Shuffle, "Перемешать") }
                 }
                 artist?.let { a ->
                     OutlinedButton(onClick = {
                         scope.launch {
                             graph.radio.start("artist:${a.artist.id}", "Радио: ${a.artist.name}").onFailure { nav.error(it, "Радио не запустилось") }
                         }
-                    }) { Icon(Icons.Rounded.Radio, null); Spacer(Modifier.width(4.dp)); Text("Радио") }
+                    }, Modifier.weight(1f), contentPadding = compactPadding) {
+                        Icon(Icons.Rounded.Radio, null); Spacer(Modifier.width(4.dp))
+                        Text("Радио", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                 }
             }
         }
