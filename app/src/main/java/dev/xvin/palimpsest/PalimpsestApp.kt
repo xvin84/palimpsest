@@ -158,6 +158,7 @@ class AppGraph(val app: Application) {
     val radio = dev.xvin.palimpsest.playback.RadioController(remote, db, player, mainScope)
     val offlineWave = dev.xvin.palimpsest.playback.OfflineWave(db)
     val backups = dev.xvin.palimpsest.data.Backups(app, db, settings)
+    val updater = dev.xvin.palimpsest.data.update.AppUpdater(app, http)
     val storage = dev.xvin.palimpsest.data.Storage(app, db, versions, backups) { streamCache }
 
     /** Plays the offline mix; false if nothing is downloaded yet. */

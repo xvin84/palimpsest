@@ -3,6 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Self-update from GitHub Releases (the user confirms every install). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -95,6 +97,10 @@
 
         <receiver
             android:name=".data.remote.DownloadActionReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".data.update.InstallResultReceiver"
             android:exported="false" />
 
         <provider

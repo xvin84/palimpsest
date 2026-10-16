@@ -576,4 +576,15 @@
     <string name="storage_backups_keep_last">Оставить только последнюю</string>
     <string name="storage_free_of">Свободно %1$s из %2$s</string>
     <string name="storage_cleared">Готово, место освобождено</string>
+    <string name="settings_updates">Обновления</string>
+    <string name="update_auto">Проверять обновления</string>
+    <string name="update_auto_hint">Раз в день смотрю релизы на GitHub и присылаю уведомление о новой версии</string>
+    <string name="update_check">Проверить обновления</string>
+    <string name="update_up_to_date">Стоит последняя версия (%1$s)</string>
+    <string name="update_available">Доступна версия %1$s</string>
+    <string name="update_tap">Нажми, чтобы посмотреть, что нового</string>
+    <string name="update_download_install">Скачать и установить</string>
+    <string name="update_install">Установка обновления</string>
+    <string name="update_channel">Обновления приложения</string>
+    <string name="update_allow_install">Разреши установку приложений из Palimpsest и нажми кнопку ещё раз</string>
 </resources>

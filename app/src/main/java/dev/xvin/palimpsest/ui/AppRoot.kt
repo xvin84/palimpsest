@@ -189,6 +189,10 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
     LaunchedEffect(albumRequest) {
         albumRequest?.let { playerOpen = false; nav.navigate(RemoteAlbumRoute(it)); activity.openAlbumRequest.value = null }
     }
+    val settingsRequest by activity.openSettingsRequest
+    LaunchedEffect(settingsRequest) {
+        if (settingsRequest) { playerOpen = false; nav.navigate(SettingsRoute); activity.openSettingsRequest.value = false }
+    }
     LaunchedEffect(toastMessage) { toastMessage?.let { snackbar.showSnackbar(it); toastMessage = null } }
     // Background errors (playback, downloads, sync): a short snackbar, details one tap away.
     LaunchedEffect(Unit) {

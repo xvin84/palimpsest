@@ -18,6 +18,23 @@ android {
         targetSdk = 36
         versionCode = 2
         versionName = "0.2.0"
+        // Where self-update looks for releases; forks can point it at their own repository.
+        buildConfigField("String", "GITHUB_REPO", "\"xvin84/palimpsest\"")
+        // GitHub API base; a debug build can be pointed at a local stand-in to test updating end to end.
+        buildConfigField("String", "UPDATE_API", "\"${providers.gradleProperty("palimpsest.updateApi").orNull ?: "https://api.github.com"}\"")
+    }
+
+    // Official releases are signed with the maintainer's key, configured outside the repository in
+    // ~/.gradle/gradle.properties (palimpsest.keystore, .keystore.password, .key.alias, .key.password).
+    // Without it (forks, CI) release builds fall back to the debug key so they still install.
+    val releaseKeystore = providers.gradleProperty("palimpsest.keystore").orNull
+    signingConfigs {
+        if (releaseKeystore != null) create("release") {
+            storeFile = file(releaseKeystore)
+            storePassword = providers.gradleProperty("palimpsest.keystore.password").get()
+            keyAlias = providers.gradleProperty("palimpsest.key.alias").get()
+            keyPassword = providers.gradleProperty("palimpsest.key.password").get()
+        }
     }
 
     buildTypes {
@@ -25,8 +42,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Personal build: sign release with the debug key so the APK installs directly.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
 

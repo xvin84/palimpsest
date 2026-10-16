@@ -22,6 +22,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
     override suspend fun doWork(): Result {
         val graph = (applicationContext as PalimpsestApp).graph
         val s = graph.settings.state.filterNotNull().first()
+        if (s.checkUpdates) runCatching { checkAppUpdateDaily(graph) }
         if (!s.autoSync) return Result.success()
         graph.scanner.scan()
         graph.scrobbler.flush()
@@ -36,6 +37,14 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
             runCatching { graph.releases.check() } // at most once a day
         }
         return Result.success()
+    }
+
+    /** At most once a day; the notification for a given version is shown only once. */
+    private suspend fun checkAppUpdateDaily(graph: dev.xvin.palimpsest.AppGraph) {
+        val prefs = applicationContext.getSharedPreferences("updates", Context.MODE_PRIVATE)
+        if (System.currentTimeMillis() - prefs.getLong("last_check", 0) < 20 * 3600_000L) return
+        prefs.edit().putLong("last_check", System.currentTimeMillis()).apply()
+        graph.updater.check(notify = true)
     }
 
     companion object {

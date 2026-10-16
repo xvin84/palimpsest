@@ -29,6 +29,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
 import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.Arrangement
 import dev.xvin.palimpsest.ui.components.Pill
@@ -76,6 +78,7 @@ fun OnboardingScreen(onFullAccess: () -> Unit, onReadOnly: () -> Unit) {
 @Composable
 fun SettingsScreen() {
     val graph = LocalGraph.current
+    val context = androidx.compose.ui.platform.LocalContext.current
     val nav = LocalNav.current
     val scope = rememberCoroutineScope()
     val s by graph.settings.flow.collectAsStateWithLifecycle(null)
@@ -278,6 +281,57 @@ fun SettingsScreen() {
                     if (errorCount.isEmpty()) tr(R.string.empty) else tr(R.string.error_log_count, errorCount.size),
                     style = MaterialTheme.typography.bodySmall, color = Ink.Muted,
                 )
+            }
+        }
+
+        SectionHeader(tr(R.string.settings_updates))
+        val update by graph.updater.available.collectAsStateWithLifecycle()
+        val updateProgress by graph.updater.progress.collectAsStateWithLifecycle()
+        var checking by remember { mutableStateOf(false) }
+        ToggleRow(tr(R.string.update_auto), tr(R.string.update_auto_hint), settings.checkUpdates) {
+            scope.launch { graph.settings.setCheckUpdates(it) }
+        }
+        val u = update
+        if (u == null) {
+            TextButton(
+                onClick = {
+                    checking = true
+                    graph.appScope.launch {
+                        val found = runCatching { graph.updater.check() }.onFailure { nav.error(it, tr(R.string.update_check)) }.getOrNull()
+                        checking = false
+                        if (found == null) nav.toast(tr(R.string.update_up_to_date, dev.xvin.palimpsest.BuildConfig.VERSION_NAME))
+                    }
+                },
+                enabled = !checking, modifier = Modifier.padding(horizontal = 8.dp),
+            ) { Text(if (checking) tr(R.string.checking) else tr(R.string.update_check)) }
+        } else {
+            Column(
+                Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth()
+                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp)).background(Ink.Paper2).padding(14.dp),
+            ) {
+                Text(tr(R.string.update_available, u.version), style = MaterialTheme.typography.titleMedium)
+                if (u.notes.isNotBlank()) {
+                    Text(dev.xvin.palimpsest.data.update.AppUpdater.plainNotes(u.notes).take(1200), style = MaterialTheme.typography.bodySmall, color = Ink.Muted, modifier = Modifier.padding(top = 6.dp))
+                }
+                val p = updateProgress
+                if (p != null) {
+                    androidx.compose.material3.LinearProgressIndicator(progress = { p }, modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
+                } else {
+                    androidx.compose.material3.Button(
+                        onClick = {
+                            // First update ever: Android wants "install unknown apps" allowed for us; ask before downloading.
+                            if (!context.packageManager.canRequestPackageInstalls()) {
+                                nav.toast(tr(R.string.update_allow_install))
+                                context.startActivity(
+                                    android.content.Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, android.net.Uri.parse("package:" + context.packageName)),
+                                )
+                            } else {
+                                graph.appScope.launch { runCatching { graph.updater.install(u) }.onFailure { nav.error(it, tr(R.string.update_install)) } }
+                            }
+                        },
+                        modifier = Modifier.padding(top = 10.dp),
+                    ) { Text(tr(R.string.update_download_install)) }
+                }
             }
         }
 

@@ -569,4 +569,15 @@
     <string name="storage_backups_keep_last">Keep only the latest</string>
     <string name="storage_free_of">%1$s free of %2$s</string>
     <string name="storage_cleared">Done, space freed</string>
+    <string name="settings_updates">Updates</string>
+    <string name="update_auto">Check for updates</string>
+    <string name="update_auto_hint">Once a day I look at the GitHub releases and notify you about a new version</string>
+    <string name="update_check">Check for updates</string>
+    <string name="update_up_to_date">You have the latest version (%1$s)</string>
+    <string name="update_available">Version %1$s is available</string>
+    <string name="update_tap">Tap to see what is new</string>
+    <string name="update_download_install">Download and install</string>
+    <string name="update_install">Installing the update</string>
+    <string name="update_channel">App updates</string>
+    <string name="update_allow_install">Allow installing apps from Palimpsest, then tap the button again</string>
 </resources>
