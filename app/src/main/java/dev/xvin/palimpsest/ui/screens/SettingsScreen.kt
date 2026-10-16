@@ -30,6 +30,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.layout.Arrangement
+import dev.xvin.palimpsest.ui.components.Pill
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -173,6 +175,26 @@ fun SettingsScreen() {
         )
 
         SectionHeader(tr(R.string.settings_appearance))
+        Text(tr(R.string.settings_theme), Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+        androidx.compose.foundation.layout.FlowRow(
+            Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            dev.xvin.palimpsest.data.settings.ThemeMode.entries.forEach { m ->
+                Pill(tr(m.labelRes), settings.theme == m, { scope.launch { graph.settings.setTheme(m) } })
+            }
+        }
+        Text(tr(R.string.language), Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+        val language = remember { dev.xvin.palimpsest.i18n.Language.current() }
+        androidx.compose.foundation.layout.FlowRow(
+            Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            dev.xvin.palimpsest.i18n.Language.options.forEach { (tag, name) ->
+                // The system applies it and the app restarts in the new language.
+                Pill(name ?: tr(R.string.language_system), language.substringBefore('-') == tag, { dev.xvin.palimpsest.i18n.Language.set(tag) })
+            }
+        }
         ToggleRow(tr(R.string.settings_cover_color), tr(R.string.settings_cover_color_hint), settings.dynamicColor) {
             scope.launch { graph.settings.setDynamicColor(it) }
         }

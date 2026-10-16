@@ -27,7 +27,7 @@ import dev.xvin.palimpsest.i18n.tr
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore("settings")
 
-enum class ReplayGainMode(val label: String) { OFF(tr(R.string.off_short)), TRACK(tr(R.string.rg_track)), ALBUM(tr(R.string.rg_album)) }
+enum class ReplayGainMode(private val labelRes: Int) { OFF(R.string.off_short), TRACK(R.string.rg_track), ALBUM(R.string.rg_album); val label: String get() = tr(labelRes) }
 
 /** «Моя волна» tuning, sent as extra seeds. "" = no preference. */
 data class WavePrefs(val diversity: String = "", val mood: String = "", val language: String = "") {
@@ -38,7 +38,12 @@ data class WavePrefs(val diversity: String = "", val mood: String = "", val lang
     )
 }
 
-enum class VisualizerMode(val label: String) { BARS(tr(R.string.viz_bars)), MIRROR(tr(R.string.viz_mirror)), RING(tr(R.string.viz_ring)), OFF(tr(R.string.off_short)) }
+/** App colours: follow the system, warm dark, true-black for OLED, or light "paper". */
+enum class ThemeMode(@androidx.annotation.StringRes val labelRes: Int) {
+    SYSTEM(R.string.theme_system), DARK(R.string.theme_dark), AMOLED(R.string.theme_amoled), LIGHT(R.string.theme_light),
+}
+
+enum class VisualizerMode(private val labelRes: Int) { BARS(R.string.viz_bars), MIRROR(R.string.viz_mirror), RING(R.string.viz_ring), OFF(R.string.off_short); val label: String get() = tr(labelRes) }
 
 @Serializable
 data class SavedQueue(val trackIds: List<Long> = emptyList(), val index: Int = 0, val positionMs: Long = 0)
@@ -54,6 +59,7 @@ data class AppSettings(
     val customEqProfiles: List<EqProfile>,
     val visualizer: VisualizerMode,
     val dynamicColor: Boolean,
+    val theme: ThemeMode,
     val yandexToken: String?,
     val yandexRefreshToken: String?,
     val yandexLogin: String?,
@@ -89,6 +95,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
         val eqCustom = stringPreferencesKey("eq_custom")
         val visualizer = stringPreferencesKey("visualizer")
         val dynamicColor = booleanPreferencesKey("dynamic_color")
+        val theme = stringPreferencesKey("theme")
         val yToken = stringPreferencesKey("yandex_token")
         val yRefresh = stringPreferencesKey("yandex_refresh")
         val yLogin = stringPreferencesKey("yandex_login")
@@ -124,6 +131,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
             customEqProfiles = p[K.eqCustom]?.let { runCatching { json.decodeFromString<List<EqProfile>>(it) }.getOrNull() } ?: emptyList(),
             visualizer = p[K.visualizer]?.let { runCatching { VisualizerMode.valueOf(it) }.getOrNull() } ?: VisualizerMode.BARS,
             dynamicColor = p[K.dynamicColor] ?: true,
+            theme = p[K.theme]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.DARK,
             yandexToken = p[K.yToken],
             yandexRefreshToken = p[K.yRefresh],
             yandexLogin = p[K.yLogin],
@@ -153,6 +161,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
     suspend fun setCustomEqProfiles(list: List<EqProfile>) = edit { it[K.eqCustom] = json.encodeToString(list) }
     suspend fun setVisualizer(mode: VisualizerMode) = edit { it[K.visualizer] = mode.name }
     suspend fun setDynamicColor(on: Boolean) = edit { it[K.dynamicColor] = on }
+    suspend fun setTheme(t: ThemeMode) = edit { it[K.theme] = t.name }
     suspend fun setProxy(proxy: String?) = edit { if (proxy.isNullOrBlank()) it.remove(K.proxy) else it[K.proxy] = proxy.trim() }
     suspend fun setKeepVersions(on: Boolean) = edit { it[K.keepVersions] = on }
     suspend fun setLastScan(at: Long) = edit { it[K.lastScan] = at }

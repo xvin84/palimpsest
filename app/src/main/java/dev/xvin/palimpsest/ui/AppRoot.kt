@@ -77,6 +77,8 @@ import dev.xvin.palimpsest.ui.screens.TrackListScreen
 import dev.xvin.palimpsest.ui.screens.TrackScreen
 import dev.xvin.palimpsest.ui.theme.Ink
 import dev.xvin.palimpsest.ui.theme.PalimpsestTheme
+import dev.xvin.palimpsest.data.settings.ThemeMode
+import androidx.activity.enableEdgeToEdge
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -145,7 +147,15 @@ fun AppRoot(graph: AppGraph, activity: MainActivity) {
         } ?: Ink.Vermilion
     }
 
-    PalimpsestTheme(accent) {
+    val theme = settings?.theme ?: ThemeMode.DARK
+    PalimpsestTheme(accent, theme) {
+        // Status/navigation bar icons must be dark on the light theme.
+        val light = Ink.isLight
+        LaunchedEffect(light) {
+            val style = if (light) androidx.activity.SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
+            else androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+            activity.enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+        }
         CompositionLocalProvider(LocalGraph provides graph) {
             val hasAccess by activity.hasStorageAccess
             if (!hasAccess) {

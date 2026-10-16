@@ -51,8 +51,10 @@ import dev.xvin.palimpsest.R
 import dev.xvin.palimpsest.i18n.tr
 import dev.xvin.palimpsest.i18n.plural
 
-private enum class Period(val label: String, val days: Long?) {
-    WEEK(tr(R.string.period_week), 7), MONTH(tr(R.string.period_month), 30), YEAR(tr(R.string.tag_year), 365), ALL(tr(R.string.period_all_time), null)
+private enum class Period(private val labelRes: Int, val days: Long?) {
+    WEEK(R.string.period_week, 7), MONTH(R.string.period_month, 30), YEAR(R.string.tag_year, 365), ALL(R.string.period_all_time, null);
+
+    val label: String get() = tr(labelRes)
 }
 
 @Composable

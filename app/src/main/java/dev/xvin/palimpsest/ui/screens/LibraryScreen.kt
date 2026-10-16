@@ -76,8 +76,8 @@ import dev.xvin.palimpsest.i18n.tr
 import dev.xvin.palimpsest.i18n.plural
 import dev.xvin.palimpsest.i18n.label
 
-private enum class LibTab(val label: String) { TRACKS(tr(R.string.lib_tracks)), ALBUMS(tr(R.string.lib_albums)), ARTISTS(tr(R.string.lib_artists)), FOLDERS(tr(R.string.lib_folders)), PLAYLISTS(tr(R.string.playlists)) }
-private enum class SortMode(val label: String) { TITLE(tr(R.string.sort_title)), ARTIST(tr(R.string.sort_artist)), ADDED(tr(R.string.smart_recently_added)), DURATION(tr(R.string.sort_duration)) }
+private enum class LibTab(private val labelRes: Int) { TRACKS(R.string.lib_tracks), ALBUMS(R.string.lib_albums), ARTISTS(R.string.lib_artists), FOLDERS(R.string.lib_folders), PLAYLISTS(R.string.playlists); val label: String get() = tr(labelRes) }
+private enum class SortMode(private val labelRes: Int) { TITLE(R.string.sort_title), ARTIST(R.string.sort_artist), ADDED(R.string.smart_recently_added), DURATION(R.string.sort_duration); val label: String get() = tr(labelRes) }
 
 @Composable
 fun LibraryScreen() {
