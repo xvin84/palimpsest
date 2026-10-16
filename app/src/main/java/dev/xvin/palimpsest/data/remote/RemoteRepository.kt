@@ -3,7 +3,10 @@ package dev.xvin.palimpsest.data.remote
 import dev.xvin.palimpsest.core.library.Versions
 import dev.xvin.palimpsest.core.match.TrackMatcher
 import dev.xvin.palimpsest.core.spotify.SpotifyImporter
+import dev.xvin.palimpsest.core.model.AlbumWithTracks
+import dev.xvin.palimpsest.core.model.ArtistInfo
 import dev.xvin.palimpsest.core.model.AuthRequiredException
+import dev.xvin.palimpsest.core.model.RadioBatch
 import dev.xvin.palimpsest.core.model.MusicProvider
 import dev.xvin.palimpsest.core.model.RemoteTrack
 import dev.xvin.palimpsest.core.model.Service
@@ -31,6 +34,8 @@ class RemoteRepository(
     private val yandexAuth: YandexAuth,
     val yandex: YandexMusicProvider,
     val providers: Map<Service, MusicProvider>,
+    private val artistIndex: dev.xvin.palimpsest.data.library.ArtistIndex,
+    private val onError: (Throwable, String) -> Unit = { _, _ -> },
 ) {
     private val _status = MutableStateFlow(SyncStatus())
     val status: StateFlow<SyncStatus> = _status
@@ -127,6 +132,7 @@ class RemoteRepository(
                 liked = liked ?: twin.liked,
             )
             dao.update(linked)
+            artistIndex.setFromRemote(linked.id, r)
             return@withContext linked
         }
         val existing = dao.byRemote(r.service, r.id)
@@ -142,6 +148,7 @@ class RemoteRepository(
                 remoteAlbumId = r.albumId ?: existing.remoteAlbumId,
             )
             if (updated != existing) dao.update(updated)
+            artistIndex.setFromRemote(updated.id, r)
             return@withContext updated
         }
         val e = TrackEntity(
@@ -162,7 +169,7 @@ class RemoteRepository(
             coverUrl = r.coverUrl,
             liked = liked ?: false,
         )
-        e.copy(id = dao.insert(e))
+        e.copy(id = dao.insert(e)).also { artistIndex.setFromRemote(it.id, r) }
     }
 
     // --- Sync -------------------------------------------------------------------------------------
@@ -211,6 +218,7 @@ class RemoteRepository(
             )
         } catch (e: Exception) {
             _status.value = SyncStatus(false, error = e.message ?: e.toString())
+            onError(e, "Синхронизация с Яндексом")
         }
     }
 
@@ -239,6 +247,7 @@ class RemoteRepository(
             changed
         } catch (e: Exception) {
             _status.value = SyncStatus(false, error = e.message ?: e.toString())
+            onError(e, "Проверка новых версий")
             0
         }
     }
@@ -276,8 +285,34 @@ class RemoteRepository(
             ids.size to c.items.size
         } catch (e: Exception) {
             _status.value = SyncStatus(false, error = e.message ?: e.toString())
+            onError(e, "Импорт из Spotify")
             0 to 0
         }
+    }
+
+    // --- Artist cards, albums, similar, radio (Yandex) ---------------------------------------------
+
+    /** Artist page data: by known id, else by an id stored with the library's tracks, else by search. */
+    suspend fun artistInfo(name: String, remoteIdHint: String?): ArtistInfo? = withContext(Dispatchers.IO) {
+        if (!yandex.isReady) return@withContext null
+        val id = remoteIdHint
+            ?: db.artists().remoteIdOf(name)
+            ?: yandexCall { yandex.searchArtist(name) }?.id
+            ?: return@withContext null
+        yandexCall { yandex.artistInfo(id) }
+    }
+
+    suspend fun album(albumId: String): AlbumWithTracks = withContext(Dispatchers.IO) { yandexCall { yandex.albumWithTracks(albumId) } }
+
+    suspend fun similar(trackRemoteId: String): List<RemoteTrack> = withContext(Dispatchers.IO) { yandexCall { yandex.similarTracks(trackRemoteId) } }
+
+    suspend fun radioStart(seed: String): RadioBatch = withContext(Dispatchers.IO) { yandexCall { yandex.radioStart(seed) } }
+
+    suspend fun radioMore(sessionId: String, queue: List<String>): RadioBatch =
+        withContext(Dispatchers.IO) { yandexCall { yandex.radioMore(sessionId, queue) } }
+
+    suspend fun radioFeedback(sessionId: String, batchId: String?, type: String, trackId: String? = null, playedSec: Double? = null) {
+        withContext(Dispatchers.IO) { runCatching { yandex.radioFeedback(sessionId, batchId, type, trackId, playedSec) } }
     }
 
     suspend fun search(service: Service, query: String): List<RemoteTrack> =

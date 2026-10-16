@@ -64,7 +64,7 @@ fun TrackListScreen(kind: TrackListKind, key: String, extra: String?) {
     val flow: Flow<List<TrackEntity>> = remember(kind, key, extra) {
         when (kind) {
             TrackListKind.ALBUM -> dao.observeAlbumTracks(key, extra.orEmpty())
-            TrackListKind.ARTIST -> dao.observeArtistTracks(key)
+            TrackListKind.ARTIST -> graph.db.artists().observeTracksOf(key)
             TrackListKind.FOLDER -> dao.observeFolderTracks(key)
             TrackListKind.PLAYLIST -> key.toLongOrNull()?.let { graph.db.playlists().observeTracks(it) } ?: flowOf(emptyList())
             TrackListKind.LIKED -> dao.observeLiked()
@@ -158,8 +158,13 @@ fun TrackListScreen(kind: TrackListKind, key: String, extra: String?) {
                 onClick = { graph.player.play(tracks, i) },
                 onMore = { nav.showActions(t) },
                 playing = playing.nowPlaying?.trackId == t.id,
+                modifier = Modifier.animateItem(),
                 index = if (kind == TrackListKind.ALBUM) (t.trackNumber ?: (i + 1)) else null,
-                subtitle = if (kind == TrackListKind.ALBUM) t.artist else null,
+                subtitle = when (kind) {
+                    TrackListKind.ALBUM -> t.artist
+                    TrackListKind.UPDATES -> "${t.artist} · сохранено ${dev.xvin.palimpsest.ui.components.formatDuration(t.durationMs)} → новая ${dev.xvin.palimpsest.ui.components.formatDuration(t.remoteDurationMs ?: 0)}"
+                    else -> null
+                },
             )
         }
     }

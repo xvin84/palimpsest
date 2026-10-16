@@ -71,6 +71,7 @@ class AppGraph(val app: Application) {
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
+    val errors = dev.xvin.palimpsest.errors.ErrorCenter(app)
     val db = AppDatabase.create(app)
     val settings = Settings(app, appScope)
 
@@ -99,7 +100,8 @@ class AppGraph(val app: Application) {
     val effects = AudioEffects()
     val outputs = dev.xvin.palimpsest.playback.OutputDevices(app)
     val waveform = dev.xvin.palimpsest.playback.Waveform(app.cacheDir)
-    val scanner = LibraryScanner(db, settings)
+    val artistIndex = dev.xvin.palimpsest.data.library.ArtistIndex(db)
+    val scanner = LibraryScanner(db, settings, artistIndex)
     val versions = VersionRepository(db, settings, scanner)
 
     val yandexAuth = YandexAuth(http)
@@ -131,12 +133,15 @@ class AppGraph(val app: Application) {
         )
     }
 
-    val remote = RemoteRepository(db, settings, yandexAuth, yandex, providers)
+    val remote = RemoteRepository(db, settings, yandexAuth, yandex, providers, artistIndex) { e, ctx -> errors.report(e, ctx) }
     val lyrics = LyricsRepository(db, yandex, LrcLibClient(http))
     val spotify = dev.xvin.palimpsest.core.spotify.SpotifyImporter(http)
     val listenBrainz = dev.xvin.palimpsest.core.scrobble.ListenBrainz(http)
     val scrobbler = dev.xvin.palimpsest.data.remote.Scrobbler(db, settings, listenBrainz)
-    val downloads = Downloads(app, db, settings, http, remote, versions)
+    val downloads = Downloads(app, db, settings, http, remote, versions) { e, ctx -> errors.report(e, ctx) }
 
-    val player = PlayerConnection(app, mainScope) { settings.loadQueue() }
+    val player = PlayerConnection(app, mainScope) { settings.loadQueue() }.also { p ->
+        p.onError = { e -> errors.report(e, "Воспроизведение") }
+    }
+    val radio = dev.xvin.palimpsest.playback.RadioController(remote, db, player, mainScope)
 }

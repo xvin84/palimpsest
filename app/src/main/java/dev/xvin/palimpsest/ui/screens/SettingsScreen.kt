@@ -199,6 +199,18 @@ fun SettingsScreen() {
             lbError?.let { Text(it, Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.error) }
         }
 
+        SectionHeader("Помощь")
+        val errorCount by graph.errors.log.collectAsStateWithLifecycle()
+        Row(Modifier.fillMaxWidth().clickable { nav.openErrors() }.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Журнал ошибок")
+                Text(
+                    if (errorCount.isEmpty()) "Пусто" else "Записей: ${errorCount.size} — с объяснениями и подробностями для копирования",
+                    style = MaterialTheme.typography.bodySmall, color = Ink.Muted,
+                )
+            }
+        }
+
         SectionHeader("О приложении")
         Text(
             "Palimpsest 0.1 · Kotlin, Jetpack Compose, Media3.\nЯндекс.Музыка — через неофициальный API, YouTube — через NewPipe Extractor, тексты — LRCLIB.",

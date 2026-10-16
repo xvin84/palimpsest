@@ -2,6 +2,8 @@ package dev.xvin.palimpsest.ui.screens
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -123,6 +125,9 @@ fun NowPlayingScreen(onClose: () -> Unit) {
     var showSpeed by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
     var dragOffset by remember { mutableFloatStateOf(0f) }
+    var artistMenu by remember { mutableStateOf(false) }
+    val artists by remember(np.trackId) { graph.db.artists().observeForTrack(np.trackId ?: -1) }.collectAsStateWithLifecycle(emptyList())
+    val station by graph.radio.station.collectAsStateWithLifecycle()
     val artModel: Any? = np.artworkUri ?: np.artworkData
 
     Box(
@@ -156,7 +161,7 @@ fun NowPlayingScreen(onClose: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onClose) { Icon(Icons.Rounded.KeyboardArrowDown, "Свернуть", Modifier.size(30.dp)) }
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("СЕЙЧАС ИГРАЕТ", style = MaterialTheme.typography.labelSmall, color = Ink.Muted)
+                    Text(station?.title?.uppercase() ?: "СЕЙЧАС ИГРАЕТ", style = MaterialTheme.typography.labelSmall, color = if (station != null) accent else Ink.Muted, maxLines = 1)
                     Text(
                         track?.let { techLine(it) } ?: "Внешний файл",
                         style = MaterialTheme.typography.labelSmall, color = Ink.Faint, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -206,7 +211,19 @@ fun NowPlayingScreen(onClose: () -> Unit) {
                                     .shadow(24.dp, RoundedCornerShape(if (vizMode == VisualizerMode.RING) 1000.dp else 16.dp))
                                     .clickable { showLyrics = true },
                             ) {
-                                Artwork(artModel, np.album ?: np.title, Modifier.fillMaxSize(), corner = if (vizMode == VisualizerMode.RING) 1000.dp else 16.dp)
+                                // The cover slides out in the direction you moved through the queue.
+                                AnimatedContent(
+                                    targetState = np.mediaId to state.index,
+                                    transitionSpec = {
+                                        val forward = targetState.second >= initialState.second
+                                        (androidx.compose.animation.slideInHorizontally(tween(320)) { if (forward) it / 3 else -it / 3 } + fadeIn(tween(260)) +
+                                            androidx.compose.animation.scaleIn(tween(320), initialScale = 0.92f)) togetherWith
+                                            (androidx.compose.animation.slideOutHorizontally(tween(320)) { if (forward) -it / 3 else it / 3 } + fadeOut(tween(200)))
+                                    },
+                                    label = "cover",
+                                ) { _ ->
+                                    Artwork(artModel, np.album ?: np.title, Modifier.fillMaxSize(), corner = if (vizMode == VisualizerMode.RING) 1000.dp else 16.dp)
+                                }
                             }
                         }
                     }
@@ -220,11 +237,21 @@ fun NowPlayingScreen(onClose: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(np.title, style = MaterialTheme.typography.headlineSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text(
-                        listOfNotNull(np.artist.ifBlank { null }, np.album).joinToString(" · "),
-                        style = MaterialTheme.typography.bodyMedium, color = Ink.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.clickable(enabled = track != null) { track?.let { nav.openList(TrackListKind.ARTIST, it.artist) } },
-                    )
+                    Box {
+                        Text(
+                            listOfNotNull(np.artist.ifBlank { null }, np.album).joinToString(" · "),
+                            style = MaterialTheme.typography.bodyMedium, color = Ink.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.clickable(enabled = artists.isNotEmpty()) {
+                                if (artists.size == 1) nav.openArtist(artists[0].name, artists[0].remoteId) else artistMenu = true
+                            },
+                        )
+                        // Several artists: let the user pick whose page to open.
+                        DropdownMenu(artistMenu, onDismissRequest = { artistMenu = false }) {
+                            artists.forEach { a ->
+                                DropdownMenuItem(text = { Text(a.name) }, onClick = { artistMenu = false; nav.openArtist(a.name, a.remoteId) })
+                            }
+                        }
+                    }
                 }
                 track?.let { t ->
                     IconButton(onClick = {
@@ -234,6 +261,7 @@ fun NowPlayingScreen(onClose: () -> Unit) {
                     }
                 }
             }
+            VersionChip(np.variant, track, np.mediaId)
             Spacer(Modifier.height(8.dp))
             val wave by produceState<FloatArray?>(null, track?.id, track?.path, track?.modifiedAt) {
                 value = null
@@ -249,16 +277,31 @@ fun NowPlayingScreen(onClose: () -> Unit) {
                     Icon(Icons.Rounded.Shuffle, "Перемешать", tint = if (state.shuffle) accent else Ink.Muted)
                 }
                 IconButton(onClick = { graph.player.previous() }, Modifier.size(56.dp)) { Icon(Icons.Rounded.SkipPrevious, "Назад", Modifier.size(36.dp)) }
+                val playInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                val pressed by playInteraction.collectIsPressedAsState()
+                val playScale by animateFloatAsState(
+                    if (pressed) 0.88f else 1f,
+                    androidx.compose.animation.core.spring(dampingRatio = 0.45f, stiffness = 600f), label = "play-press",
+                )
                 Box(
-                    Modifier.size(76.dp).clip(CircleShape).background(accent).clickable { graph.player.toggle() },
+                    Modifier.size(76.dp).graphicsLayer { scaleX = playScale; scaleY = playScale }.clip(CircleShape).background(accent)
+                        .clickable(interactionSource = playInteraction, indication = androidx.compose.material3.ripple()) { graph.player.toggle() },
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (state.isBuffering) CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(30.dp), strokeWidth = 3.dp)
-                    else Icon(
-                        if (state.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        if (state.isPlaying) "Пауза" else "Играть",
-                        tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(40.dp),
-                    )
+                    AnimatedContent(
+                        targetState = if (state.isBuffering) 2 else if (state.isPlaying) 1 else 0,
+                        transitionSpec = {
+                            (fadeIn(tween(160)) + androidx.compose.animation.scaleIn(tween(200), initialScale = 0.6f)) togetherWith
+                                (fadeOut(tween(120)) + androidx.compose.animation.scaleOut(tween(160), targetScale = 0.6f))
+                        },
+                        label = "play-icon",
+                    ) { mode ->
+                        when (mode) {
+                            2 -> CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(30.dp), strokeWidth = 3.dp)
+                            1 -> Icon(Icons.Rounded.Pause, "Пауза", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(40.dp))
+                            else -> Icon(Icons.Rounded.PlayArrow, "Играть", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(40.dp))
+                        }
+                    }
                 }
                 IconButton(onClick = { graph.player.next() }, Modifier.size(56.dp)) { Icon(Icons.Rounded.SkipNext, "Вперёд", Modifier.size(36.dp)) }
                 IconButton(onClick = { graph.player.cycleRepeat() }) {
@@ -334,18 +377,22 @@ private fun LyricsPane(track: TrackEntity?, positionMs: Long, onSeek: (Long) -> 
             LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(vertical = 32.dp)) {
                 itemsIndexed(parsed.lines) { i, l ->
                     val active = i == current
-                    Text(
-                        l.text.ifBlank { "♪" },
-                        style = MaterialTheme.typography.headlineSmall.copy(
-                            fontSize = if (active) 26.sp else 22.sp,
-                            fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold,
-                        ),
-                        color = when {
+                    // Smooth karaoke: the active line grows and lights up instead of jumping.
+                    val color by androidx.compose.animation.animateColorAsState(
+                        when {
                             active -> accent
                             i < current -> Ink.Faint
                             else -> Ink.Text.copy(alpha = 0.7f)
                         },
-                        modifier = Modifier.fillMaxWidth().clickable { onSeek(l.timeMs) }.padding(vertical = 6.dp),
+                        tween(350), label = "lyric-color",
+                    )
+                    val scale by animateFloatAsState(if (active) 1.08f else 1f, tween(350), label = "lyric-scale")
+                    Text(
+                        l.text.ifBlank { "♪" },
+                        style = MaterialTheme.typography.headlineSmall.copy(fontSize = 22.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold),
+                        color = color,
+                        modifier = Modifier.fillMaxWidth().clickable { onSeek(l.timeMs) }.padding(vertical = 6.dp)
+                            .graphicsLayer { scaleX = scale; scaleY = scale; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0.5f) },
                     )
                 }
             }
@@ -490,13 +537,59 @@ fun MiniPlayer(onOpen: () -> Unit) {
             Artwork(np.artworkUri ?: np.artworkData, np.album ?: np.title, Modifier.size(42.dp).aspectRatio(1f), corner = 6.dp)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(np.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                androidx.compose.animation.Crossfade(np.title, label = "mini-title") { title ->
+                    Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
                 Text(np.artist, style = MaterialTheme.typography.bodySmall, color = Ink.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             IconButton(onClick = { graph.player.toggle() }) {
-                Icon(if (state.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, "Играть/пауза", Modifier.size(30.dp))
+                AnimatedContent(state.isPlaying, transitionSpec = { (fadeIn() + androidx.compose.animation.scaleIn(initialScale = 0.6f)) togetherWith fadeOut() }, label = "mini-play") { playing ->
+                    Icon(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, "Играть/пауза", Modifier.size(30.dp))
+                }
             }
             IconButton(onClick = { graph.player.next() }) { Icon(Icons.Rounded.SkipNext, "Следующий", tint = Ink.Muted) }
+        }
+    }
+}
+
+/**
+ * Says which audio is playing when a track has several versions, and offers the other one:
+ * "saved version — newer on Yandex: listen / download", or "this is the new/archived version".
+ */
+@Composable
+private fun VersionChip(variant: String?, track: TrackEntity?, mediaId: String) {
+    val graph = LocalGraph.current
+    val nav = LocalNav.current
+    val scope = rememberCoroutineScope()
+    val accent = LocalAccent.current
+    val t = track ?: return
+    val text: String
+    val actions = mutableListOf<Pair<String, () -> Unit>>()
+    when {
+        variant != null -> {
+            text = if (mediaId.startsWith(dev.xvin.palimpsest.playback.MediaItems.NEW_PREFIX)) "Играет новая версия с сервиса (не скачана)" else "Играет: ${variant.lowercase()}"
+            if (mediaId.startsWith(dev.xvin.palimpsest.playback.MediaItems.NEW_PREFIX)) {
+                actions += "Скачать" to { scope.launch { graph.downloads.enqueue(listOf(t.id)) }; nav.toast("Скачиваю — старая версия сохранится") }
+            }
+            actions += "Все версии" to { nav.openTrack(t.id, 2) }
+        }
+        t.updateAvailable && t.path != null -> {
+            text = "Играет сохранённая версия · на ${t.service.displayName} новая: " +
+                "${formatDuration(t.remoteDurationMs ?: 0)} вместо ${formatDuration(t.durationMs)}"
+            actions += "Послушать новую" to { graph.player.playNewVersion(t.id) }
+            actions += "Скачать" to { scope.launch { graph.downloads.enqueue(listOf(t.id)) }; nav.toast("Скачиваю — старая версия сохранится") }
+        }
+        else -> return
+    }
+    Column(
+        Modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(12.dp))
+            .background(accent.copy(alpha = 0.14f)).padding(horizontal = 12.dp, vertical = 8.dp),
+    ) {
+        Text(text, style = MaterialTheme.typography.bodySmall, color = Ink.Text)
+        Row {
+            actions.forEach { (label, action) ->
+                TextButton(onClick = action, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) { Text(label, color = accent) }
+            }
         }
     }
 }

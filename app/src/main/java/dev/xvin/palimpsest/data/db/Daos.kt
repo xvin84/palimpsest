@@ -88,13 +88,6 @@ interface TrackDao {
     )
     fun observeAlbums(): Flow<List<AlbumRow>>
 
-    @Query(
-        """
-        SELECT artist, COUNT(*) AS trackCount, COUNT(DISTINCT album) AS albumCount, MIN(id) AS coverTrackId
-        FROM tracks GROUP BY artist COLLATE NOCASE ORDER BY artist COLLATE NOCASE
-        """,
-    )
-    fun observeArtists(): Flow<List<ArtistRow>>
 
     @Query("SELECT folder, COUNT(*) AS trackCount FROM tracks WHERE folder IS NOT NULL GROUP BY folder ORDER BY folder COLLATE NOCASE")
     fun observeFolders(): Flow<List<FolderRow>>
@@ -102,8 +95,6 @@ interface TrackDao {
     @Query("SELECT * FROM tracks WHERE album = :album COLLATE NOCASE AND COALESCE(albumArtist, artist) = :artist COLLATE NOCASE ORDER BY discNumber, trackNumber, title")
     fun observeAlbumTracks(album: String, artist: String): Flow<List<TrackEntity>>
 
-    @Query("SELECT * FROM tracks WHERE artist = :artist COLLATE NOCASE OR albumArtist = :artist COLLATE NOCASE ORDER BY year DESC, album, trackNumber, title")
-    fun observeArtistTracks(artist: String): Flow<List<TrackEntity>>
 
     @Query("SELECT * FROM tracks WHERE folder = :folder ORDER BY path")
     fun observeFolderTracks(folder: String): Flow<List<TrackEntity>>
@@ -177,8 +168,9 @@ interface PlayEventDao {
 
     @Query(
         """
-        SELECT artist AS label, COUNT(*) AS plays, SUM(listenedMs) AS listenedMs, MAX(trackId) AS trackId
-        FROM play_events WHERE startedAt >= :since GROUP BY artist COLLATE NOCASE
+        SELECT ta.name AS label, COUNT(*) AS plays, SUM(p.listenedMs) AS listenedMs, MAX(p.trackId) AS trackId
+        FROM play_events p JOIN track_artists ta ON ta.trackId = p.trackId
+        WHERE p.startedAt >= :since GROUP BY ta.name COLLATE NOCASE
         ORDER BY plays DESC LIMIT :limit
         """,
     )
@@ -206,6 +198,9 @@ interface VersionDao {
 
     @Query("SELECT * FROM track_versions WHERE trackId = :trackId ORDER BY createdAt DESC")
     suspend fun forTrack(trackId: Long): List<TrackVersionEntity>
+
+    @Query("SELECT * FROM track_versions WHERE id = :id")
+    suspend fun byId(id: Long): TrackVersionEntity?
 
     @Insert
     suspend fun insert(v: TrackVersionEntity): Long
@@ -278,4 +273,58 @@ interface LyricsDao {
 
     @Query("DELETE FROM lyrics WHERE trackId = :trackId")
     suspend fun delete(trackId: Long)
+}
+
+data class TrackArtistsRow(val trackId: Long, val artist: String)
+
+@Dao
+interface ArtistDao {
+    @Query(
+        """
+        SELECT ta.name AS artist, COUNT(DISTINCT ta.trackId) AS trackCount,
+               COUNT(DISTINCT t.album) AS albumCount, MIN(t.id) AS coverTrackId
+        FROM track_artists ta JOIN tracks t ON t.id = ta.trackId
+        GROUP BY ta.name COLLATE NOCASE ORDER BY ta.name COLLATE NOCASE
+        """,
+    )
+    fun observeArtists(): Flow<List<ArtistRow>>
+
+    @Query(
+        """
+        SELECT t.* FROM tracks t JOIN track_artists ta ON ta.trackId = t.id
+        WHERE ta.name = :name COLLATE NOCASE
+        ORDER BY t.year DESC, t.album, t.trackNumber, t.title
+        """,
+    )
+    fun observeTracksOf(name: String): Flow<List<TrackEntity>>
+
+    @Query("SELECT remoteId FROM track_artists WHERE name = :name COLLATE NOCASE AND remoteId IS NOT NULL LIMIT 1")
+    suspend fun remoteIdOf(name: String): String?
+
+    @Query("SELECT * FROM track_artists WHERE trackId = :trackId ORDER BY position")
+    suspend fun forTrack(trackId: Long): List<TrackArtistEntity>
+
+    @Query("SELECT * FROM track_artists WHERE trackId = :trackId ORDER BY position")
+    fun observeForTrack(trackId: Long): Flow<List<TrackArtistEntity>>
+
+    @Query("SELECT * FROM track_artists")
+    suspend fun all(): List<TrackArtistEntity>
+
+    @Query("SELECT id AS trackId, artist FROM tracks")
+    suspend fun trackArtistLines(): List<TrackArtistsRow>
+
+    @Query("DELETE FROM track_artists WHERE trackId = :trackId")
+    suspend fun deleteFor(trackId: Long)
+
+    @Query("DELETE FROM track_artists WHERE trackId NOT IN (SELECT id FROM tracks)")
+    suspend fun deleteOrphans()
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(rows: List<TrackArtistEntity>)
+
+    @Transaction
+    suspend fun replaceFor(trackId: Long, names: List<String>, remoteIds: List<String?>) {
+        deleteFor(trackId)
+        insertAll(names.mapIndexed { i, n -> TrackArtistEntity(trackId, i, n, remoteIds.getOrNull(i)) })
+    }
 }

@@ -109,7 +109,7 @@ fun StatsScreen() {
             item { SectionHeader("Исполнители") }
             itemsIndexed(topArtists) { i, row ->
                 Row(
-                    Modifier.fillMaxWidth().clickable { nav.openList(TrackListKind.ARTIST, row.label) }.padding(horizontal = 16.dp, vertical = 8.dp),
+                    Modifier.fillMaxWidth().clickable { nav.openArtist(row.label) }.padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text("${i + 1}", style = MaterialTheme.typography.titleMedium, color = Ink.Faint, modifier = Modifier.width(36.dp))

@@ -16,6 +16,11 @@ object MediaItems {
     const val EXTRA_RG_TRACK = "rg_track"
     const val EXTRA_RG_ALBUM = "rg_album"
     const val EXTERNAL_PREFIX = "external:"
+    /** An archived version of a library track: `ver:<versionId>`. */
+    const val VERSION_PREFIX = "ver:"
+    /** The service's current (newer) audio of a track, streamed without downloading: `new:<trackId>`. */
+    const val NEW_PREFIX = "new:"
+    const val EXTRA_VARIANT = "variant"
 
     fun from(track: TrackEntity): MediaItem {
         val uri = when {
@@ -90,5 +95,29 @@ object MediaItems {
         }
     }.getOrNull() ?: uri.lastPathSegment
 
-    fun trackId(item: MediaItem?): Long? = item?.mediaId?.toLongOrNull()
+    fun trackId(item: MediaItem?): Long? =
+        item?.mediaId?.toLongOrNull() ?: item?.mediaMetadata?.extras?.takeIf { it.containsKey(EXTRA_TRACK_ID) }?.getLong(EXTRA_TRACK_ID)
+
+    /** Archived version: same track, its own file, labelled with the version date. */
+    fun fromVersion(track: TrackEntity, version: dev.xvin.palimpsest.data.db.TrackVersionEntity, label: String): MediaItem {
+        val base = from(track)
+        val meta = base.mediaMetadata.buildUpon()
+            .setAlbumTitle(label)
+            .setExtras(Bundle(base.mediaMetadata.extras).apply { putString(EXTRA_VARIANT, label) })
+            .build()
+        return base.buildUpon().setMediaId(VERSION_PREFIX + version.id).setUri(Uri.fromFile(File(version.path))).setMediaMetadata(meta).build()
+    }
+
+    /** The newer audio on the service, streamed (useful to compare before downloading). */
+    fun fromRemoteNew(track: TrackEntity): MediaItem? {
+        val rid = track.remoteId ?: return null
+        val base = from(track)
+        val label = "Новая версия · ${track.service.displayName}"
+        val meta = base.mediaMetadata.buildUpon()
+            .setAlbumTitle(label)
+            .setDurationMs(track.remoteDurationMs)
+            .setExtras(Bundle(base.mediaMetadata.extras).apply { putString(EXTRA_VARIANT, label) })
+            .build()
+        return base.buildUpon().setMediaId(NEW_PREFIX + track.id).setUri(StreamResolver.uriFor(track.service, rid)).setMediaMetadata(meta).build()
+    }
 }

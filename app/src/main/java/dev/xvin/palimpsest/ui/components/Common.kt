@@ -229,10 +229,11 @@ fun SectionHeader(text: String, modifier: Modifier = Modifier, action: (@Composa
 @Composable
 fun Pill(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val accent = LocalAccent.current
+    val bg by androidx.compose.animation.animateColorAsState(if (selected) accent else Ink.Paper3, androidx.compose.animation.core.tween(220), label = "pill")
     Box(
         modifier
             .clip(RoundedCornerShape(50))
-            .background(if (selected) accent else Ink.Paper3)
+            .background(bg)
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 7.dp),
     ) {

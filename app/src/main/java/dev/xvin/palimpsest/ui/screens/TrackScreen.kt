@@ -281,15 +281,22 @@ private fun VersionsTab(t: TrackEntity) {
                 "Любую версию можно послушать или вернуть.",
             style = MaterialTheme.typography.bodySmall, color = Ink.Muted,
         )
-        if (t.updateAvailable) {
-            Text(
-                "На сервисе новая версия: ${formatDuration(t.remoteDurationMs ?: 0)} вместо ${formatDuration(t.durationMs)}",
-                color = LocalAccent.current,
-            )
-            Button(onClick = {
-                scope.launch { graph.downloads.enqueue(listOf(t.id)) }
-                nav.toast("Скачиваю новую версию; текущая сохранится")
-            }) { Text("Скачать новую версию") }
+        if (t.updateAvailable && t.remoteId != null) {
+            Column(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(LocalAccent.current.copy(alpha = 0.18f)).padding(12.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Новая на ${t.service.displayName}", style = MaterialTheme.typography.titleSmall)
+                        Text("${formatDuration(t.remoteDurationMs ?: 0)} · ещё не скачана", style = MaterialTheme.typography.labelSmall, color = Ink.Muted)
+                    }
+                    IconButton(onClick = { graph.player.playNewVersion(t.id); nav.openPlayer() }) { Icon(Icons.Rounded.PlayArrow, "Послушать новую") }
+                }
+                TextButton(onClick = {
+                    scope.launch { graph.downloads.enqueue(listOf(t.id)) }
+                    nav.toast("Скачиваю новую версию; текущая сохранится")
+                }) { Text("Скачать и сделать текущей") }
+            }
         }
         if (t.path != null) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -331,7 +338,10 @@ private fun VersionCard(v: TrackVersionEntity, fmt: SimpleDateFormat, t: TrackEn
                 v.note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Ink.Faint) }
                 if (!exists) Text("Файл не найден", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
             }
-            if (exists) IconButton(onClick = { graph.player.playFile(Uri.fromFile(File(v.path))); nav.openPlayer() }) { Icon(Icons.Rounded.PlayArrow, "Слушать") }
+            if (exists) IconButton(onClick = {
+                if (v.isCurrent && t.path != null) graph.player.play(listOf(t)) else graph.player.playVersion(v.id)
+                nav.openPlayer()
+            }) { Icon(Icons.Rounded.PlayArrow, "Слушать") }
             if (!v.isCurrent && exists && t.path != null) IconButton(onClick = {
                 scope.launch { graph.versions.restore(t, v); nav.toast("Версия восстановлена") }
             }) { Icon(Icons.Rounded.Restore, "Сделать текущей") }

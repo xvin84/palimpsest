@@ -29,7 +29,7 @@ data class ScanProgress(val running: Boolean = false, val done: Int = 0, val tot
  * Walks the music folders and keeps the `tracks` table in sync with the files.
  * Incremental: a file is only re-read when its size or mtime changed.
  */
-class LibraryScanner(private val db: AppDatabase, private val settings: Settings) {
+class LibraryScanner(private val db: AppDatabase, private val settings: Settings, private val artists: ArtistIndex) {
     private val _progress = MutableStateFlow(ScanProgress())
     val progress: StateFlow<ScanProgress> = _progress
     private val mutex = Mutex()
@@ -71,6 +71,7 @@ class LibraryScanner(private val db: AppDatabase, private val settings: Settings
                 if (delete.isNotEmpty()) db.tracks().delete(delete.map { it.id })
                 if (detach.isNotEmpty()) db.tracks().detachFiles(detach.map { it.id })
                 importM3u(roots)
+                artists.syncAll()
                 settings.setLastScan(System.currentTimeMillis())
                 Log.i("Scanner", "scan: ${files.size} files, ${todo.size} read, ${gone.size} gone in ${System.currentTimeMillis() - startedAt} ms")
                 _progress.value = ScanProgress(running = false, done = todo.size, total = todo.size, changed = todo.size + gone.size)
@@ -107,6 +108,7 @@ class LibraryScanner(private val db: AppDatabase, private val settings: Settings
         val s = settings.state.filterNotNull().first()
         val root = s.musicRoots.map(::File).firstOrNull { path.startsWith(it.absolutePath + "/") } ?: f.parentFile!!
         save(listOf(buildEntity(root, f)))
+        artists.syncAll()
     }
 
     private fun walk(root: File): List<File> =

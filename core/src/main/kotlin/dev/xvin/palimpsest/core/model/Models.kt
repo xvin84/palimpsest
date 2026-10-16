@@ -31,9 +31,42 @@ data class RemoteTrack(
     val hasSyncedLyrics: Boolean = false,
     /** Canonical web link; written into the URL tag on download so the file stays linked. */
     val webUrl: String? = null,
+    /** Service ids of [artists], same order (null where unknown). */
+    val artistIds: List<String?> = emptyList(),
 ) {
     val artistLine: String get() = artists.joinToString(", ")
 }
+
+@Serializable
+data class RemoteArtist(val service: Service, val id: String, val name: String, val coverUrl: String? = null)
+
+@Serializable
+data class RemoteAlbum(
+    val service: Service,
+    val id: String,
+    val title: String,
+    val artists: List<String> = emptyList(),
+    val year: Int? = null,
+    val coverUrl: String? = null,
+    val trackCount: Int = 0,
+    val type: String? = null,
+)
+
+/** Everything an artist page shows. */
+data class ArtistInfo(
+    val artist: RemoteArtist,
+    val genres: List<String>,
+    val description: String?,
+    val likes: Int?,
+    val popular: List<RemoteTrack>,
+    val albums: List<RemoteAlbum>,
+    val similar: List<RemoteArtist>,
+)
+
+data class AlbumWithTracks(val album: RemoteAlbum, val tracks: List<RemoteTrack>)
+
+/** One batch of a radio session ("Моя волна", radio by track/artist). */
+data class RadioBatch(val sessionId: String, val batchId: String?, val tracks: List<RemoteTrack>)
 
 @Serializable
 data class RemotePlaylist(

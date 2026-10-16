@@ -83,6 +83,10 @@ import kotlinx.serialization.Serializable
 @Serializable object EqualizerRoute
 @Serializable data class ListRoute(val kind: TrackListKind, val key: String, val extra: String? = null)
 @Serializable data class TrackRoute(val trackId: Long, val tab: Int = 0)
+@Serializable data class ArtistRoute(val name: String, val remoteId: String? = null)
+@Serializable data class RemoteAlbumRoute(val albumId: String)
+@Serializable data class SimilarRoute(val trackRemoteId: String, val title: String)
+@Serializable object ErrorsRoute
 
 /** Navigation actions any screen may trigger. */
 interface AppNav {
@@ -91,8 +95,15 @@ interface AppNav {
     fun openEqualizer()
     fun openSettings()
     fun openPlayer()
+    fun openArtist(name: String, remoteId: String? = null)
+    fun openRemoteAlbum(albumId: String)
+    fun openSimilar(trackRemoteId: String, title: String)
+    fun openErrors()
     fun showActions(track: TrackEntity)
     fun toast(message: String)
+    /** Logs [t] and shows it explained, with hints and copyable details. */
+    fun error(t: Throwable, context: String)
+    fun showError(info: dev.xvin.palimpsest.errors.ErrorInfo)
     fun back()
 }
 
@@ -145,10 +156,20 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
     val player by graph.player.state.collectAsStateWithLifecycle()
     val openRequests by activity.openPlayerRequests
 
+    var errorShown by remember { mutableStateOf<dev.xvin.palimpsest.errors.ErrorInfo?>(null) }
+
     LaunchedEffect(openRequests) { if (openRequests > 0) playerOpen = true }
     LaunchedEffect(toastMessage) { toastMessage?.let { snackbar.showSnackbar(it); toastMessage = null } }
-    LaunchedEffect(player.error) {
-        player.error?.let { snackbar.showSnackbar("Ошибка воспроизведения: $it"); graph.player.clearError() }
+    // Background errors (playback, downloads, sync): a short snackbar, details one tap away.
+    LaunchedEffect(Unit) {
+        graph.errors.shown.collect { info ->
+            val r = snackbar.showSnackbar(
+                message = info.title + (info.context?.let { " · $it" } ?: ""),
+                actionLabel = "Подробнее",
+                duration = androidx.compose.material3.SnackbarDuration.Long,
+            )
+            if (r == androidx.compose.material3.SnackbarResult.ActionPerformed) errorShown = info
+        }
     }
     LaunchedEffect(Unit) { graph.scanner.scan() }
     CrashDialog()
@@ -160,8 +181,14 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
             override fun openEqualizer() { playerOpen = false; nav.navigate(EqualizerRoute) }
             override fun openSettings() { nav.navigate(SettingsRoute) }
             override fun openPlayer() { playerOpen = true }
+            override fun openArtist(name: String, remoteId: String?) { playerOpen = false; nav.navigate(ArtistRoute(name, remoteId)) }
+            override fun openRemoteAlbum(albumId: String) { playerOpen = false; nav.navigate(RemoteAlbumRoute(albumId)) }
+            override fun openSimilar(trackRemoteId: String, title: String) { playerOpen = false; nav.navigate(SimilarRoute(trackRemoteId, title)) }
+            override fun openErrors() { nav.navigate(ErrorsRoute) }
             override fun showActions(track: TrackEntity) { actionsFor = track }
             override fun toast(message: String) { toastMessage = message }
+            override fun error(t: Throwable, context: String) { errorShown = graph.errors.report(t, context, show = false) }
+            override fun showError(info: dev.xvin.palimpsest.errors.ErrorInfo) { errorShown = info }
             override fun back() { if (playerOpen) playerOpen = false else nav.popBackStack() }
         }
     }
@@ -175,12 +202,23 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
                 snackbarHost = { SnackbarHost(snackbar) },
                 bottomBar = {
                     Column {
-                        if (player.nowPlaying != null) MiniPlayer(onOpen = { playerOpen = true })
+                        AnimatedVisibility(
+                            visible = player.nowPlaying != null,
+                            enter = slideInVertically(tween(300)) { it } + fadeIn(tween(300)),
+                            exit = slideOutVertically(tween(220)) { it } + fadeOut(tween(220)),
+                        ) { MiniPlayer(onOpen = { playerOpen = true }) }
                         BottomBar(nav)
                     }
                 },
             ) { padding ->
-                NavHost(nav, startDestination = LibraryRoute, modifier = Modifier.padding(padding)) {
+                NavHost(
+                    nav, startDestination = LibraryRoute, modifier = Modifier.padding(padding),
+                    // Screens slide in a little and fade: quick, but you see where you came from.
+                    enterTransition = { fadeIn(tween(220)) + androidx.compose.animation.slideInHorizontally(tween(280)) { it / 10 } },
+                    exitTransition = { fadeOut(tween(160)) },
+                    popEnterTransition = { fadeIn(tween(220)) + androidx.compose.animation.slideInHorizontally(tween(280)) { -it / 10 } },
+                    popExitTransition = { fadeOut(tween(160)) + androidx.compose.animation.slideOutHorizontally(tween(240)) { it / 10 } },
+                ) {
                     composable<LibraryRoute> { LibraryScreen() }
                     composable<SearchRoute> { SearchScreen() }
                     composable<SourcesRoute> { SourcesScreen() }
@@ -189,6 +227,10 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
                     composable<EqualizerRoute> { EqualizerScreen() }
                     composable<ListRoute> { e -> val r = e.toRoute<ListRoute>(); TrackListScreen(r.kind, r.key, r.extra) }
                     composable<TrackRoute> { e -> val r = e.toRoute<TrackRoute>(); TrackScreen(r.trackId, r.tab) }
+                    composable<ArtistRoute> { e -> val r = e.toRoute<ArtistRoute>(); dev.xvin.palimpsest.ui.screens.ArtistScreen(r.name, r.remoteId) }
+                    composable<RemoteAlbumRoute> { e -> dev.xvin.palimpsest.ui.screens.RemoteAlbumScreen(e.toRoute<RemoteAlbumRoute>().albumId) }
+                    composable<SimilarRoute> { e -> val r = e.toRoute<SimilarRoute>(); dev.xvin.palimpsest.ui.screens.SimilarScreen(r.trackRemoteId, r.title) }
+                    composable<ErrorsRoute> { dev.xvin.palimpsest.ui.screens.ErrorsScreen() }
                 }
             }
 
@@ -202,6 +244,7 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
             }
 
             actionsFor?.let { t -> TrackActionsSheet(t, onDismiss = { actionsFor = null }) }
+            errorShown?.let { info -> dev.xvin.palimpsest.ui.components.ErrorSheet(info, onDismiss = { errorShown = null }) }
         }
     }
 }

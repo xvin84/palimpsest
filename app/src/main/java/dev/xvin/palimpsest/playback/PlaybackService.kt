@@ -274,6 +274,13 @@ class PlaybackService : MediaSessionService() {
                 val id = item.mediaId.toLongOrNull()
                 when {
                     id != null -> tracks[id]?.let(MediaItems::from)
+                    item.mediaId.startsWith(MediaItems.VERSION_PREFIX) -> {
+                        val v = graph.db.versions().byId(item.mediaId.removePrefix(MediaItems.VERSION_PREFIX).toLong())
+                        val t = v?.let { graph.db.tracks().get(it.trackId) }
+                        if (v != null && t != null) MediaItems.fromVersion(t, v, "Версия от " + java.text.SimpleDateFormat("d MMMM yyyy", java.util.Locale.forLanguageTag("ru")).format(java.util.Date(v.createdAt))) else null
+                    }
+                    item.mediaId.startsWith(MediaItems.NEW_PREFIX) ->
+                        graph.db.tracks().get(item.mediaId.removePrefix(MediaItems.NEW_PREFIX).toLong())?.let(MediaItems::fromRemoteNew)
                     item.mediaId.startsWith(MediaItems.EXTERNAL_PREFIX) ->
                         MediaItems.fromExternal(this@PlaybackService, Uri.parse(item.mediaId.removePrefix(MediaItems.EXTERNAL_PREFIX)))
                     else -> null

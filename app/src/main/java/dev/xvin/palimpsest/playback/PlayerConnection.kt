@@ -27,6 +27,8 @@ import kotlinx.coroutines.launch
 data class NowPlaying(
     val mediaId: String,
     val trackId: Long?,
+    /** Set when playing a specific version («Версия от …», «Новая версия · Яндекс»). */
+    val variant: String?,
     val title: String,
     val artist: String,
     val album: String?,
@@ -68,6 +70,12 @@ class PlayerConnection(
     private val _queue = MutableStateFlow<List<MediaItem>>(emptyList())
     val queue: StateFlow<List<MediaItem>> = _queue
 
+    /** Called when the user replaces the queue (plays something new) — e.g. to end a radio station. */
+    var onQueueReplaced: (() -> Unit)? = null
+
+    /** Playback failures, for the error journal and the explained error sheet. */
+    var onError: ((Throwable) -> Unit)? = null
+
     private val _sleep = MutableStateFlow(SleepTimer(null))
     val sleep: StateFlow<SleepTimer> = _sleep
     private var sleepJob: Job? = null
@@ -104,7 +112,7 @@ class PlayerConnection(
         }
 
         override fun onPlayerError(error: PlaybackException) {
-            _state.value = _state.value.copy(error = error.cause?.message ?: error.message)
+            onError?.invoke(error)
         }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
@@ -139,7 +147,8 @@ class PlayerConnection(
         val m: MediaMetadata = item.mediaMetadata
         return NowPlaying(
             mediaId = item.mediaId,
-            trackId = item.mediaId.toLongOrNull(),
+            trackId = MediaItems.trackId(item),
+            variant = m.extras?.getString(MediaItems.EXTRA_VARIANT),
             title = m.title?.toString() ?: "—",
             artist = m.artist?.toString() ?: "",
             album = m.albumTitle?.toString(),
@@ -164,7 +173,12 @@ class PlayerConnection(
 
     private fun bare(id: String) = MediaItem.Builder().setMediaId(id).build()
 
-    fun play(tracks: List<TrackEntity>, startIndex: Int = 0, shuffle: Boolean = false) = scope.launch {
+    fun play(tracks: List<TrackEntity>, startIndex: Int = 0, shuffle: Boolean = false): Job {
+        onQueueReplaced?.invoke()
+        return playInternal(tracks, startIndex, shuffle)
+    }
+
+    private fun playInternal(tracks: List<TrackEntity>, startIndex: Int, shuffle: Boolean) = scope.launch {
         if (tracks.isEmpty()) return@launch
         val c = ctrl()
         c.shuffleModeEnabled = shuffle
@@ -176,18 +190,23 @@ class PlayerConnection(
 
     fun playNext(tracks: List<TrackEntity>) = scope.launch {
         val c = ctrl()
-        if (c.mediaItemCount == 0) { play(tracks); return@launch }
+        if (c.mediaItemCount == 0) { playInternal(tracks, 0, false); return@launch }
         c.addMediaItems(c.currentMediaItemIndex + 1, tracks.map { bare(it.id.toString()) })
     }
 
     fun enqueue(tracks: List<TrackEntity>) = scope.launch {
         val c = ctrl()
-        if (c.mediaItemCount == 0) { play(tracks); return@launch }
+        if (c.mediaItemCount == 0) { playInternal(tracks, 0, false); return@launch }
         c.addMediaItems(tracks.map { bare(it.id.toString()) })
     }
 
     /** Plays a file handed to us by another app (file manager, Telegram, …). */
-    fun playExternal(uri: Uri, libraryTrack: TrackEntity?) = scope.launch {
+    fun playExternal(uri: Uri, libraryTrack: TrackEntity?): Job {
+        onQueueReplaced?.invoke()
+        return playExternalInternal(uri, libraryTrack)
+    }
+
+    private fun playExternalInternal(uri: Uri, libraryTrack: TrackEntity?) = scope.launch {
         val c = ctrl()
         val item = if (libraryTrack != null) bare(libraryTrack.id.toString()) else bare(MediaItems.EXTERNAL_PREFIX + uri)
         c.setMediaItem(item)
@@ -195,8 +214,23 @@ class PlayerConnection(
         c.play()
     }
 
-    /** Plays an arbitrary file (e.g. an archived track version) without touching the library. */
+    /** Plays an arbitrary file without touching the library. */
     fun playFile(uri: Uri) = playExternal(uri, null)
+
+    /** Plays a specific version right now, keeping the rest of the queue. */
+    fun playVersion(versionId: Long) = insertAndPlay(bare(MediaItems.VERSION_PREFIX + versionId))
+
+    /** Streams the service's newer audio of [trackId] to compare, keeping the queue. */
+    fun playNewVersion(trackId: Long) = insertAndPlay(bare(MediaItems.NEW_PREFIX + trackId))
+
+    private fun insertAndPlay(item: MediaItem) = scope.launch {
+        val c = ctrl()
+        val at = if (c.mediaItemCount == 0) 0 else c.currentMediaItemIndex + 1
+        c.addMediaItem(at, item)
+        c.seekTo(at, 0)
+        c.prepare()
+        c.play()
+    }
 
     fun toggle() = scope.launch {
         val c = ctrl()

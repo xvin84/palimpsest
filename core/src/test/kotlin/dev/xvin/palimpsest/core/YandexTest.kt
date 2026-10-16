@@ -81,6 +81,40 @@ class YandexTest {
         assertEquals("/users/7/likes/tracks/add-multiple", r.url.encodedPath)
         assertEquals("track-ids=555", r.body!!.utf8())
     }
+
+    @Test fun radioSessionStartAndFeedback() = runBlocking {
+        server.enqueue(json("""{"result":{"radioSessionId":"sess-1","batchId":"b-1","pumpkin":false,
+            "sequence":[{"type":"track","liked":false,"track":{"id":"10","title":"A","durationMs":1000,"artists":[{"id":5,"name":"X"}],"albums":[{"id":7,"title":"Al"}]}}]}}"""))
+        server.enqueue(json("""{"result":"ok"}"""))
+        val b = yandex.radioStart("user:onyourwave")
+        assertEquals("sess-1", b.sessionId)
+        assertEquals("b-1", b.batchId)
+        assertEquals(listOf("10"), b.tracks.map { it.id })
+        assertEquals(listOf<String?>("5"), b.tracks[0].artistIds)
+        val r1 = server.takeRequest()
+        assertEquals("/rotor/session/new", r1.url.encodedPath)
+        assertTrue(r1.body!!.utf8().contains("\"seeds\":[\"user:onyourwave\"]"))
+        yandex.radioFeedback("sess-1", "b-1", "trackStarted", "10")
+        val r2 = server.takeRequest()
+        assertEquals("/rotor/session/sess-1/feedback", r2.url.encodedPath)
+        val body = r2.body!!.utf8()
+        assertTrue(body.contains("\"type\":\"trackStarted\"") && body.contains("\"trackId\":\"10\"") && body.contains("\"batchId\":\"b-1\""))
+    }
+
+    @Test fun artistBriefInfo() = runBlocking {
+        server.enqueue(json("""{"result":{"artist":{"id":"123","name":"1.Kla$","genres":["rusrap"],"likesCount":25000,
+            "cover":{"type":"from-artist-photos","uri":"avatars.yandex.net/get-music-content/a/%%"},"description":{"text":"Рэпер"}},
+            "albums":[{"id":1,"title":"Сны","year":2023,"coverUri":"avatars.yandex.net/c/%%","artists":[{"id":123,"name":"1.Kla$"}],"type":"single"}],
+            "alsoAlbums":[],"popularTracks":[{"id":"9","title":"Сукины дети","durationMs":218000,"artists":[{"id":123,"name":"1.Kla$"}]}],
+            "similarArtists":[{"id":"456","name":"Czar"}]}}"""))
+        val a = yandex.artistInfo("123")
+        assertEquals("1.Kla$", a.artist.name)
+        assertEquals("https://avatars.yandex.net/get-music-content/a/600x600", a.artist.coverUrl)
+        assertEquals("Рэпер", a.description)
+        assertEquals(listOf("Сны"), a.albums.map { it.title })
+        assertEquals("Сукины дети", a.popular.single().title)
+        assertEquals("Czar", a.similar.single().name)
+    }
 }
 
 class ListenBrainzTest {

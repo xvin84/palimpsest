@@ -66,6 +66,7 @@ fun SearchScreen() {
     var remote by remember { mutableStateOf<List<RemoteTrack>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var failure by remember { mutableStateOf<Throwable?>(null) }
     val settings by graph.settings.flow.collectAsStateWithLifecycle(null)
     val playing by graph.player.state.collectAsStateWithLifecycle()
 
@@ -80,7 +81,8 @@ fun SearchScreen() {
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Throwable) {
-            error = (e.message ?: e.javaClass.simpleName).let { "Не удалось: $it" }
+            failure = e
+            error = dev.xvin.palimpsest.errors.ErrorExplainer.explain(e, "Поиск").title
             remote = emptyList()
         }
         loading = false
@@ -106,7 +108,16 @@ fun SearchScreen() {
             return@Column
         }
         if (loading) Row(Modifier.fillMaxWidth().padding(24.dp), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator() }
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }
+        error?.let { msg ->
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(msg, color = MaterialTheme.colorScheme.error, modifier = Modifier.weight(1f))
+                failure?.let { f ->
+                    androidx.compose.material3.TextButton(onClick = {
+                        nav.error(f, if (source == Service.YOUTUBE) "Поиск YouTube" else "Поиск Яндекс")
+                    }) { Text("Подробнее") }
+                }
+            }
+        }
 
         LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
             if (source == null) {

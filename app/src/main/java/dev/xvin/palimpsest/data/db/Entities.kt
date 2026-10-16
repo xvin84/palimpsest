@@ -114,3 +114,17 @@ data class LyricsEntity(
     val source: String,
     val fetchedAt: Long = System.currentTimeMillis(),
 )
+
+/** One artist of a track ("1.Kla$, Цинк Уродов" → two rows). Added in schema v3. */
+@Entity(
+    tableName = "track_artists",
+    primaryKeys = ["trackId", "position"],
+    indices = [Index("name"), Index("remoteId")],
+)
+data class TrackArtistEntity(
+    val trackId: Long,
+    val position: Int,
+    val name: String,
+    /** Service artist id (Yandex) when known — opens the artist card without searching. */
+    val remoteId: String?,
+)

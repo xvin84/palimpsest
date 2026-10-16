@@ -14,10 +14,11 @@ import androidx.room.RoomDatabase
         PlaylistEntity::class,
         PlaylistEntryEntity::class,
         LyricsEntity::class,
+        TrackArtistEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 1, to = 2)],
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3)],
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun tracks(): TrackDao
@@ -25,6 +26,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun versions(): VersionDao
     abstract fun playlists(): PlaylistDao
     abstract fun lyrics(): LyricsDao
+    abstract fun artists(): ArtistDao
 
     companion object {
         fun create(context: Context): AppDatabase =

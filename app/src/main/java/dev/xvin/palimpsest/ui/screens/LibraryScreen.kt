@@ -115,12 +115,14 @@ fun LibraryScreen() {
             LibTab.entries.forEach { t -> Pill(t.label, tab == t, { tab = t }) }
         }
 
-        when (tab) {
-            LibTab.TRACKS -> TracksTab()
-            LibTab.ALBUMS -> AlbumsTab()
-            LibTab.ARTISTS -> ArtistsTab()
-            LibTab.FOLDERS -> FoldersTab()
-            LibTab.PLAYLISTS -> PlaylistsTab()
+        androidx.compose.animation.Crossfade(tab, animationSpec = androidx.compose.animation.core.tween(200), label = "lib-tab") { t ->
+            when (t) {
+                LibTab.TRACKS -> TracksTab()
+                LibTab.ALBUMS -> AlbumsTab()
+                LibTab.ARTISTS -> ArtistsTab()
+                LibTab.FOLDERS -> FoldersTab()
+                LibTab.PLAYLISTS -> PlaylistsTab()
+            }
         }
     }
 }
@@ -163,6 +165,7 @@ private fun TracksTab() {
     }
 
     LazyColumn(contentPadding = PaddingValues(bottom = 16.dp)) {
+        item { MyWaveCard() }
         item {
             Row(
                 Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
@@ -201,6 +204,7 @@ private fun TracksTab() {
                 onClick = { graph.player.play(tracks, i) },
                 onMore = { nav.showActions(t) },
                 playing = playing.nowPlaying?.trackId == t.id,
+                modifier = Modifier.animateItem(),
             )
         }
     }
@@ -239,11 +243,11 @@ private fun AlbumCard(a: AlbumRow, onClick: () -> Unit) {
 private fun ArtistsTab() {
     val graph = LocalGraph.current
     val nav = LocalNav.current
-    val artists by graph.db.tracks().observeArtists().collectAsStateWithLifecycle(emptyList())
+    val artists by graph.db.artists().observeArtists().collectAsStateWithLifecycle(emptyList())
     LazyColumn(contentPadding = PaddingValues(bottom = 16.dp)) {
         items(artists, key = { it.artist }) { a ->
             Row(
-                Modifier.fillMaxWidth().clickable { nav.openList(TrackListKind.ARTIST, a.artist) }.padding(horizontal = 16.dp, vertical = 8.dp),
+                Modifier.fillMaxWidth().clickable { nav.openArtist(a.artist) }.padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Artwork(ArtProvider.uriFor(a.coverTrackId), a.artist, Modifier.size(52.dp), corner = 26.dp)
@@ -379,4 +383,49 @@ fun NameDialog(title: String, initial: String, onDismiss: () -> Unit, onConfirm:
         dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
         containerColor = Ink.Paper2,
     )
+}
+
+/** «Моя волна»: Yandex's endless personal radio, one tap from the library. */
+@Composable
+private fun MyWaveCard() {
+    val graph = LocalGraph.current
+    val nav = LocalNav.current
+    val scope = rememberCoroutineScope()
+    val settings by graph.settings.flow.collectAsStateWithLifecycle(null)
+    val station by graph.radio.station.collectAsStateWithLifecycle()
+    var starting by remember { mutableStateOf(false) }
+    if (settings?.yandexToken == null) return
+    val accent = LocalAccent.current
+    val active = station?.seed == dev.xvin.palimpsest.playback.RadioController.MY_WAVE
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(accent.copy(alpha = 0.55f), accent.copy(alpha = 0.12f))))
+            .clickable(enabled = !starting) {
+                if (active) { nav.openPlayer(); return@clickable }
+                starting = true
+                scope.launch {
+                    graph.radio.start(dev.xvin.palimpsest.playback.RadioController.MY_WAVE, "Моя волна")
+                        .onSuccess { nav.openPlayer() }
+                        .onFailure { nav.error(it, "Моя волна") }
+                    starting = false
+                }
+            }
+            .padding(horizontal = 18.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("Моя волна", style = MaterialTheme.typography.headlineSmall)
+            Text(
+                if (active) "Играет сейчас" else "Бесконечный поток под твой вкус",
+                style = MaterialTheme.typography.bodySmall, color = Ink.Text.copy(alpha = 0.8f),
+            )
+        }
+        Box(Modifier.size(48.dp).clip(CircleShape).background(Ink.Text), contentAlignment = Alignment.Center) {
+            if (starting) androidx.compose.material3.CircularProgressIndicator(Modifier.size(22.dp), color = Ink.Paper, strokeWidth = 2.dp)
+            else Text(if (active) "≋" else "▶", color = Ink.Paper, style = MaterialTheme.typography.titleLarge)
+        }
+    }
 }

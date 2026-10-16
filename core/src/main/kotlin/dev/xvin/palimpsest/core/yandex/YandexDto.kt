@@ -131,3 +131,57 @@ data class YToken(
 
 @Serializable
 internal data class YOAuthError(val error: String? = null, val error_description: String? = null)
+
+@Serializable
+internal data class YDescription(val text: String? = null)
+
+@Serializable
+internal data class YArtistFull(
+    val id: String? = null,
+    val name: String = "",
+    val cover: YCover? = null,
+    val ogImage: String? = null,
+    val genres: List<String> = emptyList(),
+    val likesCount: Int? = null,
+    val description: YDescription? = null,
+)
+
+@Serializable
+internal data class YAlbumFull(
+    val id: String? = null,
+    val title: String = "",
+    val year: Int? = null,
+    val coverUri: String? = null,
+    val artists: List<YArtist> = emptyList(),
+    val trackCount: Int = 0,
+    val type: String? = null,
+    val volumes: List<List<YTrack>>? = null,
+)
+
+@Serializable
+internal data class YBriefInfo(
+    val artist: YArtistFull,
+    val albums: List<YAlbumFull> = emptyList(),
+    val alsoAlbums: List<YAlbumFull> = emptyList(),
+    val popularTracks: List<YTrack> = emptyList(),
+    val similarArtists: List<YArtistFull> = emptyList(),
+)
+
+@Serializable
+internal data class YSimilar(val similarTracks: List<YTrack> = emptyList())
+
+@Serializable
+internal data class YSearchArtists(val results: List<YArtistFull> = emptyList())
+
+@Serializable
+internal data class YSearchArtistsResult(val artists: YSearchArtists? = null)
+
+@Serializable
+internal data class YSequence(val type: String? = null, val track: YTrack? = null)
+
+@Serializable
+internal data class YRotorSession(
+    val radioSessionId: String? = null,
+    val batchId: String? = null,
+    val sequence: List<YSequence> = emptyList(),
+)

@@ -15,6 +15,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Album
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Favorite
@@ -43,6 +45,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.xvin.palimpsest.core.model.Service
 import dev.xvin.palimpsest.data.db.PlaylistEntity
 import dev.xvin.palimpsest.data.db.TrackEntity
 import dev.xvin.palimpsest.ui.LocalNav
@@ -60,6 +63,10 @@ fun TrackActionsSheet(initial: TrackEntity, onDismiss: () -> Unit) {
     val t = track ?: return
     var pickPlaylist by remember { mutableStateOf(false) }
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val storedArtists by graph.db.artists().observeForTrack(initial.id).collectAsStateWithLifecycle(emptyList())
+    val artists = storedArtists.ifEmpty {
+        dev.xvin.palimpsest.core.library.ArtistNames.split(t.artist).mapIndexed { i, n -> dev.xvin.palimpsest.data.db.TrackArtistEntity(t.id, i, n, null) }
+    }
 
     fun act(block: () -> Unit) { block(); onDismiss() }
 
@@ -94,7 +101,18 @@ fun TrackActionsSheet(initial: TrackEntity, onDismiss: () -> Unit) {
             if (t.path != null) Action(Icons.Rounded.Edit, "Теги, обложка и текст") { act { nav.openTrack(t.id, 0) } }
             Action(Icons.Rounded.History, "История версий") { act { nav.openTrack(t.id, 2) } }
             t.album?.let { album -> Action(Icons.Rounded.Album, "Альбом «$album»") { act { nav.openList(TrackListKind.ALBUM, album, t.albumArtist ?: t.artist) } } }
-            Action(Icons.Rounded.Person, t.artist) { act { nav.openList(TrackListKind.ARTIST, t.artist) } }
+            artists.forEach { a -> Action(Icons.Rounded.Person, a.name) { act { nav.openArtist(a.name, a.remoteId) } } }
+            if (t.service == Service.YANDEX && t.remoteId != null && graph.yandex.isReady) {
+                Action(Icons.Rounded.Radio, "Радио по треку") {
+                    act {
+                        graph.mainScope.launch {
+                            graph.radio.start("track:${t.remoteId}", "Радио: ${t.title}").onFailure { nav.error(it, "Радио по треку") }
+                        }
+                    }
+                }
+                Action(Icons.Rounded.AutoAwesome, "Похожие треки") { act { nav.openSimilar(t.remoteId, t.title) } }
+                t.remoteAlbumId?.let { id -> Action(Icons.Rounded.Album, "Альбом в Яндексе") { act { nav.openRemoteAlbum(id) } } }
+            }
         }
     }
 

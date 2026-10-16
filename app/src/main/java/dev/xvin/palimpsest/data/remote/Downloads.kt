@@ -64,6 +64,7 @@ class Downloads(
     private val http: OkHttpClient,
     private val remote: RemoteRepository,
     private val versions: VersionRepository,
+    private val onFailure: (Throwable, String) -> Unit = { _, _ -> },
 ) {
     private val _items = MutableStateFlow<Map<Long, DownloadItem>>(emptyMap())
     val items: StateFlow<Map<Long, DownloadItem>> = _items
@@ -170,6 +171,7 @@ class Downloads(
         } catch (e: Exception) {
             Log.w(TAG, "download $trackId failed", e)
             set(trackId) { it.copy(state = DownloadState.FAILED, message = e.message ?: e.toString()) }
+            onFailure(e, "Скачивание «${track.title}»")
         }
     }
 
