@@ -69,7 +69,12 @@ fun StatsScreen() {
     val accent = LocalAccent.current
 
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 24.dp)) {
-        item { Text("История", style = MaterialTheme.typography.displayMedium, modifier = Modifier.padding(start = 16.dp, top = 12.dp)) }
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(end = 8.dp)) {
+                Text("История", style = MaterialTheme.typography.displayMedium, modifier = Modifier.weight(1f).padding(start = 16.dp, top = 12.dp))
+                androidx.compose.material3.Button(onClick = nav::openWrapped, modifier = Modifier.padding(top = 12.dp)) { Text("Итоги ✦") }
+            }
+        }
         item {
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Period.entries.forEach { p -> Pill(p.label, period == p, { period = p }) }

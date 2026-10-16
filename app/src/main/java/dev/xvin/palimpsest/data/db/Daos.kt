@@ -30,6 +30,8 @@ data class DayRow(val day: String, val plays: Int, val listenedMs: Long)
 
 data class TrackPlayStat(val trackId: Long, val plays: Int, val lastPlayed: Long)
 
+data class HourRow(val hour: Int, val plays: Int)
+
 @Dao
 interface TrackDao {
     @Query("SELECT * FROM tracks ORDER BY title COLLATE NOCASE")
@@ -208,6 +210,41 @@ interface PlayEventDao {
         """,
     )
     fun observeDays(since: Long): Flow<List<DayRow>>
+
+    @Query("SELECT CAST(strftime('%H', startedAt / 1000, 'unixepoch', 'localtime') AS INTEGER) AS hour, COUNT(*) AS plays FROM play_events WHERE startedAt >= :since GROUP BY hour")
+    suspend fun hours(since: Long): List<HourRow>
+
+    @Query("SELECT * FROM play_events WHERE startedAt >= :since ORDER BY startedAt LIMIT 1")
+    suspend fun firstSince(since: Long): PlayEventEntity?
+
+    @Query("SELECT COUNT(*) FROM play_events WHERE startedAt >= :since")
+    suspend fun countSince(since: Long): Int
+
+    @Query(
+        """
+        SELECT title || ' — ' || artist AS label, COUNT(*) AS plays, SUM(listenedMs) AS listenedMs, MAX(trackId) AS trackId
+        FROM play_events WHERE startedAt >= :since GROUP BY title COLLATE NOCASE, artist COLLATE NOCASE
+        ORDER BY plays DESC, listenedMs DESC LIMIT :limit
+        """,
+    )
+    suspend fun topTracksOnce(since: Long, limit: Int): List<CountRow>
+
+    @Query(
+        """
+        SELECT ta.name AS label, COUNT(*) AS plays, SUM(p.listenedMs) AS listenedMs, MAX(p.trackId) AS trackId
+        FROM play_events p JOIN track_artists ta ON ta.trackId = p.trackId
+        WHERE p.startedAt >= :since GROUP BY ta.name COLLATE NOCASE ORDER BY plays DESC LIMIT :limit
+        """,
+    )
+    suspend fun topArtistsOnce(since: Long, limit: Int): List<CountRow>
+
+    @Query(
+        """
+        SELECT strftime('%Y-%m-%d', startedAt / 1000, 'unixepoch', 'localtime') AS day, COUNT(*) AS plays, SUM(listenedMs) AS listenedMs
+        FROM play_events WHERE startedAt >= :since GROUP BY day ORDER BY listenedMs DESC LIMIT 1
+        """,
+    )
+    suspend fun topDay(since: Long): DayRow?
 
     @Query("SELECT trackId, COUNT(*) AS plays, MAX(startedAt) AS lastPlayed FROM play_events WHERE trackId IS NOT NULL GROUP BY trackId")
     suspend fun trackStats(): List<TrackPlayStat>

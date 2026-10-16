@@ -90,6 +90,7 @@ import kotlinx.serialization.Serializable
 @Serializable object ErrorsRoute
 @Serializable object ReleasesRoute
 @Serializable object DuplicatesRoute
+@Serializable object WrappedRoute
 
 /** Navigation actions any screen may trigger. */
 interface AppNav {
@@ -104,6 +105,7 @@ interface AppNav {
     fun openErrors()
     fun openReleases()
     fun openDuplicates()
+    fun openWrapped()
     fun showActions(track: TrackEntity)
     fun toast(message: String)
     /** Logs [t] and shows it explained, with hints and copyable details. */
@@ -196,6 +198,7 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
             override fun openErrors() { nav.navigate(ErrorsRoute) }
             override fun openReleases() { nav.navigate(ReleasesRoute) }
             override fun openDuplicates() { nav.navigate(DuplicatesRoute) }
+            override fun openWrapped() { nav.navigate(WrappedRoute) }
             override fun showActions(track: TrackEntity) { actionsFor = track }
             override fun toast(message: String) { toastMessage = message }
             override fun error(t: Throwable, context: String) { errorShown = graph.errors.report(t, context, show = false) }
@@ -245,6 +248,7 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
                     composable<ErrorsRoute> { Screen { dev.xvin.palimpsest.ui.screens.ErrorsScreen() } }
                     composable<ReleasesRoute> { Screen { dev.xvin.palimpsest.ui.screens.ReleasesScreen() } }
                     composable<DuplicatesRoute> { Screen { dev.xvin.palimpsest.ui.screens.DuplicatesScreen() } }
+                    composable<WrappedRoute> { Screen { dev.xvin.palimpsest.ui.screens.WrappedScreen() } }
                 }
             }
 
