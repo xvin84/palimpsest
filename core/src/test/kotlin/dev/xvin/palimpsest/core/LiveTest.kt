@@ -29,4 +29,14 @@ class LiveTest {
         println("LRCLIB: synced=${l?.synced != null} " + (l?.synced ?: l?.plain)?.lines()?.take(3))
         check(l != null)
     }
+
+    @Test fun coverArtArchive() = runBlocking {
+        val proxy = System.getenv("HTTPS_PROXY")?.let { java.net.URI(it) }
+        val http = okhttp3.OkHttpClient.Builder().apply {
+            if (proxy != null) proxy(java.net.Proxy(java.net.Proxy.Type.HTTP, java.net.InetSocketAddress(proxy.host, proxy.port)))
+        }.build()
+        val bytes = dev.xvin.palimpsest.core.covers.CoverArtArchive(http).find("Coldplay", "Yellow", 266_000)
+        println("CAA: ${bytes?.size} bytes")
+        check(bytes != null && bytes.size > 10_000)
+    }
 }

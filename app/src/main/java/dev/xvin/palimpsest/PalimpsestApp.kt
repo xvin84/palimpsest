@@ -77,7 +77,7 @@ class AppGraph(val app: Application) {
 
     /** Optional proxy used only for YouTube/Spotify hosts (often unreachable directly). */
     private val proxySelector = object : ProxySelector() {
-        private val hosts = listOf("youtube.com", "googlevideo.com", "ytimg.com", "youtu.be", "ggpht.com", "googleapis.com", "googleusercontent.com", "spotify.com", "scdn.co", "spotifycdn.com")
+        private val hosts = listOf("youtube.com", "googlevideo.com", "ytimg.com", "youtu.be", "ggpht.com", "googleapis.com", "googleusercontent.com", "spotify.com", "scdn.co", "spotifycdn.com", "musicbrainz.org", "coverartarchive.org", "archive.org")
 
         override fun select(uri: URI?): List<Proxy> {
             val proxy = settings.state.value?.proxy
@@ -138,6 +138,7 @@ class AppGraph(val app: Application) {
     val lyrics = LyricsRepository(db, yandex, LrcLibClient(http))
     val spotify = dev.xvin.palimpsest.core.spotify.SpotifyImporter(http)
     val releases = dev.xvin.palimpsest.data.remote.ReleaseWatcher(app, db, yandex)
+    val covers = dev.xvin.palimpsest.data.library.CoverFinder(db, yandex, dev.xvin.palimpsest.core.covers.CoverArtArchive(http), http, scanner, app.cacheDir)
     val listenBrainz = dev.xvin.palimpsest.core.scrobble.ListenBrainz(http)
     val scrobbler = dev.xvin.palimpsest.data.remote.Scrobbler(db, settings, listenBrainz)
     val downloads = Downloads(app, db, settings, http, remote, versions) { e, ctx -> errors.report(e, ctx) }

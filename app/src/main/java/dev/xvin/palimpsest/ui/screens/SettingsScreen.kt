@@ -104,6 +104,10 @@ fun SettingsScreen() {
         }
         Row(Modifier.padding(horizontal = 8.dp)) {
             TextButton(onClick = nav::openDuplicates) { Text("Найти дубликаты") }
+            val cov by graph.covers.progress.collectAsStateWithLifecycle()
+            TextButton(enabled = !cov.running, onClick = { graph.appScope.launch { graph.covers.run() } }) {
+                Text(if (cov.running) "Обложки: ${cov.done}/${cov.total}, найдено ${cov.found}" else "Найти обложки")
+            }
         }
         Row(Modifier.padding(horizontal = 8.dp)) {
             TextButton(onClick = { scope.launch { graph.scanner.scan() } }) { Text("Обновить медиатеку") }
