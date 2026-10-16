@@ -103,6 +103,7 @@ class AppGraph(val app: Application) {
     val artistIndex = dev.xvin.palimpsest.data.library.ArtistIndex(db)
     val scanner = LibraryScanner(db, settings, artistIndex)
     val versions = VersionRepository(db, settings, scanner)
+    val duplicates = dev.xvin.palimpsest.data.library.Duplicates(db, versions, artistIndex)
 
     val yandexAuth = YandexAuth(http)
     val yandex = YandexMusicProvider({ settings.state.value?.yandexToken }, http)

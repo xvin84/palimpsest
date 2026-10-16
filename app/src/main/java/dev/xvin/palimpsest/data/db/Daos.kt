@@ -122,6 +122,20 @@ interface TrackDao {
     @Query("SELECT COUNT(*) FROM tracks")
     fun observeCount(): Flow<Int>
 
+    @Query("SELECT * FROM tracks")
+    suspend fun all(): List<TrackEntity>
+
+    // --- Merging duplicates: point everything at the kept track, then drop the other row ---
+
+    @Query("UPDATE playlist_entries SET trackId = :to WHERE trackId = :from")
+    suspend fun repointPlaylists(from: Long, to: Long)
+
+    @Query("UPDATE play_events SET trackId = :to WHERE trackId = :from")
+    suspend fun repointPlays(from: Long, to: Long)
+
+    @Query("UPDATE track_versions SET trackId = :to, isCurrent = 0 WHERE trackId = :from")
+    suspend fun repointVersions(from: Long, to: Long)
+
     // --- Smart playlists ---
 
     @Query(

@@ -103,6 +103,9 @@ fun SettingsScreen() {
             }) { Text("Добавить") }
         }
         Row(Modifier.padding(horizontal = 8.dp)) {
+            TextButton(onClick = nav::openDuplicates) { Text("Найти дубликаты") }
+        }
+        Row(Modifier.padding(horizontal = 8.dp)) {
             TextButton(onClick = { scope.launch { graph.scanner.scan() } }) { Text("Обновить медиатеку") }
             TextButton(onClick = { scope.launch { graph.scanner.scan(force = true) } }) { Text("Перечитать все теги") }
         }

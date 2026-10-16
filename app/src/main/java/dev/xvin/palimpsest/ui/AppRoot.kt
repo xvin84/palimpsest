@@ -89,6 +89,7 @@ import kotlinx.serialization.Serializable
 @Serializable data class SimilarRoute(val trackRemoteId: String, val title: String)
 @Serializable object ErrorsRoute
 @Serializable object ReleasesRoute
+@Serializable object DuplicatesRoute
 
 /** Navigation actions any screen may trigger. */
 interface AppNav {
@@ -102,6 +103,7 @@ interface AppNav {
     fun openSimilar(trackRemoteId: String, title: String)
     fun openErrors()
     fun openReleases()
+    fun openDuplicates()
     fun showActions(track: TrackEntity)
     fun toast(message: String)
     /** Logs [t] and shows it explained, with hints and copyable details. */
@@ -193,6 +195,7 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
             override fun openSimilar(trackRemoteId: String, title: String) { playerOpen = false; nav.navigate(SimilarRoute(trackRemoteId, title)) }
             override fun openErrors() { nav.navigate(ErrorsRoute) }
             override fun openReleases() { nav.navigate(ReleasesRoute) }
+            override fun openDuplicates() { nav.navigate(DuplicatesRoute) }
             override fun showActions(track: TrackEntity) { actionsFor = track }
             override fun toast(message: String) { toastMessage = message }
             override fun error(t: Throwable, context: String) { errorShown = graph.errors.report(t, context, show = false) }
@@ -241,6 +244,7 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
                     composable<SimilarRoute> { e -> Screen { val r = e.toRoute<SimilarRoute>(); dev.xvin.palimpsest.ui.screens.SimilarScreen(r.trackRemoteId, r.title) } }
                     composable<ErrorsRoute> { Screen { dev.xvin.palimpsest.ui.screens.ErrorsScreen() } }
                     composable<ReleasesRoute> { Screen { dev.xvin.palimpsest.ui.screens.ReleasesScreen() } }
+                    composable<DuplicatesRoute> { Screen { dev.xvin.palimpsest.ui.screens.DuplicatesScreen() } }
                 }
             }
 

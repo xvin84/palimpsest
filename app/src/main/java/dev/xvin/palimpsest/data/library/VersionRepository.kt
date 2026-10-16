@@ -79,6 +79,12 @@ class VersionRepository(
         scanner.rescanFile(file.absolutePath)
     }
 
+    /** Moves a duplicate's file into [track]'s history (used when merging duplicates). */
+    suspend fun absorb(track: TrackEntity, file: File, note: String): TrackVersionEntity? = withContext(Dispatchers.IO) {
+        if (!file.isFile) return@withContext null
+        archive(track, file, Versions.audioFingerprint(file), note)
+    }
+
     /** Copies the current file into history without changing anything (manual "save version"). */
     suspend fun snapshot(track: TrackEntity, note: String): TrackVersionEntity? = withContext(Dispatchers.IO) {
         val src = track.path?.let(::File)?.takeIf { it.isFile } ?: return@withContext null
