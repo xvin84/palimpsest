@@ -580,4 +580,19 @@
     <string name="update_install">Installing the update</string>
     <string name="update_channel">App updates</string>
     <string name="update_allow_install">Allow installing apps from Palimpsest, then tap the button again</string>
+    <string name="render_action">Make a video</string>
+    <string name="render_hint">The whole track, audio straight from the file through your equalizer — no microphone, no noise. The visualizer looks like in the player. The video goes to Movies/Palimpsest.</string>
+    <string name="render_mode_cover">Cover</string>
+    <string name="render_mode_lyrics">Lyrics</string>
+    <string name="render_no_lyrics_hint">A lyrics video needs synced lyrics (find them on the track’s Lyrics tab)</string>
+    <string name="render_aspect_vertical">Vertical 9:16</string>
+    <string name="render_aspect_horizontal">Horizontal 16:9</string>
+    <string name="render_start">Create</string>
+    <string name="render_started">Making the video — progress is in the notification</string>
+    <string name="render_needs_file">Videos can only be made from downloaded tracks</string>
+    <string name="render_needs_lyrics">The track has no synced lyrics</string>
+    <string name="render_ctx">Video “%1$s”</string>
+    <string name="render_channel">Track videos</string>
+    <string name="render_progress_title">Making a video</string>
+    <string name="render_done">The video is ready</string>
 </resources>

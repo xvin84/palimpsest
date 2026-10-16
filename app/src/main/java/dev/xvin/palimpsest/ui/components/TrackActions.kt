@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Album
@@ -65,6 +66,7 @@ fun TrackActionsSheet(initial: TrackEntity, onDismiss: () -> Unit) {
     val track by graph.db.tracks().observe(initial.id).collectAsStateWithLifecycle(initial)
     val t = track ?: return
     var pickPlaylist by remember { mutableStateOf(false) }
+    var renderDialog by remember { mutableStateOf(false) }
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val storedArtists by graph.db.artists().observeForTrack(initial.id).collectAsStateWithLifecycle(emptyList())
     val artists = storedArtists.ifEmpty {
@@ -102,6 +104,7 @@ fun TrackActionsSheet(initial: TrackEntity, onDismiss: () -> Unit) {
                 }
             }
             if (t.path != null) Action(Icons.Rounded.Edit, tr(R.string.action_tags)) { act { nav.openTrack(t.id, 0) } }
+            if (t.path != null) Action(Icons.Rounded.Movie, tr(R.string.render_action)) { renderDialog = true }
             Action(Icons.Rounded.History, tr(R.string.action_versions)) { act { nav.openTrack(t.id, 2) } }
             t.album?.let { album -> Action(Icons.Rounded.Album, tr(R.string.action_album, album)) { act { nav.openList(TrackListKind.ALBUM, album, t.albumArtist ?: t.artist) } } }
             artists.forEach { a -> Action(Icons.Rounded.Person, a.name) { act { nav.openArtist(a.name, a.remoteId) } } }
@@ -117,6 +120,10 @@ fun TrackActionsSheet(initial: TrackEntity, onDismiss: () -> Unit) {
                 t.remoteAlbumId?.let { id -> Action(Icons.Rounded.Album, tr(R.string.action_yandex_album)) { act { nav.openRemoteAlbum(id) } } }
             }
         }
+    }
+
+    if (renderDialog) {
+        dev.xvin.palimpsest.ui.screens.RenderDialog(t, onDismiss = { renderDialog = false; onDismiss() })
     }
 
     if (pickPlaylist) {

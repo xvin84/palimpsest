@@ -92,6 +92,9 @@ dependencies {
     implementation(libs.androidx.media3.session)
     implementation(libs.androidx.media3.datasource.okhttp)
     implementation(libs.androidx.media3.database)
+    // Rendering a track to a video (cover or lyrics + visualiser), with the same audio effects as playback.
+    implementation(libs.androidx.media3.transformer)
+    implementation(libs.androidx.media3.effect)
 
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)

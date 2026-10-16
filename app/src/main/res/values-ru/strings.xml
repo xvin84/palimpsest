@@ -587,4 +587,19 @@
     <string name="update_install">Установка обновления</string>
     <string name="update_channel">Обновления приложения</string>
     <string name="update_allow_install">Разреши установку приложений из Palimpsest и нажми кнопку ещё раз</string>
+    <string name="render_action">Видео из трека</string>
+    <string name="render_hint">Трек целиком, звук прямо из файла через твой эквалайзер — без микрофона и шумов. Визуализация как в плеере. Видео сохранится в Movies/Palimpsest.</string>
+    <string name="render_mode_cover">Обложка</string>
+    <string name="render_mode_lyrics">Текст</string>
+    <string name="render_no_lyrics_hint">Для видео с текстом нужен синхронный текст (найди его на вкладке «Текст» трека)</string>
+    <string name="render_aspect_vertical">Вертикальное 9:16</string>
+    <string name="render_aspect_horizontal">Горизонтальное 16:9</string>
+    <string name="render_start">Создать</string>
+    <string name="render_started">Делаю видео — прогресс в уведомлении</string>
+    <string name="render_needs_file">Видео можно сделать только из скачанного трека</string>
+    <string name="render_needs_lyrics">У трека нет синхронного текста</string>
+    <string name="render_ctx">Видео «%1$s»</string>
+    <string name="render_channel">Видео из треков</string>
+    <string name="render_progress_title">Делаю видео</string>
+    <string name="render_done">Видео готово</string>
 </resources>
