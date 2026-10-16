@@ -25,7 +25,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.AppImage, TargetFormat.Deb, TargetFormat.Msi)
             packageName = "palimpsest"
-            packageVersion = "0.2.0"
+            packageVersion = "0.3.0"
         }
     }
 }

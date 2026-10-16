@@ -28,17 +28,18 @@ class LyricsRepository(
     private val translator: dev.xvin.palimpsest.core.translate.Translator,
     private val translationsDir: File,
 ) {
-    /** Translated lines (same count as [lines]), cached per track and text. null = already in Russian. */
+    /** Translated lines (same count as [lines]) into the app's language, cached per track, text and language. null = already in it. */
     suspend fun translate(trackId: Long, lines: List<String>): List<String>? = withContext(Dispatchers.IO) {
+        val target = java.util.Locale.getDefault().language.ifEmpty { "en" }
         val key = lines.joinToString("\n").hashCode()
-        val cache = File(translationsDir, "${trackId}_$key.txt")
+        val cache = File(translationsDir, "${trackId}_${target}_$key.txt")
         if (cache.isFile) {
             val txt = cache.readText()
             return@withContext if (txt == SAME_LANGUAGE) null else txt.split("\n")
         }
-        val r = translator.translate(lines, "ru")
+        val r = translator.translate(lines, target)
         translationsDir.mkdirs()
-        if (r.sourceLanguage == "ru") { cache.writeText(SAME_LANGUAGE); return@withContext null }
+        if (r.sourceLanguage == target) { cache.writeText(SAME_LANGUAGE); return@withContext null }
         cache.writeText(r.lines.joinToString("\n"))
         r.lines
     }

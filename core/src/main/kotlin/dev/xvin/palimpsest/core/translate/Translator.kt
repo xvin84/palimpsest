@@ -12,8 +12,10 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 
 /**
- * Line-by-line lyrics translation through Google Translate's public web endpoint (no key).
- * Lines are sent together, separated by newlines, and mapped back one-to-one.
+ * Line-by-line lyrics translation through Google Translate's public web endpoints (no key).
+ * The Chrome-extension endpoint takes every line as its own parameter and answers one-to-one;
+ * the older "gtx" endpoint (lines joined by newlines) is the fallback when the first one is
+ * rate-limited.
  */
 class Translator(private val http: OkHttpClient = Http.client) {
     data class Result(val lines: List<String>, val sourceLanguage: String?)
@@ -21,28 +23,61 @@ class Translator(private val http: OkHttpClient = Http.client) {
     suspend fun translate(lines: List<String>, target: String = "ru"): Result {
         if (lines.isEmpty()) return Result(emptyList(), null)
         val out = ArrayList<String>(lines.size)
-        var detected: String? = null
-        // Keep requests modest; the endpoint dislikes very long bodies.
+        val languages = ArrayList<String>()
+        // Keep requests modest; the endpoints dislike very long bodies.
         for (chunk in chunked(lines, 3_500)) {
-            val body = FormBody.Builder().add("q", chunk.joinToString("\n")).build()
-            val r = http.newCall(
-                Request.Builder()
-                    .url("https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=$target&dt=t")
-                    .post(body)
-                    .header("User-Agent", "Mozilla/5.0")
-                    .build(),
-            ).fetch()
-            if (!r.isSuccessful) throw ProviderException("Translation failed: HTTP ${r.code}")
-            val (text, lang) = parse(r.body)
-            detected = detected ?: lang
-            val translated = text.split("\n")
-            // If the service merged or split lines, fall back to padding so indices still line up.
-            out += List(chunk.size) { i -> translated.getOrNull(i)?.trim().orEmpty() }
+            val (texts, langs) = runCatching { perLine(chunk, target) }.getOrElse { joined(chunk, target) }
+            languages += langs
+            out += List(chunk.size) { i -> texts.getOrNull(i)?.trim().orEmpty() }
         }
+        val detected = languages.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
         return Result(out, detected)
     }
 
+    private suspend fun perLine(chunk: List<String>, target: String): Pair<List<String>, List<String>> {
+        val body = FormBody.Builder().apply { chunk.forEach { add("q", it) } }.build()
+        val r = http.newCall(
+            Request.Builder()
+                .url("https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=auto&tl=$target")
+                .post(body)
+                .header("User-Agent", "Mozilla/5.0")
+                .build(),
+        ).fetch()
+        if (!r.isSuccessful) throw ProviderException("Translation failed: HTTP ${r.code}")
+        return parsePerLine(r.body)
+    }
+
+    private suspend fun joined(chunk: List<String>, target: String): Pair<List<String>, List<String>> {
+        val body = FormBody.Builder().add("q", chunk.joinToString("\n")).build()
+        val r = http.newCall(
+            Request.Builder()
+                .url("https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=$target&dt=t")
+                .post(body)
+                .header("User-Agent", "Mozilla/5.0")
+                .build(),
+        ).fetch()
+        if (!r.isSuccessful) throw ProviderException("Translation failed: HTTP ${r.code}")
+        val (text, lang) = parse(r.body)
+        // If the service merged or split lines, the caller pads so indices still line up.
+        return text.split("\n") to listOfNotNull(lang)
+    }
+
     companion object {
+        /** `[["перевод","en"], …]` (auto-detected source) or `["перевод", …]`. */
+        internal fun parsePerLine(json: String): Pair<List<String>, List<String>> {
+            val root = Http.json.parseToJsonElement(json).jsonArray
+            val texts = ArrayList<String>(); val langs = ArrayList<String>()
+            for (item in root) {
+                if (item is JsonArray) {
+                    texts += item.getOrNull(0)?.jsonPrimitive?.contentOrNull.orEmpty()
+                    item.getOrNull(1)?.jsonPrimitive?.contentOrNull?.let { langs += it }
+                } else {
+                    texts += item.jsonPrimitive.contentOrNull.orEmpty()
+                }
+            }
+            return texts to langs
+        }
+
         internal fun parse(json: String): Pair<String, String?> {
             val root = Http.json.parseToJsonElement(json).jsonArray
             val text = (root[0] as? JsonArray).orEmpty().joinToString("") { seg ->

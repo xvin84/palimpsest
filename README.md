@@ -1,112 +1,118 @@
 # Palimpsest
 
-Музыкальный плеер для Android, в котором ничего не стирается: когда исполнитель перезаливает трек,
-старая версия остаётся в истории — как текст на палимпсесте.
+**English** | [Русский](README.ru.md)
 
-Kotlin · Jetpack Compose · Media3 (ExoPlayer) · Room · jaudiotagger · NewPipe Extractor
+> ⚠️ **Beta.** Palimpsest is pre-1.0 — expect a few rough edges. Please report bugs and ideas in the
+> [issues](https://github.com/xvin84/palimpsest/issues); the in-app error log has a «Copy details» button for that.
 
-## Что умеет
+A music player for Android where nothing gets erased. When an artist re-uploads a track, the old version
+stays in its history — like the earlier text on a palimpsest. Local files first, streaming services second:
+your library plays offline, Yandex Music and YouTube Music fill the gaps, and every download lands in your
+music folder as a properly tagged file.
 
-**Медиатека (офлайн)**
-- Сканирует `Music/` (и другие папки из настроек) — инкрементально, ~0,5 с на сотню новых FLAC, повторно — миллисекунды.
-- Треки, альбомы, исполнители, папки, плейлисты, «любимые»; фильтр по источнику, сортировки.
-- Понимает раскладку Мурглара: `Murglar/Яндекс/Артист - Название.flac`, `Артист/(2003) Альбом/1. Трек.flac`,
-  файлы yt-dlp с `[videoId]`; по тегу `URL` файл привязывается к треку Яндекса.
-- Подхватывает `.m3u/.m3u8` из папок с музыкой (пути с ПК сопоставляются по имени и папкам).
-- «Открыть с помощью» из любого файлового менеджера/мессенджера.
+<p>
+  <img src="docs/screenshots/library-en.png" width="24%" alt="Library">
+  <img src="docs/screenshots/player-en.png" width="24%" alt="Now playing with a visualiser">
+  <img src="docs/screenshots/lyrics-en.png" width="24%" alt="Synced lyrics with a translation">
+  <img src="docs/screenshots/storage-en.png" width="24%" alt="Storage">
+</p>
 
-**Плеер**
-- Фоновое воспроизведение, уведомление, экран блокировки, Bluetooth-кнопки, gapless.
-- Эквалайзер: 10 полос, пресеты, свои профили, импорт **AutoEQ** (готовые кривые для тысяч наушников), лимитер против клиппинга.
-- ReplayGain (по треку/альбому) — Мурглар уже пишет его в теги.
-- Визуализация спектра (полосы / зеркало / кольцо вокруг обложки) — без разрешения на микрофон.
-- Синхронные тексты с подсветкой строки (из тега файла, `.lrc`, Яндекса или LRCLIB), тап по строке — перемотка.
-- Очередь, повтор, перемешивание, таймер сна с плавным затуханием, скорость и тон (slowed/nightcore).
-- Цвет интерфейса подстраивается под обложку.
-- Перемотка по волновой форме трека; свайп по обложке или мини-плееру — следующий/предыдущий.
-- Свой профиль эквалайзера для каждых наушников (BT/USB/проводные) — переключается сам.
-- Виджет на рабочий стол; если облачный трек не грузится без сети — плеер сам идёт дальше.
-- Плавные переходы между треками (равномощное затухание, длительность в настройках).
-- Перевод текста песни на русский — под каждой строкой, с кэшем.
-- Карточка «Сейчас слушаю» — картинкой в любой мессенджер.
-- **Android Auto**: лайки, плейлисты, «Часто слушаю», недавние и голосовой поиск.
+## Features
 
-**Версии треков**
-- Перезалитый трек скачивается **рядом**, старый файл уезжает в `Music/.palimpsest/versions/` (скрыто от других плееров).
-- Ежедневная проверка: длительность на Яндексе ≠ длительности файла → трек помечается «есть новая версия».
-- Любую версию можно послушать, вернуть, удалить; «Заменить файл…» — подставить свой рип, старый сохранится.
-- Одинаковый звук не дублируется (отпечаток аудио, правка тегов не считается новой версией).
-- **A/B-сравнение**: переключение между версиями на той же секунде.
-- «Заменить на FLAC»: lossy-загрузки с Яндекса перекачиваются в lossless, старый файл остаётся версией.
-- Поиск дубликатов: копии сливаются в один трек, лишние файлы становятся его версиями.
+**Library, offline first**
+- Scans `Music/` (and any folders you add) incrementally: about half a second per hundred new FLACs, milliseconds on rescans.
+- Tracks, albums, individual artists (features are split out), folders, playlists, favourites; filters by source, sorting.
+- Understands Murglar's layout (`Murglar/Яндекс/Artist - Title.flac`), album folders, yt-dlp files with `[videoId]`;
+  a `URL` tag links a file to its Yandex track. Picks up `.m3u/.m3u8` playlists, even ones written on a PC.
+- «Open with» from any file manager or messenger.
+- Duplicate finder: copies merge into one track and the extra files become its versions.
+- Missing covers are found (Yandex, MusicBrainz / Cover Art Archive) and embedded into the files.
+- **Storage screen**: what the app keeps (music, old versions, streaming cache, covers, backups) and how to free it.
 
-**Редактор тегов**: название, исполнитель, альбом, год, жанр, номера, обложка (из галереи), текст;
-правка сразу всего альбома; поиск недостающих обложек (Яндекс, MusicBrainz / Cover Art Archive).
+**Track versions**
+- A re-uploaded track downloads next to the old one; the old file moves to `Music/.palimpsest/versions/`, hidden from other players.
+- Any version can be played, restored or deleted; **A/B comparison** switches between versions at the same second.
+- «Replace with FLAC» re-downloads lossy files in lossless, keeping the old ones as versions.
+- The same audio is never stored twice (an audio fingerprint, so editing tags doesn't count as a new version).
 
-**Сервисы**
-- **Яндекс.Музыка**: вход по коду устройства (ya.ru/device), лайки, плейлисты, поиск, стриминг в lossless,
-  скачивание с тегами/обложкой/синхронным текстом, автоскачивание новых лайков.
-- **Моя волна** и радио по треку/исполнителю (Яндекс подстраивает станцию по тому, что дослушал или пропустил);
-  настройка волны (характер, настроение, язык) и станции по занятиям. Без сети — **офлайн-волна** из скачанного.
-- Уведомления о новых релизах исполнителей из твоей медиатеки.
-- **Карточки исполнителей** из Яндекса: фото, описание, популярное, альбомы, похожие + твои скачанные треки;
-  альбомы и «похожие треки» открываются прямо в приложении. Треки с несколькими исполнителями разбираются по отдельности.
-- **YouTube Music**: без входа — поиск, стриминг, скачивание (M4A с тегами).
-- **Spotify**: импорт публичных плейлистов и альбомов по ссылке — треки находятся в Яндексе/YouTube.
-- Прокси только для YouTube/Spotify (Яндекс ходит напрямую).
+**Player**
+- Background playback, lock screen, Bluetooth buttons, gapless, smooth transitions between tracks, Android Auto.
+- 10-band equalizer with presets, your own profiles and **AutoEQ** import; a separate profile for each pair of headphones.
+- ReplayGain, a limiter against clipping, speed and pitch (slowed / nightcore), sleep timer with a fade-out.
+- Spectrum visualiser (bars, mirror, ring around the cover) without the microphone permission.
+- Synced lyrics from the file tag, a `.lrc`, Yandex, **LRCLIB**, **NetEase** or **Genius**; tap a line to seek;
+  a translation into the app's language — under each line or instead of it.
+- Seek on the track's waveform; the colours follow the cover.
 
-**Ошибки по-человечески**: что случилось, что попробовать, «Скопировать подробности»; журнал ошибок в настройках;
-после падения приложение при следующем запуске показывает отчёт для копирования.
+**Services**
+- **Yandex Music**: sign-in with a device code, likes, playlists, search, lossless streaming, downloads with tags,
+  covers and synced lyrics; liked tracks download right away. **My Wave** (with mood/character/language tuning and
+  activity stations), radio by track or artist, artist pages, albums, similar tracks, new release notifications.
+- **YouTube Music**: no account needed — search, streaming, downloads (M4A with tags).
+- **Spotify**: playlists and albums are imported by link and matched on Yandex or YouTube.
+- The proxy setting applies only to YouTube, Spotify and the cover databases; everything else goes direct.
+- Offline wave: a mix of your downloads when there's no network.
 
-**История**: прослушивания, время за неделю/месяц/год, топ треков и исполнителей;
-умные плейлисты «Часто слушаю», «Недавно добавленные», «Давно не слушал»; скробблинг в ListenBrainz (с офлайн-очередью);
-**«Итоги»** в стиле Wrapped — за год или за всё время.
+**Make a video from a track**
+- The whole track rendered to MP4: the audio straight from the file through your EQ (no microphone, no noise),
+  the visualiser and either the cover or the synced lyrics scrolling along. 9:16 for Reels/Shorts or 16:9 for YouTube.
 
-**Резервные копии**: база, история, плейлисты, версии и настройки (без токенов) в `Music/.palimpsest/backups`,
-раз в неделю автоматически, восстановление в одно касание.
+<p>
+  <img src="docs/screenshots/video-lyrics.png" width="24%" alt="Lyrics video frame">
+  <img src="docs/screenshots/video-cover.png" width="73%" alt="Cover video frame">
+</p>
 
-**Синхронизация**: каждые 3 часа при наличии сети — лайки и плейлисты Яндекса, проверка перезалитых треков,
-новые лайки скачиваются сразу. Лайк в приложении ставится и в Яндексе. Треки, которые уже лежат
-на телефоне (например, MP3 от Мурглара без тега URL), распознаются и не дублируются.
+**And also**
+- History, most played, Wrapped-style yearly stories, a «now listening» share card (or the file itself), ListenBrainz scrobbling.
+- Errors explained in plain words with what to try next, and a journal with copyable details.
+- Backups of the library, history, playlists, versions and settings (never sign-in tokens); weekly and one-tap restore.
+- Themes: dark, AMOLED black, light, or follow the system. English and Russian.
+- Updates itself from GitHub Releases.
 
-**Десктоп (превью, Linux)**: `./gradlew :desktop:run` — медиатека из `~/Music`, то же ядро (эквалайзер, спектр,
-тексты), звук через ffmpeg.
+## Install
 
-## Установка на телефон
+Download `palimpsest-<version>.apk` from [Releases](https://github.com/xvin84/palimpsest/releases) and open it on the phone
+(Android 13 or newer). On the first launch allow «All files access» — it's needed for tags, `.lrc` files and versions;
+without it the app can only play.
 
-Готовый APK: `app/build/outputs/apk/release/app-release.apk` (~9 МБ).
+New versions show up in Settings → Updates and install over the current one.
 
-1. Включи на телефоне «Для разработчиков» → «Отладка по USB», подключи кабелем.
-2. `~/Android/Sdk/platform-tools/adb install -r app/build/outputs/apk/release/app-release.apk`
+## Build
 
-   Или просто скинь APK на телефон и открой его (разреши установку из этого источника).
-3. При первом запуске дай «Полный доступ к файлам» — нужен для тегов, `.lrc` и версий.
-
-## Сборка
+Requirements: JDK 17, Android SDK (compileSdk 37).
 
 ```bash
-./gradlew :core:test            # 30 юнит-тестов ядра (DSP, LRC, M3U, Spotify, Яндекс на моках, AES, ListenBrainz)
-./gradlew assembleRelease       # APK с R8, подписан debug-ключом (для личного использования)
-LIVE=1 ./gradlew :core:test --tests '*LiveTest*'   # живые запросы к YouTube и LRCLIB
+./gradlew :core:test                    # unit tests of the shared core (DSP, LRC, M3U, Yandex on mocks, lyrics parsers…)
+./gradlew :app:assembleDebug            # debug APK
+./gradlew :app:assembleRelease          # minified APK; signed with your key if ~/.gradle/gradle.properties has
+                                        # palimpsest.keystore / .keystore.password / .key.alias / .key.password,
+                                        # otherwise with the debug key
+LIVE=1 ./gradlew :core:test --tests '*LiveTest*'   # hits the real services (YouTube, LRCLIB, NetEase, Genius…)
+./gradlew :desktop:run                  # desktop preview (Linux): library from ~/Music on the same core
 ```
 
-## Устройство
+## How it's built
 
 ```
-core/     чистый Kotlin/JVM, общий для Android и десктопа
-  dsp/       эквалайзер (биквады RBJ), лимитер, FFT-спектр, AutoEQ
-  yandex/    клиент API Яндекс.Музыки, OAuth по коду устройства
+core/     plain Kotlin/JVM, shared by Android and desktop
+  dsp/       equalizer (RBJ biquads), limiter, FFT spectrum, AutoEQ parser
+  yandex/    Yandex Music API client, device-code OAuth
   youtube/   NewPipe Extractor
-  spotify/   импорт плейлистов
-  lyrics/    LRC, LRCLIB
-  library/   имена файлов, M3U, версии (отпечатки)
+  lyrics/    LRC, LRCLIB, NetEase, Genius
+  library/   file names, M3U, versions (fingerprints), artist splitting
 app/
-  data/      Room, сканер, теги (jaudiotagger), загрузки, синхронизация, версии
-  playback/  Media3-сервис, свой AudioProcessor (EQ + ReplayGain + спектр), стриминг с кешем и расшифровкой
-  ui/        Compose: медиатека, плеер, поиск, сервисы, история, эквалайзер, карточка трека
-  widget/    виджет рабочего стола
-desktop/  Compose Multiplatform (превью)
+  data/      Room, scanner, tags (jaudiotagger), downloads, sync, versions, backups, storage, updates
+  playback/  Media3 service, an AudioProcessor for EQ + ReplayGain + spectrum, streaming with cache and decryption
+  render/    track → video (Media3 Transformer, frames drawn on Canvas)
+  ui/        Compose screens
+desktop/  Compose Multiplatform preview
 ```
 
-Неофициальные API (Яндекс, YouTube) могут сломаться при изменениях на стороне сервисов;
-скачивание — для личного использования.
+Kotlin · Jetpack Compose · Media3 (ExoPlayer, Transformer) · Room · jaudiotagger · NewPipe Extractor
+
+## License
+
+[GPL-3.0](LICENSE). Palimpsest is free software: use it, study it, change it and share it under the same terms.
+
+Palimpsest isn't affiliated with Yandex, Google or Spotify. Streaming services are used through their public and
+unofficial interfaces for your personal listening with your own account; please respect their terms.

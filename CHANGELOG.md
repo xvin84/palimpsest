@@ -1,74 +1,49 @@
 # Changelog
 
+**English** | [Русский](CHANGELOG.ru.md)
+
+## 0.3.0 — 2026-10-16
+
+### New
+- **Track videos**: render a whole track to MP4 — the audio straight from the file through your EQ, ReplayGain and limiter
+  (no microphone, no noise), the player's visualiser and either the cover or the synced lyrics scrolling along.
+  Vertical 9:16 and horizontal 16:9, rendered in the background with progress, saved to Movies/Palimpsest.
+- **Language**: English and Russian, switchable in Settings (or in Android's per-app language settings).
+- **Themes**: system, dark, AMOLED black and light.
+- **Storage**: how much music, old versions, the streaming cache, covers, translations and backups take, with cleanup
+  buttons and a streaming cache limit.
+- **Lyrics from NetEase** (synced) and **Genius** (plain) besides LRCLIB and Yandex; synced lyrics are looked for in every source first.
+- **Self-update from GitHub**: a daily check, a notification, download and install over the current version.
+- **Share the file**: besides the card, send the track itself, or both.
+- **Download notification** shows the track and its progress, with Skip and Stop buttons.
+
+### Changed
+- Faster animations: screens rise and come into focus over a blurred, dimmed screen and drop down when closed; tabs
+  cross-fade; the library blurs while the player slides over it.
+- The share card's background is the blurred cover tinted with the track's colour instead of a gradient.
+- Lyrics are translated into the app's language, in three modes: Original, Both (the translation under each line)
+  and Translation; the choice is remembered. A second translation endpoint takes over when the first is rate-limited.
+- The artist page buttons share the row (the «Radio» label used to wrap letter by letter on narrow screens).
+- Licensed under GPL-3.0; releases are signed with a permanent key.
+
+### Fixed
+- My Wave and stations started from the tuning sheet failed with "rememberCoroutineScope left the composition" /
+  InterruptedIOException: closing the sheet cancelled the start. Cancellations are no longer reported as errors.
+- «Download» and «Add to playlist» in the track menu could be cancelled silently when the menu closed.
+- Skipping or stopping a download no longer leaves temporary files behind.
+- Dates were always formatted in Russian.
+
 ## 0.2.0 — 2026-10-16
 
-### Новое
-- **Моя волна** Яндекса и радио по треку или исполнителю. Яндекс подстраивает станцию по тому, что ты дослушал, пропустил или лайкнул.
-- **Настройка волны**: характер (любимое / незнакомое), настроение, язык. Плюс станции по занятиям.
-- **Офлайн-волна**: микс из скачанных треков с учётом твоей истории. Без сети включается сама вместо Моей волны.
-- **Карточки исполнителей** из Яндекса: фото, описание, популярное, альбомы, похожие исполнители и твои скачанные треки.
-  Альбомы и «похожие треки» открываются прямо в приложении.
-- **Треки с несколькими исполнителями** разбираются по отдельности (`1.Kla$ feat. …` больше не плодит «исполнителей»).
-  У базы версия 3, миграция автоматическая, история сохраняется.
-- **A/B-сравнение версий**: переключаешься между старой и новой версией трека на той же секунде.
-- **Заменить на FLAC**: lossy-загрузки с Яндекса перекачиваются в lossless, старые файлы остаются версиями.
-- **Уведомления о новых релизах** исполнителей из твоей медиатеки и список «Новые релизы» на главной.
-- **Поиск дубликатов**: копии сливаются в один трек. Лишние файлы становятся его версиями, история и плейлисты переносятся.
-- **Поиск обложек** для треков без обложки (Яндекс, затем MusicBrainz / Cover Art Archive), обложка вшивается в файл.
-- **Правка тегов целого альбома** за раз.
-- **Плавные переходы** между треками: равномощное затухание, длительность задаётся в настройках.
-- **Перевод текстов** на русский, под каждой строкой синхронного текста. Перевод кэшируется.
-- **«Итоги»** в стиле Wrapped: время, топ треков и исполнителей, любимые часы, самый «музыкальный» день — за год или за всё время.
-- **Карточка «Сейчас слушаю»**: картинка с обложкой, чтобы поделиться в мессенджере.
-- **Резервные копии**: база, история, плейлисты, версии и настройки (без токенов) в `Music/.palimpsest/backups`.
-  Делаются раз в неделю автоматически и восстанавливаются в одно касание.
-- **Android Auto**: лайки, плейлисты, «Часто слушаю», недавние и голосовой поиск.
-- **Ошибки по-человечески**: что случилось, что попробовать (с учётом того, есть ли сеть), «Скопировать подробности».
-  Журнал ошибок есть в настройках. После падения приложение при следующем запуске показывает отчёт.
-
-### Изменено
-- **Лайкнутые треки скачиваются сразу**, а не при следующей синхронизации.
-- Синхронизация с Яндексом идёт каждые 3 часа при любой сети (раньше раз в сутки по Wi-Fi).
-- **Анимации**:
-  - физика у закрытия плеера свайпом (учитывается скорость пальца, без рывков);
-  - экраны открываются стопкой карточек, старый экран больше не просвечивает сквозь новый.
-- Всегда видно, какая версия трека играет: чип версии в плеере («Версия от …» для старых).
-- Волновая форма строится только для файла из медиатеки.
-
-### Исправлено
-- YouTube Music и экран исполнителей падали из-за ошибок NewPipe Extractor. Теперь ошибки перехватываются и показываются понятно.
-- MusicBrainz и Cover Art Archive теперь ходят через прокси вместе с YouTube и Spotify.
-
-### Не проверено вживую
-- Настройки волны, уведомления о релизах и обложки из Яндекса: для проверки нужен аккаунт Яндекса.
-- Android Auto: под рукой не было головного устройства и DHU.
+- My Wave and radio from Yandex, wave tuning and activity stations, an offline wave from downloads.
+- Yandex artist pages, albums and similar tracks; tracks with several artists are split into individual artists.
+- A/B version comparison, «Replace with FLAC», duplicate finder, cover finder, album-wide tag editing.
+- New release notifications, smooth transitions between tracks, Android Auto, lyrics translation,
+  Wrapped-style stories, a «now listening» share card, backups.
+- Errors explained in plain words with a journal and crash reports; liked tracks download right away; sync every 3 hours.
 
 ## 0.1.0 — 2026-10-15
 
-Первая версия, собранная за ночь.
-
-- **Медиатека**:
-  - сканирует `Music/` и понимает раскладку Мурглара и yt-dlp;
-  - подхватывает `.m3u`;
-  - открывает файлы через «Открыть с помощью»;
-  - есть фильтр «Скачанные».
-- **Плеер**:
-  - Media3, фоновое воспроизведение, gapless;
-  - эквалайзер на 10 полос, импорт AutoEQ, отдельный профиль для каждых наушников;
-  - ReplayGain, лимитер;
-  - спектр (полосы, зеркало, кольцо);
-  - синхронные тексты (тег, `.lrc`, Яндекс, LRCLIB);
-  - таймер сна, скорость и тон;
-  - перемотка по волновой форме;
-  - виджет.
-- **История версий**: перезалитые треки скачиваются рядом, старые уезжают в `.palimpsest/versions`.
-  Версии можно слушать, возвращать и удалять. Одинаковый звук не дублируется.
-- **Редактор тегов** и текстов.
-- **Яндекс.Музыка**:
-  - вход по коду устройства;
-  - лайки, плейлисты, поиск;
-  - lossless-стриминг и скачивание с тегами.
-- **YouTube Music**: поиск, стриминг, скачивание в M4A.
-- **Spotify**: импорт плейлистов и альбомов по ссылке.
-- **Статистика**: умные плейлисты, скробблинг в ListenBrainz.
-- **Десктоп-превью** для Linux.
+The first version: a local-first library that understands Murglar's layout, a Media3 player with a 10-band EQ,
+AutoEQ, ReplayGain and a spectrum visualiser, synced lyrics, track version history, a tag editor, Yandex Music,
+YouTube Music and Spotify import, listening history, smart playlists, ListenBrainz scrobbling and a desktop preview.

@@ -602,4 +602,6 @@
     <string name="render_channel">Видео из треков</string>
     <string name="render_progress_title">Делаю видео</string>
     <string name="render_done">Видео готово</string>
+    <string name="lyrics_mode_original">Оригинал</string>
+    <string name="lyrics_mode_both">Оба</string>
 </resources>

@@ -407,22 +407,38 @@ private fun LyricsPane(track: TrackEntity?, positionMs: Long, onSeek: (Long) -> 
         else -> {
             val current = parsed.indexAt(positionMs)
             val listState = rememberLazyListState()
-            var translateOn by remember(track?.id) { mutableStateOf(false) }
+            // The mode is a setting, so it carries over from track to track until changed.
+            val appSettings by graph.settings.flow.collectAsStateWithLifecycle(null)
+            val mode = appSettings?.lyricsTranslation ?: dev.xvin.palimpsest.data.settings.LyricsTranslation.OFF
             var translation by remember(track?.id) { mutableStateOf<List<String>?>(null) }
+            // Lyrics already in the app's language (or a failed request) show as they are.
+            var untranslatable by remember(track?.id) { mutableStateOf(false) }
             var translating by remember { mutableStateOf(false) }
-            LaunchedEffect(translateOn, track?.id) {
-                if (!translateOn || translation != null || track == null) return@LaunchedEffect
+            LaunchedEffect(mode, track?.id) {
+                if (mode == dev.xvin.palimpsest.data.settings.LyricsTranslation.OFF || translation != null || untranslatable || track == null) return@LaunchedEffect
                 translating = true
                 runCatching { graph.lyrics.translate(track.id, parsed.lines.map { it.text }) }
-                    .onSuccess { if (it == null) { nav.toast(tr(R.string.lyrics_already_native)); translateOn = false } else translation = it }
-                    .onFailure { nav.error(it, tr(R.string.ctx_lyrics_translate)); translateOn = false }
+                    .onSuccess { if (it == null) { nav.toast(tr(R.string.lyrics_already_native)); untranslatable = true } else translation = it }
+                    .onFailure { nav.error(it, tr(R.string.ctx_lyrics_translate)); untranslatable = true }
                 translating = false
             }
+            val translateOn = mode != dev.xvin.palimpsest.data.settings.LyricsTranslation.OFF && translation != null
+            val only = translateOn && mode == dev.xvin.palimpsest.data.settings.LyricsTranslation.ONLY
             LaunchedEffect(current) {
                 if (current >= 0) listState.animateScrollToItem((current - 2).coerceAtLeast(0))
             }
-            Box(Modifier.fillMaxSize()) {
-            LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(vertical = 32.dp)) {
+            Column(Modifier.fillMaxSize()) {
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
+                if (translating) Text(tr(R.string.translating), style = MaterialTheme.typography.labelMedium, color = Ink.Muted, modifier = Modifier.padding(end = 4.dp))
+                listOf(
+                    dev.xvin.palimpsest.data.settings.LyricsTranslation.OFF to R.string.lyrics_mode_original,
+                    dev.xvin.palimpsest.data.settings.LyricsTranslation.BELOW to R.string.lyrics_mode_both,
+                    dev.xvin.palimpsest.data.settings.LyricsTranslation.ONLY to R.string.translation,
+                ).forEach { (m, label) ->
+                    dev.xvin.palimpsest.ui.components.Pill(tr(label), mode == m, { graph.appScope.launch { graph.settings.setLyricsTranslation(m) } })
+                }
+            }
+            LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(vertical = 24.dp)) {
                 itemsIndexed(parsed.lines) { i, l ->
                     val active = i == current
                     // Smooth karaoke: the active line grows and lights up instead of jumping.
@@ -435,23 +451,20 @@ private fun LyricsPane(track: TrackEntity?, positionMs: Long, onSeek: (Long) -> 
                         tween(350), label = "lyric-color",
                     )
                     val scale by animateFloatAsState(if (active) 1.08f else 1f, tween(350), label = "lyric-scale")
+                    val shown = if (only) translation?.getOrNull(i)?.takeIf { it.isNotBlank() && l.text.isNotBlank() } ?: l.text else l.text
                     Text(
-                        l.text.ifBlank { "♪" },
+                        shown.ifBlank { "♪" },
                         style = MaterialTheme.typography.headlineSmall.copy(fontSize = 22.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold),
                         color = color,
-                        modifier = Modifier.fillMaxWidth().clickable { onSeek(l.timeMs) }.padding(top = 6.dp, bottom = if (translateOn) 0.dp else 6.dp)
+                        modifier = Modifier.fillMaxWidth().clickable { onSeek(l.timeMs) }.padding(top = 6.dp, bottom = if (translateOn && !only) 0.dp else 6.dp)
                             .graphicsLayer { scaleX = scale; scaleY = scale; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0.5f) },
                     )
                     val tr = translation?.getOrNull(i)
-                    if (translateOn && !tr.isNullOrBlank() && l.text.isNotBlank()) {
+                    if (translateOn && !only && !tr.isNullOrBlank() && l.text.isNotBlank()) {
                         Text(tr, style = MaterialTheme.typography.bodyMedium, color = if (i == current) accent.copy(alpha = 0.8f) else Ink.Muted, modifier = Modifier.padding(bottom = 8.dp))
                     }
                 }
             }
-            TextButton(
-                onClick = { translateOn = !translateOn },
-                modifier = Modifier.align(Alignment.TopEnd),
-            ) { Text(if (translating) tr(R.string.translating) else if (translateOn) tr(R.string.original) else tr(R.string.translation), color = accent) }
             }
         }
     }

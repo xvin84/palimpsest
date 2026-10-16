@@ -595,4 +595,6 @@
     <string name="render_channel">Track videos</string>
     <string name="render_progress_title">Making a video</string>
     <string name="render_done">The video is ready</string>
+    <string name="lyrics_mode_original">Original</string>
+    <string name="lyrics_mode_both">Both</string>
 </resources>

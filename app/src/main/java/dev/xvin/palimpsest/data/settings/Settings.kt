@@ -43,6 +43,9 @@ enum class ThemeMode(@androidx.annotation.StringRes val labelRes: Int) {
     SYSTEM(R.string.theme_system), DARK(R.string.theme_dark), AMOLED(R.string.theme_amoled), LIGHT(R.string.theme_light),
 }
 
+/** Synced lyrics: the original, the original with a translation under each line, or only the translation. */
+enum class LyricsTranslation { OFF, BELOW, ONLY }
+
 enum class VisualizerMode(private val labelRes: Int) { BARS(R.string.viz_bars), MIRROR(R.string.viz_mirror), RING(R.string.viz_ring), OFF(R.string.off_short); val label: String get() = tr(labelRes) }
 
 @Serializable
@@ -69,6 +72,7 @@ data class AppSettings(
     val autoSync: Boolean,
     /** Look for new app versions on GitHub once a day. */
     val checkUpdates: Boolean,
+    val lyricsTranslation: LyricsTranslation,
     val autoDownloadLikes: Boolean,
     /** Output device key → EQ profile name. */
     val deviceEq: Map<String, String>,
@@ -109,6 +113,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
         val lastScan = longPreferencesKey("last_scan")
         val autoSync = booleanPreferencesKey("auto_sync")
         val checkUpdates = booleanPreferencesKey("check_updates")
+        val lyricsTranslation = stringPreferencesKey("lyrics_translation")
         val autoDownloadLikes = booleanPreferencesKey("auto_download_likes")
         val deviceEq = stringPreferencesKey("device_eq")
         val lbToken = stringPreferencesKey("listenbrainz_token")
@@ -146,6 +151,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
             lastScanAt = p[K.lastScan] ?: 0L,
             autoSync = p[K.autoSync] ?: true,
             checkUpdates = p[K.checkUpdates] ?: true,
+            lyricsTranslation = p[K.lyricsTranslation]?.let { runCatching { LyricsTranslation.valueOf(it) }.getOrNull() } ?: LyricsTranslation.OFF,
             autoDownloadLikes = p[K.autoDownloadLikes] ?: true,
             deviceEq = p[K.deviceEq]?.let { runCatching { json.decodeFromString<Map<String, String>>(it) }.getOrNull() } ?: emptyMap(),
             listenBrainzToken = p[K.lbToken],
@@ -175,6 +181,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
     suspend fun setLastScan(at: Long) = edit { it[K.lastScan] = at }
     suspend fun setAutoSync(on: Boolean) = edit { it[K.autoSync] = on }
     suspend fun setCheckUpdates(on: Boolean) = edit { it[K.checkUpdates] = on }
+    suspend fun setLyricsTranslation(m: LyricsTranslation) = edit { it[K.lyricsTranslation] = m.name }
     suspend fun setAutoDownloadLikes(on: Boolean) = edit { it[K.autoDownloadLikes] = on }
     suspend fun setDeviceEq(map: Map<String, String>) = edit { it[K.deviceEq] = json.encodeToString(map) }
     suspend fun setFadeSec(sec: Int) = edit { it[K.fadeSec] = sec }

@@ -300,4 +300,11 @@ class TranslatorTest {
             <div class="ad"></div><div data-lyrics-container="true">And it&#x27;s &amp; done</div></div>"""
         assertEquals("[Verse 1]\nLook at the stars\nLook how they shine\nAnd it's & done", dev.xvin.palimpsest.core.lyrics.GeniusLyrics.extract(html))
     }
+
+    @Test fun translatorParsesPerLineAnswers() {
+        val (texts, langs) = dev.xvin.palimpsest.core.translate.Translator.parsePerLine("""[["Посмотри на звёзды","en"],["Я живу","ru"]]""")
+        assertEquals(listOf("Посмотри на звёзды", "Я живу"), texts)
+        assertEquals(listOf("en", "ru"), langs)
+        assertEquals(listOf("a", "b"), dev.xvin.palimpsest.core.translate.Translator.parsePerLine("""["a","b"]""").first)
+    }
 }
