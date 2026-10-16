@@ -2,6 +2,26 @@
 
 **English** | [Русский](CHANGELOG.ru.md)
 
+## 0.3.2 — 2026-10-16
+
+### New
+- **Choose the lyrics source**: the «Source: …» chip above the lyrics lists every variant found — the tag, a `.lrc`,
+  Yandex, LRCLIB, NetEase and Genius — marked synced or plain, with the first lines. A hand-picked text stays put.
+- **Video quality**: Standard · 1080p · 30 fps, High · 1080p · 60 fps, Max · 1440p · 60 fps. Mode, format and quality
+  are remembered, so the next render starts from them.
+
+### Changed
+- Synced lyrics always win: if the tag holds plain text and a timed version exists elsewhere, the timed one is used.
+  With no lyrics or only plain text, the app looks for synced lyrics by itself when the track opens.
+- Screens just slide up and down again — no blur, no "sucking in". Predictive back is off.
+- Video lyrics are bolder with a soft shadow, like subtitles; the sung line takes the track's colour.
+
+### Fixed
+- Renders could stop with "Muxer error: no output sample written in the last 10000 milliseconds" when the phone paused
+  background work. Rendering now keeps the CPU awake, tolerates pauses and retries once.
+- The My Wave card only showed up after scrolling the library up.
+- A long sung line in the player ran off the edge of the screen.
+
 ## 0.3.1 — 2026-10-16
 
 ### Changed
