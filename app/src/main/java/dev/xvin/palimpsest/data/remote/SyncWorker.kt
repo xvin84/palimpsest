@@ -25,6 +25,11 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
         if (!s.autoSync) return Result.success()
         graph.scanner.scan()
         graph.scrobbler.flush()
+        // Weekly safety copy of the library and settings.
+        runCatching {
+            val last = graph.backups.list().firstOrNull()?.lastModified() ?: 0
+            if (System.currentTimeMillis() - last > 7L * 86_400_000) graph.backups.create()
+        }
         if (graph.yandex.isReady) {
             graph.syncYandex() // also downloads new likes when that's on
             graph.remote.checkForUpdates()

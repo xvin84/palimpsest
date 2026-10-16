@@ -213,6 +213,37 @@ fun SettingsScreen() {
             lbError?.let { Text(it, Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.error) }
         }
 
+        SectionHeader("Резервная копия")
+        var backups by remember { mutableStateOf<List<java.io.File>>(emptyList()) }
+        var confirmRestore by remember { mutableStateOf<java.io.File?>(null) }
+        androidx.compose.runtime.LaunchedEffect(Unit) { backups = graph.backups.list() }
+        Text(
+            "Медиатека, история, плейлисты, версии и настройки (без токенов входа). Лежит в Music/.palimpsest/backups — переживёт переустановку. Автоматически раз в неделю.",
+            Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = Ink.Muted,
+        )
+        TextButton(onClick = {
+            scope.launch {
+                runCatching { graph.backups.create() }.onSuccess { nav.toast("Копия сохранена: ${it.name}") }.onFailure { nav.error(it, "Резервная копия") }
+                backups = graph.backups.list()
+            }
+        }, modifier = Modifier.padding(horizontal = 8.dp)) { Text("Создать копию сейчас") }
+        backups.take(5).forEach { f ->
+            Row(Modifier.fillMaxWidth().padding(start = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(f.name.removePrefix("palimpsest-").removeSuffix(".zip").replace('_', ' '), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                TextButton(onClick = { confirmRestore = f }) { Text("Восстановить") }
+            }
+        }
+        confirmRestore?.let { f ->
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { confirmRestore = null },
+                containerColor = Ink.Paper2,
+                title = { Text("Восстановить копию?") },
+                text = { Text("Текущая медиатека, история и плейлисты заменятся содержимым копии ${f.name}. Приложение перезапустится. Файлы музыки не трогаются.") },
+                confirmButton = { TextButton(onClick = { graph.appScope.launch { runCatching { graph.backups.restore(f) } } }) { Text("Восстановить") } },
+                dismissButton = { TextButton(onClick = { confirmRestore = null }) { Text("Отмена") } },
+            )
+        }
+
         SectionHeader("Помощь")
         val errorCount by graph.errors.log.collectAsStateWithLifecycle()
         Row(Modifier.fillMaxWidth().clickable { nav.openErrors() }.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
