@@ -167,6 +167,7 @@ private fun TracksTab() {
 
     LazyColumn(contentPadding = PaddingValues(bottom = 16.dp)) {
         item { MyWaveCard() }
+        item { OfflineWaveRow() }
         item {
             Row(
                 Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
@@ -413,7 +414,13 @@ private fun MyWaveCard() {
                 scope.launch {
                     graph.radio.start(dev.xvin.palimpsest.playback.RadioController.MY_WAVE, "Моя волна", settings?.wave?.seeds().orEmpty())
                         .onSuccess { nav.openPlayer() }
-                        .onFailure { nav.error(it, "Моя волна") }
+                        .onFailure { e ->
+                            // No network? Don't leave the user in silence — play the offline mix instead.
+                            if (graph.errors.report(e, "Моя волна", show = false).title == "Нет интернета" && graph.startOfflineWave()) {
+                                nav.toast("Нет сети — включил офлайн-волну из скачанного")
+                                nav.openPlayer()
+                            } else nav.error(e, "Моя волна")
+                        }
                     starting = false
                 }
             }
@@ -432,5 +439,29 @@ private fun MyWaveCard() {
             if (starting) androidx.compose.material3.CircularProgressIndicator(Modifier.size(22.dp), color = Ink.Paper, strokeWidth = 2.dp)
             else Text(if (active) "≋" else "▶", color = Ink.Paper, style = MaterialTheme.typography.titleLarge)
         }
+    }
+}
+
+/** «Офлайн-волна»: a mix of downloaded tracks shaped by your history; works with no network at all. */
+@Composable
+private fun OfflineWaveRow() {
+    val graph = LocalGraph.current
+    val nav = LocalNav.current
+    val scope = rememberCoroutineScope()
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp).clip(RoundedCornerShape(14.dp)).background(Ink.Paper2)
+            .clickable {
+                scope.launch {
+                    if (graph.startOfflineWave()) nav.openPlayer() else nav.toast("Пока нечего играть: в медиатеке нет скачанных треков")
+                }
+            }
+            .padding(horizontal = 18.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("Офлайн-волна", style = MaterialTheme.typography.titleMedium)
+            Text("Микс из скачанного под твой вкус — без интернета", style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
+        }
+        Text("▶", color = LocalAccent.current, style = MaterialTheme.typography.titleLarge)
     }
 }

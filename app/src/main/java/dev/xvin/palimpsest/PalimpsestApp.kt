@@ -147,6 +147,15 @@ class AppGraph(val app: Application) {
         p.onError = { e -> errors.report(e, "Воспроизведение") }
     }
     val radio = dev.xvin.palimpsest.playback.RadioController(remote, db, player, mainScope)
+    val offlineWave = dev.xvin.palimpsest.playback.OfflineWave(db)
+
+    /** Plays the offline mix; false if nothing is downloaded yet. */
+    suspend fun startOfflineWave(): Boolean {
+        val list = offlineWave.build()
+        if (list.isEmpty()) return false
+        player.play(list)
+        return true
+    }
 
     /** ♥: likes locally and in Yandex, and (by default) downloads the track right away. */
     suspend fun setLiked(track: dev.xvin.palimpsest.data.db.TrackEntity, liked: Boolean): Result<Unit> {

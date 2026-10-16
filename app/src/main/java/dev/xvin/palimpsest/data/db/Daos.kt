@@ -28,6 +28,8 @@ data class CountRow(val label: String, val plays: Int, val listenedMs: Long, val
 
 data class DayRow(val day: String, val plays: Int, val listenedMs: Long)
 
+data class TrackPlayStat(val trackId: Long, val plays: Int, val lastPlayed: Long)
+
 @Dao
 interface TrackDao {
     @Query("SELECT * FROM tracks ORDER BY title COLLATE NOCASE")
@@ -206,6 +208,9 @@ interface PlayEventDao {
         """,
     )
     fun observeDays(since: Long): Flow<List<DayRow>>
+
+    @Query("SELECT trackId, COUNT(*) AS plays, MAX(startedAt) AS lastPlayed FROM play_events WHERE trackId IS NOT NULL GROUP BY trackId")
+    suspend fun trackStats(): List<TrackPlayStat>
 
     @Query("SELECT COUNT(*) FROM play_events WHERE trackId = :trackId")
     fun observePlayCount(trackId: Long): Flow<Int>
