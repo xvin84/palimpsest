@@ -73,6 +73,10 @@ data class AppSettings(
     /** Look for new app versions on GitHub once a day. */
     val checkUpdates: Boolean,
     val lyricsTranslation: LyricsTranslation,
+    /** Last «Make a video» choices (enum names), so the next render starts from them. */
+    val renderMode: String?,
+    val renderAspect: String?,
+    val renderQuality: String?,
     val autoDownloadLikes: Boolean,
     /** Output device key → EQ profile name. */
     val deviceEq: Map<String, String>,
@@ -114,6 +118,9 @@ class Settings(private val context: Context, scope: CoroutineScope) {
         val autoSync = booleanPreferencesKey("auto_sync")
         val checkUpdates = booleanPreferencesKey("check_updates")
         val lyricsTranslation = stringPreferencesKey("lyrics_translation")
+        val renderMode = stringPreferencesKey("render_mode")
+        val renderAspect = stringPreferencesKey("render_aspect")
+        val renderQuality = stringPreferencesKey("render_quality")
         val autoDownloadLikes = booleanPreferencesKey("auto_download_likes")
         val deviceEq = stringPreferencesKey("device_eq")
         val lbToken = stringPreferencesKey("listenbrainz_token")
@@ -151,6 +158,9 @@ class Settings(private val context: Context, scope: CoroutineScope) {
             lastScanAt = p[K.lastScan] ?: 0L,
             autoSync = p[K.autoSync] ?: true,
             checkUpdates = p[K.checkUpdates] ?: true,
+            renderMode = p[K.renderMode],
+            renderAspect = p[K.renderAspect],
+            renderQuality = p[K.renderQuality],
             lyricsTranslation = p[K.lyricsTranslation]?.let { runCatching { LyricsTranslation.valueOf(it) }.getOrNull() } ?: LyricsTranslation.OFF,
             autoDownloadLikes = p[K.autoDownloadLikes] ?: true,
             deviceEq = p[K.deviceEq]?.let { runCatching { json.decodeFromString<Map<String, String>>(it) }.getOrNull() } ?: emptyMap(),
@@ -182,6 +192,9 @@ class Settings(private val context: Context, scope: CoroutineScope) {
     suspend fun setAutoSync(on: Boolean) = edit { it[K.autoSync] = on }
     suspend fun setCheckUpdates(on: Boolean) = edit { it[K.checkUpdates] = on }
     suspend fun setLyricsTranslation(m: LyricsTranslation) = edit { it[K.lyricsTranslation] = m.name }
+    suspend fun setRenderChoice(mode: String, aspect: String, quality: String) = edit {
+        it[K.renderMode] = mode; it[K.renderAspect] = aspect; it[K.renderQuality] = quality
+    }
     suspend fun setAutoDownloadLikes(on: Boolean) = edit { it[K.autoDownloadLikes] = on }
     suspend fun setDeviceEq(map: Map<String, String>) = edit { it[K.deviceEq] = json.encodeToString(map) }
     suspend fun setFadeSec(sec: Int) = edit { it[K.fadeSec] = sec }

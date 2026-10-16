@@ -27,6 +27,19 @@ enum class RenderMode { COVER, LYRICS }
 private const val TRANSITION_MS = 650f
 enum class RenderAspect(val width: Int, val height: Int) { VERTICAL(1080, 1920), HORIZONTAL(1920, 1080) }
 
+/**
+ * Output quality. Frames are laid out on a 1080-based canvas and scaled, so [scale] only changes
+ * the pixel count; 60 fps makes the lyric glide and the visualiser noticeably smoother.
+ */
+enum class RenderQuality(val scale: Float, val fps: Int, val videoBitrate: Int, val audioBitrate: Int, val labelRes: Int) {
+    STANDARD(1f, 30, 6_000_000, 256_000, dev.xvin.palimpsest.R.string.render_quality_standard),
+    HIGH(1f, 60, 10_000_000, 320_000, dev.xvin.palimpsest.R.string.render_quality_high),
+    MAX(4f / 3, 60, 16_000_000, 320_000, dev.xvin.palimpsest.R.string.render_quality_max);
+
+    fun width(a: RenderAspect) = (a.width * scale).toInt() and 1.inv()
+    fun height(a: RenderAspect) = (a.height * scale).toInt() and 1.inv()
+}
+
 /** Everything a frame needs; times in milliseconds. */
 class FrameSpec(
     val aspect: RenderAspect,
@@ -41,6 +54,7 @@ class FrameSpec(
     val durationMs: Long,
     val serif: Typeface,
     val sans: Typeface,
+    val quality: RenderQuality = RenderQuality.STANDARD,
 )
 
 /**
@@ -52,10 +66,12 @@ class FrameRenderer(private val s: FrameSpec) {
     private val h = s.aspect.height.toFloat()
     private val vertical = s.aspect == RenderAspect.VERTICAL
     private val unit = min(w, h) / 1080f
+    private val scale = s.quality.scale
 
     /** Static backdrop, drawn once: blurred, darkened cover tinted with the accent. */
-    val background: Bitmap = Bitmap.createBitmap(s.aspect.width, s.aspect.height, Bitmap.Config.ARGB_8888).also { bmp ->
+    val background: Bitmap = Bitmap.createBitmap(s.quality.width(s.aspect), s.quality.height(s.aspect), Bitmap.Config.ARGB_8888).also { bmp ->
         val c = Canvas(bmp)
+        c.scale(scale, scale)
         c.drawColor(Color.BLACK)
         val cover = s.cover
         if (cover != null) {
@@ -76,15 +92,20 @@ class FrameRenderer(private val s: FrameSpec) {
     private val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.BLACK; setShadowLayer(48 * unit, 0f, 18 * unit, Color.argb(150, 0, 0, 0)) }
     private val barPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeCap = Paint.Cap.ROUND }
-    private val titlePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = s.serif; color = Color.WHITE }
-    private val artistPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = s.sans; color = Color.argb(215, 255, 255, 255) }
+    // Bold serif with a soft shadow, like good subtitles: readable on any part of any cover.
+    private val titlePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = s.serif; color = Color.WHITE; fontVariationSettings = "'wght' 760"; textShadow() }
+    private val artistPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.create(s.sans, 600, false); color = Color.argb(225, 255, 255, 255); textShadow() }
     private val smallPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = s.sans; color = Color.argb(170, 255, 255, 255) }
-    private val lyricPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = s.serif }
+    private val lyricPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = s.serif; fontVariationSettings = "'wght' 720"; textShadow() }
     private val coverShader = s.cover?.let { BitmapShader(it, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP) }
     private val layouts = HashMap<Int, StaticLayout>()
 
+    private fun Paint.textShadow() = setShadowLayer(9 * unit, 0f, 3 * unit, Color.argb(170, 0, 0, 0))
+
     fun draw(c: Canvas, tMs: Long) {
         c.drawColor(Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR)
+        c.save()
+        c.scale(scale, scale)
         val levels = s.spectrum.at(tMs * 1000)
         when {
             s.mode == RenderMode.LYRICS && vertical -> lyricsVertical(c, tMs, levels)
@@ -93,6 +114,7 @@ class FrameRenderer(private val s: FrameSpec) {
             else -> coverHorizontal(c, tMs, levels)
         }
         watermark(c)
+        c.restore()
         // Fade in from black and out to black at the edges of the track.
         val fade = minOf(tMs / 700f, (s.durationMs - tMs) / 900f, 1f).coerceAtLeast(0f)
         if (fade < 1f) c.drawColor(Color.argb(((1 - fade) * 255).toInt(), 0, 0, 0))
@@ -199,9 +221,9 @@ class FrameRenderer(private val s: FrameSpec) {
             val act = activation(i)
             val dist = kotlin.math.abs(i - focus)
             val base = (205 - dist * 38).coerceIn(50f, 170f)
-            val alpha = lerp(base, 255f, act).toInt()
             val layout = layoutFor(i, lines[i].text, big, width, center)
-            layout.paint.color = Color.argb(alpha, 255, 255, 255)
+            // The sung line takes the track's colour, the rest stay white and fade with distance.
+            layout.paint.color = blend(Color.argb(base.toInt(), 255, 255, 255), s.accent, act)
             val sc = scales[j]
             c.save()
             // Scale around the line's horizontal anchor: its centre, or the left edge.
@@ -331,5 +353,11 @@ class FrameRenderer(private val s: FrameSpec) {
     /** Ease-in-out (smootherstep): starts and stops gently, no jolt at either end. */
     private fun smooth(x: Float) = x * x * x * (x * (x * 6 - 15) + 10)
     private fun lerp(a: Float, b: Float, t: Float) = a + (b - a) * t
+    private fun blend(from: Int, to: Int, t: Float) = Color.argb(
+        lerp(Color.alpha(from).toFloat(), Color.alpha(to).toFloat(), t).toInt(),
+        lerp(Color.red(from).toFloat(), Color.red(to).toFloat(), t).toInt(),
+        lerp(Color.green(from).toFloat(), Color.green(to).toFloat(), t).toInt(),
+        lerp(Color.blue(from).toFloat(), Color.blue(to).toFloat(), t).toInt(),
+    )
     private fun withAlpha(color: Int, a: Float) = Color.argb((a.coerceIn(0f, 1f) * 255).toInt(), Color.red(color), Color.green(color), Color.blue(color))
 }

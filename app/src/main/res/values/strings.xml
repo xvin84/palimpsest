@@ -598,4 +598,8 @@
     <string name="lyrics_mode_original">Original</string>
     <string name="lyrics_mode_both">Both</string>
     <string name="translation_failed">Translation unavailable — tap for details</string>
+    <string name="render_quality">Quality</string>
+    <string name="render_quality_standard">Standard · 1080p · 30 fps</string>
+    <string name="render_quality_high">High · 1080p · 60 fps</string>
+    <string name="render_quality_max">Max · 1440p · 60 fps</string>
 </resources>

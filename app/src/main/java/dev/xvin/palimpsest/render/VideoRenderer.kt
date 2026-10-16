@@ -64,7 +64,7 @@ class VideoRenderer(private val context: Context, private val graph: AppGraph) {
         graph.lyrics.local(track)?.synced?.let(Lrc::parse)?.takeIf { it.isSynced && it.lines.isNotEmpty() }
 
     /** Renders and saves to Movies/Palimpsest; returns the saved video's content URI. */
-    suspend fun render(track: TrackEntity, mode: RenderMode, aspect: RenderAspect, onProgress: (Float) -> Unit): Uri {
+    suspend fun render(track: TrackEntity, mode: RenderMode, aspect: RenderAspect, quality: RenderQuality, onProgress: (Float) -> Unit): Uri {
         val file = track.path?.let(::File)?.takeIf { it.isFile } ?: throw IOException(context.getString(R.string.render_needs_file))
         val s = graph.settings.state.filterNotNull().first()
 
@@ -82,12 +82,14 @@ class VideoRenderer(private val context: Context, private val graph: AppGraph) {
             ?.let(::vividAccent) ?: 0xFFE4572E.toInt()
         val lyrics = if (mode == RenderMode.LYRICS) syncedLyrics(track) ?: throw IOException(context.getString(R.string.render_needs_lyrics)) else null
 
-        val timeline = SpectrumTimeline.analyze(file, FPS, 48, profile, s.eqEnabled, gainDb) { onProgress(it * 0.25f) }
+        val fps = quality.fps
+        val timeline = SpectrumTimeline.analyze(file, fps, 48, profile, s.eqEnabled, gainDb) { onProgress(it * 0.2f) }
         val spec = FrameSpec(
             aspect, mode, s.visualizer.takeIf { it != dev.xvin.palimpsest.data.settings.VisualizerMode.OFF } ?: dev.xvin.palimpsest.data.settings.VisualizerMode.BARS,
             accent, cover, track.title, track.artist, lyrics, timeline, timeline.durationUs / 1000,
             ResourcesCompat.getFont(context, R.font.playfair_display) ?: android.graphics.Typeface.SERIF,
             android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL),
+            quality,
         )
         val renderer = FrameRenderer(spec)
 
@@ -95,50 +97,60 @@ class VideoRenderer(private val context: Context, private val graph: AppGraph) {
         val backgroundPng = File(work, "background.png").also { f -> f.outputStream().use { renderer.background.compress(Bitmap.CompressFormat.PNG, 100, it) } }
         val out = File(work, "video.mp4")
 
-        // The frame on top of the backdrop, redrawn for every presentation time.
-        val frame = Bitmap.createBitmap(aspect.width, aspect.height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(frame)
-        val overlay = object : BitmapOverlay() {
-            override fun getBitmap(presentationTimeUs: Long): Bitmap {
-                renderer.draw(canvas, presentationTimeUs / 1000)
-                return frame
+        // Built fresh for each attempt: a finished export releases its overlay and audio processors.
+        fun composition(): Composition {
+            // The frame on top of the backdrop, redrawn for every presentation time.
+            val frame = Bitmap.createBitmap(quality.width(aspect), quality.height(aspect), Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(frame)
+            val overlay = object : BitmapOverlay() {
+                override fun getBitmap(presentationTimeUs: Long): Bitmap {
+                    renderer.draw(canvas, presentationTimeUs / 1000)
+                    return frame
+                }
             }
+
+            val fx = AudioEffects().apply {
+                equalizer.setProfile(profile)
+                equalizer.enabled = s.eqEnabled
+                equalizer.setGainDb(gainDb)
+            }
+            // AAC encoders top out at 48 kHz; hi-res files are resampled after the effects.
+            val processors = buildList<androidx.media3.common.audio.AudioProcessor> {
+                add(EffectsAudioProcessor(fx))
+                if (timeline.sampleRate > 48_000) add(SonicAudioProcessor().apply { setOutputSampleRateHz(48_000) })
+            }
+            val audio = EditedMediaItem.Builder(MediaItem.fromUri(Uri.fromFile(file)))
+                .setRemoveVideo(true)
+                .setEffects(Effects(processors, emptyList()))
+                .build()
+            val video = EditedMediaItem.Builder(
+                MediaItem.Builder().setUri(Uri.fromFile(backgroundPng)).setImageDurationMs(timeline.durationUs / 1000).build(),
+            )
+                .setDurationUs(timeline.durationUs)
+                .setFrameRate(fps)
+                .setEffects(Effects(emptyList(), listOf(OverlayEffect(listOf(overlay)))))
+                .build()
+            return Composition.Builder(
+                EditedMediaItemSequence.Builder(video).build(),
+                EditedMediaItemSequence.Builder(audio).build(),
+            ).build()
         }
 
-        val fx = AudioEffects().apply {
-            equalizer.setProfile(profile)
-            equalizer.enabled = s.eqEnabled
-            equalizer.setGainDb(gainDb)
+        // One retry: a stalled export (the phone throttling a background app) usually goes through the second time.
+        try {
+            export(composition(), out, quality) { onProgress(0.2f + it * 0.78f) }
+        } catch (e: ExportException) {
+            if (e.errorCode != ExportException.ERROR_CODE_MUXING_TIMEOUT && e.errorCode != ExportException.ERROR_CODE_MUXING_FAILED) throw e
+            out.delete()
+            export(composition(), out, quality) { onProgress(0.2f + it * 0.78f) }
         }
-        // AAC encoders top out at 48 kHz; hi-res files are resampled after the effects.
-        val processors = buildList<androidx.media3.common.audio.AudioProcessor> {
-            add(EffectsAudioProcessor(fx))
-            if (timeline.sampleRate > 48_000) add(SonicAudioProcessor().apply { setOutputSampleRateHz(48_000) })
-        }
-        val audio = EditedMediaItem.Builder(MediaItem.fromUri(Uri.fromFile(file)))
-            .setRemoveVideo(true)
-            .setEffects(Effects(processors, emptyList()))
-            .build()
-        val video = EditedMediaItem.Builder(
-            MediaItem.Builder().setUri(Uri.fromFile(backgroundPng)).setImageDurationMs(timeline.durationUs / 1000).build(),
-        )
-            .setDurationUs(timeline.durationUs)
-            .setFrameRate(FPS)
-            .setEffects(Effects(emptyList(), listOf(OverlayEffect(listOf(overlay)))))
-            .build()
-        val composition = Composition.Builder(
-            EditedMediaItemSequence.Builder(video).build(),
-            EditedMediaItemSequence.Builder(audio).build(),
-        ).build()
-
-        export(composition, out, aspect) { onProgress(0.25f + it * 0.73f) }
         val uri = withContext(Dispatchers.IO) { publish(out, FileNames.sanitize("${track.artist} - ${track.title}")) }
         work.deleteRecursively()
         onProgress(1f)
         return uri
     }
 
-    private suspend fun export(composition: Composition, out: File, aspect: RenderAspect, onProgress: (Float) -> Unit) = withContext(Dispatchers.Main) {
+    private suspend fun export(composition: Composition, out: File, quality: RenderQuality, onProgress: (Float) -> Unit) = withContext(Dispatchers.Main) {
         coroutineScope {
             val holder = ProgressHolder()
             lateinit var transformer: Transformer
@@ -151,16 +163,17 @@ class VideoRenderer(private val context: Context, private val graph: AppGraph) {
             try {
                 suspendCancellableCoroutine { cont ->
                     val encoders = DefaultEncoderFactory.Builder(context)
-                        // Mostly still pictures with a moving visualiser: 4 Mbit/s is crisp at 1080p and keeps a
-                        // 4-minute video near 130 MB. Audio at 256 kbit/s AAC stays transparent.
-                        .setRequestedVideoEncoderSettings(VideoEncoderSettings.Builder().setBitrate(4_000_000).build())
-                        .setRequestedAudioEncoderSettings(androidx.media3.transformer.AudioEncoderSettings.Builder().setBitrate(256_000).build())
+                        .setRequestedVideoEncoderSettings(VideoEncoderSettings.Builder().setBitrate(quality.videoBitrate).build())
+                        .setRequestedAudioEncoderSettings(androidx.media3.transformer.AudioEncoderSettings.Builder().setBitrate(quality.audioBitrate).build())
                         .build()
                     transformer = Transformer.Builder(context)
                         .setLooper(Looper.getMainLooper())
                         .setVideoMimeType(MimeTypes.VIDEO_H264)
                         .setAudioMimeType(MimeTypes.AUDIO_AAC)
                         .setEncoderFactory(encoders)
+                        // The default watchdog aborts after 10 s without a written sample — which happens
+                        // when the system pauses a background export for a moment. A slow export is fine.
+                        .setMaxDelayBetweenMuxerSamplesMs(androidx.media3.common.C.TIME_UNSET)
                         .addListener(object : Transformer.Listener {
                             override fun onCompleted(composition: Composition, exportResult: ExportResult) { if (cont.isActive) cont.resume(Unit) }
                             override fun onError(composition: Composition, exportResult: ExportResult, exportException: ExportException) {
@@ -203,7 +216,5 @@ class VideoRenderer(private val context: Context, private val graph: AppGraph) {
         return android.graphics.Color.HSVToColor(hsv)
     }
 
-    companion object {
-        const val FPS = 30
-    }
+
 }

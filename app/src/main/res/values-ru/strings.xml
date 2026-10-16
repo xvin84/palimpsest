@@ -605,4 +605,8 @@
     <string name="lyrics_mode_original">Оригинал</string>
     <string name="lyrics_mode_both">Оба</string>
     <string name="translation_failed">Перевод недоступен — нажми, чтобы узнать почему</string>
+    <string name="render_quality">Качество</string>
+    <string name="render_quality_standard">Обычное · 1080p · 30 к/с</string>
+    <string name="render_quality_high">Высокое · 1080p · 60 к/с</string>
+    <string name="render_quality_max">Максимум · 1440p · 60 к/с</string>
 </resources>

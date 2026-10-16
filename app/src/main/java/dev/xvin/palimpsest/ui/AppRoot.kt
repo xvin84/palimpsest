@@ -262,18 +262,17 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
             ) { padding ->
                 NavHost(
                     nav, startDestination = LibraryRoute, modifier = Modifier.padding(padding),
-                    // Opaque screens stack like cards: a new one rises a little and comes into focus while the
-                    // one underneath blurs and dims (see [Screen]); closing drops the card down and away.
-                    // Bottom-bar tabs are siblings, not a stack — they just cross-fade.
+                    // Opaque screens stack like sheets: a new one slides up from the bottom over the
+                    // previous one, closing slides it back down. Bottom-bar tabs just cross-fade.
                     enterTransition = {
                         if (isTabSwitch()) fadeIn(tween(Motion.TAB))
-                        else slideInVertically(tween(Motion.ENTER, easing = Motion.Decelerate)) { it / 6 } + fadeIn(tween(Motion.ENTER))
+                        else slideInVertically(tween(Motion.ENTER, easing = Motion.Decelerate)) { it }
                     },
                     exitTransition = { if (isTabSwitch()) fadeOut(tween(Motion.TAB)) else ExitTransition.KeepUntilTransitionsFinished },
                     popEnterTransition = { if (isTabSwitch()) fadeIn(tween(Motion.TAB)) else EnterTransition.None },
                     popExitTransition = {
                         if (isTabSwitch()) fadeOut(tween(Motion.TAB))
-                        else slideOutVertically(tween(Motion.EXIT, easing = Motion.Accelerate)) { it } + fadeOut(tween(Motion.EXIT, delayMillis = Motion.EXIT / 2))
+                        else slideOutVertically(tween(Motion.EXIT, easing = Motion.Accelerate)) { it }
                     },
                 ) {
                     composable<LibraryRoute> { Screen { LibraryScreen() } }
@@ -351,8 +350,8 @@ private fun BottomBar(nav: androidx.navigation.NavHostController) {
 
 /** Durations and curves shared by every screen transition. */
 private object Motion {
-    const val ENTER = 230
-    const val EXIT = 200
+    const val ENTER = 260
+    const val EXIT = 220
     const val TAB = 140
     val BLUR = 18.dp
     val Decelerate = androidx.compose.animation.core.CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
@@ -364,18 +363,8 @@ private val tabRoutes = listOf(LibraryRoute::class, SearchRoute::class, SourcesR
 private fun androidx.compose.animation.AnimatedContentTransitionScope<androidx.navigation.NavBackStackEntry>.isTabSwitch() =
     tabRoutes.any { initialState.destination.hasRoute(it) } && tabRoutes.any { targetState.destination.hasRoute(it) }
 
-/**
- * Opaque backdrop for a destination, so screens never show through each other mid-transition.
- * Whenever the screen isn't the settled one (being covered, or just arriving) it is blurred and
- * dimmed, which gives the card stack its depth.
- */
+/** Opaque backdrop for a destination, so screens never show through each other mid-transition. */
 @Composable
-private fun androidx.compose.animation.AnimatedContentScope.Screen(content: @Composable () -> Unit) {
-    val away by transition.animateFloat(transitionSpec = { tween(Motion.ENTER) }, label = "away") {
-        if (it == androidx.compose.animation.EnterExitState.Visible) 0f else 1f
-    }
-    Box(Modifier.fillMaxSize().then(if (away > 0.01f) Modifier.blur(Motion.BLUR * away) else Modifier).background(Ink.Paper)) {
-        content()
-        if (away > 0.01f) Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.35f * away)))
-    }
+private fun Screen(content: @Composable () -> Unit) {
+    Box(Modifier.fillMaxSize().background(Ink.Paper)) { content() }
 }

@@ -27,12 +27,16 @@ class RenderWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
         val track = graph.db.tracks().get(inputData.getLong(KEY_TRACK, -1)) ?: return Result.failure()
         val mode = RenderMode.valueOf(inputData.getString(KEY_MODE) ?: RenderMode.COVER.name)
         val aspect = RenderAspect.valueOf(inputData.getString(KEY_ASPECT) ?: RenderAspect.VERTICAL.name)
+        val quality = RenderQuality.valueOf(inputData.getString(KEY_QUALITY) ?: RenderQuality.HIGH.name)
         val title = "${track.artist} — ${track.title}"
         setForeground(foreground(title, 0f))
         val nm = applicationContext.getSystemService(NotificationManager::class.java)
         var lastPercent = -1
+        // Keep the CPU awake: some phones pause background work for long enough to break an export.
+        val wake = applicationContext.getSystemService(android.os.PowerManager::class.java)
+            .newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "palimpsest:render").apply { acquire(3 * 3600_000L) }
         return try {
-            val uri = VideoRenderer(applicationContext, graph).render(track, mode, aspect) { p ->
+            val uri = VideoRenderer(applicationContext, graph).render(track, mode, aspect, quality) { p ->
                 val percent = (p * 100).toInt()
                 if (percent != lastPercent) { lastPercent = percent; nm.notify(PROGRESS_ID, notification(title, p)) }
             }
@@ -43,6 +47,8 @@ class RenderWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
         } catch (e: Exception) {
             graph.errors.report(e, tr(R.string.render_ctx, title))
             Result.failure()
+        } finally {
+            if (wake.isHeld) wake.release()
         }
     }
 
@@ -66,8 +72,10 @@ class RenderWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
             .build()
     }
 
-    private fun foreground(title: String, p: Float) =
-        ForegroundInfo(PROGRESS_ID, notification(title, p), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+    private fun foreground(title: String, p: Float) = ForegroundInfo(
+        PROGRESS_ID, notification(title, p),
+        if (android.os.Build.VERSION.SDK_INT >= 35) ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING else ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+    )
 
     private fun done(title: String, uri: Uri) {
         channel()
@@ -98,13 +106,14 @@ class RenderWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
         private const val KEY_TRACK = "track"
         private const val KEY_MODE = "mode"
         private const val KEY_ASPECT = "aspect"
+        private const val KEY_QUALITY = "quality"
         private const val CHANNEL = "render"
         private const val PROGRESS_ID = 61
         private const val DONE_ID = 62
 
-        fun start(context: Context, trackId: Long, mode: RenderMode, aspect: RenderAspect) {
+        fun start(context: Context, trackId: Long, mode: RenderMode, aspect: RenderAspect, quality: RenderQuality) {
             val req = OneTimeWorkRequestBuilder<RenderWorker>()
-                .setInputData(workDataOf(KEY_TRACK to trackId, KEY_MODE to mode.name, KEY_ASPECT to aspect.name))
+                .setInputData(workDataOf(KEY_TRACK to trackId, KEY_MODE to mode.name, KEY_ASPECT to aspect.name, KEY_QUALITY to quality.name))
                 .build()
             WorkManager.getInstance(context).enqueueUniqueWork("render", ExistingWorkPolicy.APPEND_OR_REPLACE, req)
         }
