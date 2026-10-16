@@ -2,4 +2,6 @@
 <paths>
     <cache-path name="share" path="share/" />
     <files-path name="backups" path="backups/" />
+    <!-- Track files shared from the player («Поделиться» → «Файл»). -->
+    <external-path name="music" path="." />
 </paths>

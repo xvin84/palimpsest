@@ -2,6 +2,9 @@ package dev.xvin.palimpsest.data.remote
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.Intent
 import android.content.Context
 import android.content.pm.ServiceInfo
 import android.util.Log
@@ -15,6 +18,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import dev.xvin.palimpsest.MainActivity
 import dev.xvin.palimpsest.PalimpsestApp
 import dev.xvin.palimpsest.R
 import dev.xvin.palimpsest.core.crypto.AesCtr
@@ -26,7 +30,12 @@ import dev.xvin.palimpsest.data.library.TagEdit
 import dev.xvin.palimpsest.data.library.TagIO
 import dev.xvin.palimpsest.data.library.VersionRepository
 import dev.xvin.palimpsest.data.settings.Settings
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
@@ -68,6 +77,19 @@ class Downloads(
 ) {
     private val _items = MutableStateFlow<Map<Long, DownloadItem>>(emptyMap())
     val items: StateFlow<Map<Long, DownloadItem>> = _items
+
+    @Volatile private var currentJob: Job? = null
+
+    /** Downloads one track as a child job, so [skipCurrent] can drop just this one. */
+    suspend fun runOne(trackId: Long, upgrade: Boolean) = coroutineScope {
+        val job = launch { download(trackId, upgrade) }
+        currentJob = job
+        job.join()
+        currentJob = null
+    }
+
+    /** «Пропустить» in the notification: abandons the track being downloaded, the queue goes on. */
+    fun skipCurrent() { currentJob?.cancel() }
 
     /** [upgrade]: re-download already downloaded tracks, but only if the service has lossless. */
     suspend fun enqueue(trackIds: List<Long>, upgrade: Boolean = false) {
@@ -173,6 +195,9 @@ class Downloads(
                 is VersionRepository.ReplaceResult.Replaced ->
                     set(trackId) { it.copy(state = DownloadState.DONE, progress = 1f) }
             }
+        } catch (e: CancellationException) {
+            set(trackId) { it.copy(state = DownloadState.SKIPPED, message = "Пропущено") }
+            throw e
         } catch (e: Exception) {
             Log.w(TAG, "download $trackId failed", e)
             set(trackId) { it.copy(state = DownloadState.FAILED, message = e.message ?: e.toString()) }
@@ -213,6 +238,7 @@ class Downloads(
                     while (true) {
                         val n = input.read(buf)
                         if (n < 0) break
+                        currentCoroutineContext().ensureActive()
                         sink.write(buf, 0, n)
                         pos += n
                         if (total > 0) onProgress(pos.toFloat() / total)
@@ -242,34 +268,73 @@ class DownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
     override suspend fun doWork(): Result {
         val graph = (applicationContext as PalimpsestApp).graph
         val ids = inputData.getLongArray(KEY_IDS) ?: return Result.success()
-        runCatching { setForeground(foregroundInfo(0, ids.size)) }
         val upgrade = inputData.getBoolean(KEY_UPGRADE, false)
-        ids.forEachIndexed { i, id ->
-            runCatching { setForeground(foregroundInfo(i, ids.size)) }
-            graph.downloads.download(id, upgrade)
+        var index = 0
+        runCatching { setForeground(ForegroundInfo(NOTIFICATION_ID, notification(null, 0, ids.size), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)) }
+        val nm = applicationContext.getSystemService(NotificationManager::class.java)
+        coroutineScope {
+            // Track title and progress, refreshed a couple of times a second (Android drops faster updates anyway).
+            val ticker = launch {
+                graph.downloads.items.sample(500).collect { items ->
+                    nm.notify(NOTIFICATION_ID, notification(items[ids.getOrNull(index)], index, ids.size))
+                }
+            }
+            ids.forEachIndexed { i, id ->
+                index = i
+                graph.downloads.runOne(id, upgrade)
+            }
+            ticker.cancel()
         }
         return Result.success()
     }
 
-    override suspend fun getForegroundInfo(): ForegroundInfo = foregroundInfo(0, 1)
+    override suspend fun getForegroundInfo(): ForegroundInfo =
+        ForegroundInfo(NOTIFICATION_ID, notification(null, 0, 1), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
 
-    private fun foregroundInfo(done: Int, total: Int): ForegroundInfo {
-        val nm = applicationContext.getSystemService(NotificationManager::class.java)
+    private fun notification(item: DownloadItem?, done: Int, total: Int): android.app.Notification {
+        val ctx = applicationContext
+        val nm = ctx.getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(NotificationChannel(CHANNEL, "Загрузки", NotificationManager.IMPORTANCE_LOW))
-        val n = NotificationCompat.Builder(applicationContext, CHANNEL)
+        fun action(action: String, code: Int) = PendingIntent.getBroadcast(
+            ctx, code, Intent(ctx, DownloadActionReceiver::class.java).setAction(action), PendingIntent.FLAG_IMMUTABLE,
+        )
+        val open = PendingIntent.getActivity(ctx, 0, Intent(ctx, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
+        val percent = ((item?.progress ?: 0f) * 100).toInt()
+        val counter = if (total > 1) "${done + 1} из $total" else null
+        return NotificationCompat.Builder(ctx, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("Скачивание треков")
-            .setContentText("$done из $total")
-            .setProgress(total, done, false)
+            .setContentTitle(item?.let { "${it.artist} — ${it.title}" } ?: "Скачивание треков")
+            .setContentText(listOfNotNull(counter, if (item != null) "$percent%" else null).joinToString(" · ").ifEmpty { "Готовлюсь…" })
+            .setProgress(100, percent, item == null || item.state == DownloadState.QUEUED)
+            .setContentIntent(open)
+            .addAction(0, "Пропустить", action(DownloadActionReceiver.SKIP, 1))
+            .addAction(0, "Остановить", action(DownloadActionReceiver.STOP, 2))
             .setOngoing(true)
             .setSilent(true)
+            .setOnlyAlertOnce(true)
             .build()
-        return ForegroundInfo(42, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
     }
 
     companion object {
         const val KEY_IDS = "ids"
         const val KEY_UPGRADE = "upgrade"
         private const val CHANNEL = "downloads"
+        private const val NOTIFICATION_ID = 42
+    }
+}
+
+/** «Пропустить» / «Остановить» buttons of the download notification. */
+class DownloadActionReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        val downloads = (context.applicationContext as PalimpsestApp).graph.downloads
+        when (intent.action) {
+            SKIP -> downloads.skipCurrent()
+            STOP -> downloads.cancelAll()
+        }
+    }
+
+    companion object {
+        const val SKIP = "dev.xvin.palimpsest.download.SKIP"
+        const val STOP = "dev.xvin.palimpsest.download.STOP"
     }
 }
