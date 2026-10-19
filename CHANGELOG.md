@@ -2,6 +2,11 @@
 
 **English** | [Русский](CHANGELOG.ru.md)
 
+## 0.3.3 — 2026-10-19
+
+### Fixed
+- The backdrop of rendered videos is a smooth blur of the cover, not a blocky grid of enlarged pixels.
+
 ## 0.3.2 — 2026-10-16
 
 ### New
