@@ -75,11 +75,8 @@ class FrameRenderer(private val s: FrameSpec) {
         c.drawColor(Color.BLACK)
         val cover = s.cover
         if (cover != null) {
-            // Shrinking to a few dozen pixels and scaling back up with filtering is a cheap, very soft blur.
-            val tiny = Bitmap.createScaledBitmap(cover, 24, 24, true)
-            val soft = Bitmap.createScaledBitmap(Bitmap.createScaledBitmap(tiny, 96, 96, true), 24, 24, true)
             val side = maxOf(w, h)
-            c.drawBitmap(soft, null, RectF((w - side) / 2, (h - side) / 2, (w + side) / 2, (h + side) / 2), Paint(Paint.FILTER_BITMAP_FLAG))
+            c.drawBitmap(blurredCover(cover), null, RectF((w - side) / 2, (h - side) / 2, (w + side) / 2, (h + side) / 2), Paint(Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG))
         }
         c.drawColor(withAlpha(s.accent, 0.12f))
         // Dark enough for white text on any cover, even a bright yellow one.
@@ -363,4 +360,49 @@ class FrameRenderer(private val s: FrameSpec) {
         lerp(Color.blue(from).toFloat(), Color.blue(to).toFloat(), t).toInt(),
     )
     private fun withAlpha(color: Int, a: Float) = Color.argb((a.coerceIn(0f, 1f) * 255).toInt(), Color.red(color), Color.green(color), Color.blue(color))
+}
+
+/**
+ * The cover as a smooth, heavily blurred square: centre-cropped, shrunk in halving steps (a single
+ * big jump skips most source pixels and keeps hard edges), then blurred for real. Blown up to the
+ * whole frame it stays smooth, with no visible grid of enlarged pixels.
+ */
+private fun blurredCover(cover: Bitmap, size: Int = 192, radius: Int = 12): Bitmap {
+    val side = min(cover.width, cover.height)
+    var b = Bitmap.createBitmap(cover, (cover.width - side) / 2, (cover.height - side) / 2, side, side)
+    while (b.width >= size * 2) b = Bitmap.createScaledBitmap(b, b.width / 2, b.height / 2, true)
+    b = Bitmap.createScaledBitmap(b, size, size, true).let { if (it.config == Bitmap.Config.ARGB_8888 && it.isMutable) it else it.copy(Bitmap.Config.ARGB_8888, true) }
+    val px = IntArray(size * size)
+    b.getPixels(px, 0, size, 0, 0, size, size)
+    val tmp = IntArray(px.size)
+    // Three box blurs in a row are close to a Gaussian (sigma ≈ radius); each pass blurs the rows
+    // and writes them transposed, so two calls cover both directions.
+    repeat(3) {
+        boxBlurRowsTransposed(px, tmp, size, size, radius)
+        boxBlurRowsTransposed(tmp, px, size, size, radius)
+    }
+    b.setPixels(px, 0, size, 0, 0, size, size)
+    return b
+}
+
+/** Box-blurs each row of [src] (w × h, edges clamped) into [dst] transposed (h × w). */
+private fun boxBlurRowsTransposed(src: IntArray, dst: IntArray, w: Int, h: Int, r: Int) {
+    val div = 2 * r + 1
+    for (y in 0 until h) {
+        val row = y * w
+        var a = 0; var red = 0; var g = 0; var b = 0
+        for (i in -r..r) {
+            val p = src[row + i.coerceIn(0, w - 1)]
+            a += p ushr 24; red += (p shr 16) and 0xFF; g += (p shr 8) and 0xFF; b += p and 0xFF
+        }
+        for (x in 0 until w) {
+            dst[x * h + y] = ((a / div) shl 24) or ((red / div) shl 16) or ((g / div) shl 8) or (b / div)
+            val pin = src[row + min(x + r + 1, w - 1)]
+            val out = src[row + maxOf(x - r, 0)]
+            a += (pin ushr 24) - (out ushr 24)
+            red += ((pin shr 16) and 0xFF) - ((out shr 16) and 0xFF)
+            g += ((pin shr 8) and 0xFF) - ((out shr 8) and 0xFF)
+            b += (pin and 0xFF) - (out and 0xFF)
+        }
+    }
 }
