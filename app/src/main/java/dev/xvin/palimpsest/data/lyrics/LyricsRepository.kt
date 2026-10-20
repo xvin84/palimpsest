@@ -153,6 +153,22 @@ class LyricsRepository(
         found
     }
 
+    /**
+     * Timed lyrics for a video: what's on the phone, else every online source with timings
+     * (plain text doesn't count — a video can't scroll it in time). A find is kept and written
+     * into the file, unless the user picked other lyrics by hand; then it's only used for the video.
+     */
+    suspend fun syncedForVideo(track: TrackEntity): Lyrics? = withContext(Dispatchers.IO) {
+        local(track)?.takeIf { it.synced != null }?.let { return@withContext it }
+        localAll(track).firstOrNull { it.synced != null }?.let { return@withContext it }
+        val found = online(track, includePlainOnly = false).firstOrNull { it.synced != null } ?: return@withContext null
+        if (!isPinned(track.id)) {
+            db.lyrics().put(LyricsEntity(track.id, found.synced, found.plain, found.source))
+            embed(track, found)
+        }
+        found
+    }
+
     /** Everything available for the «choose a source» list: local and online, duplicates dropped. */
     suspend fun candidates(track: TrackEntity): List<Lyrics> = withContext(Dispatchers.IO) {
         (localAll(track) + online(track)).distinctBy { (it.synced ?: it.plain).orEmpty().trim() }

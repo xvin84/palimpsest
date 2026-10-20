@@ -59,9 +59,12 @@ import kotlin.coroutines.resumeWithException
 @OptIn(UnstableApi::class)
 class VideoRenderer(private val context: Context, private val graph: AppGraph) {
 
-    /** Whether the track has synced lyrics, i.e. whether the lyrics mode makes sense. */
+    /**
+     * Synced lyrics for the lyrics mode: the file, the app, Yandex, then every other source with
+     * timings. null = none anywhere, and the video shows the cover.
+     */
     suspend fun syncedLyrics(track: TrackEntity): ParsedLyrics? =
-        graph.lyrics.local(track)?.synced?.let(Lrc::parse)?.takeIf { it.isSynced && it.lines.isNotEmpty() }
+        graph.lyrics.syncedForVideo(track)?.synced?.let(Lrc::parse)?.takeIf { it.isSynced && it.lines.isNotEmpty() }
 
     /** Renders and saves to Movies/Palimpsest; returns the saved video's content URI. */
     suspend fun render(track: TrackEntity, mode: RenderMode, aspect: RenderAspect, quality: RenderQuality, onProgress: (Float) -> Unit): Uri {
@@ -80,12 +83,13 @@ class VideoRenderer(private val context: Context, private val graph: AppGraph) {
         val cover = withContext(Dispatchers.IO) { runCatching { TagIO.coverBytes(file) }.getOrNull()?.let { BitmapFactory.decodeByteArray(it, 0, it.size) } }
         val accent = cover?.let { Palette.from(it).generate().let { p -> (p.vibrantSwatch ?: p.lightVibrantSwatch ?: p.dominantSwatch)?.rgb } }
             ?.let(::vividAccent) ?: 0xFFE4572E.toInt()
-        val lyrics = if (mode == RenderMode.LYRICS) syncedLyrics(track) ?: throw IOException(context.getString(R.string.render_needs_lyrics)) else null
+        // No timed lyrics anywhere: the cover version rather than a failed render.
+        val lyrics = if (mode == RenderMode.LYRICS) syncedLyrics(track) else null
 
         val fps = quality.fps
         val timeline = SpectrumTimeline.analyze(file, fps, 48, profile, s.eqEnabled, gainDb) { onProgress(it * 0.2f) }
         val spec = FrameSpec(
-            aspect, mode, s.visualizer.takeIf { it != dev.xvin.palimpsest.data.settings.VisualizerMode.OFF } ?: dev.xvin.palimpsest.data.settings.VisualizerMode.BARS,
+            aspect, if (lyrics == null) RenderMode.COVER else mode, s.visualizer.takeIf { it != dev.xvin.palimpsest.data.settings.VisualizerMode.OFF } ?: dev.xvin.palimpsest.data.settings.VisualizerMode.BARS,
             accent, cover, track.title, track.artist, lyrics, timeline, timeline.durationUs / 1000,
             ResourcesCompat.getFont(context, R.font.playfair_display) ?: android.graphics.Typeface.SERIF,
             android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL),

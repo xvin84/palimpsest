@@ -59,6 +59,9 @@ fun RenderDialog(track: TrackEntity, onDismiss: () -> Unit) {
                     Pill(tr(R.string.render_mode_cover), effectiveMode == RenderMode.COVER, { mode = RenderMode.COVER })
                     if (hasLyrics == true) Pill(tr(R.string.render_mode_lyrics), effectiveMode == RenderMode.LYRICS, { mode = RenderMode.LYRICS })
                 }
+                if (hasLyrics == null) {
+                    Text(tr(R.string.render_lyrics_searching), style = MaterialTheme.typography.labelSmall, color = Ink.Faint, modifier = Modifier.padding(top = 6.dp))
+                }
                 if (hasLyrics == false) {
                     Text(tr(R.string.render_no_lyrics_hint), style = MaterialTheme.typography.labelSmall, color = Ink.Faint, modifier = Modifier.padding(top = 6.dp))
                 }

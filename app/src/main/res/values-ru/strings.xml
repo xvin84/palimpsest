@@ -591,7 +591,7 @@
     <string name="render_hint">Трек целиком, звук прямо из файла через твой эквалайзер — без микрофона и шумов. Визуализация как в плеере. Видео сохранится в Movies/Palimpsest.</string>
     <string name="render_mode_cover">Обложка</string>
     <string name="render_mode_lyrics">Текст</string>
-    <string name="render_no_lyrics_hint">Для видео с текстом нужен синхронный текст (найди его на вкладке «Текст» трека)</string>
+    <string name="render_no_lyrics_hint">Синхронного текста нет ни в файле, ни в сети (LRCLIB, NetEase, Яндекс) — в видео будет обложка</string>
     <string name="render_aspect_vertical">Вертикальное 9:16</string>
     <string name="render_aspect_horizontal">Горизонтальное 16:9</string>
     <string name="render_start">Создать</string>
@@ -615,4 +615,5 @@
     <string name="lyrics_plain_badge">без таймкодов</string>
     <string name="lyrics_sources_loading">Ищу во всех источниках…</string>
     <string name="lyrics_auto_searching">Ищу текст с таймкодами…</string>
+    <string name="render_lyrics_searching">Ищу синхронный текст во всех источниках…</string>
 </resources>

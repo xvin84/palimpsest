@@ -584,7 +584,7 @@
     <string name="render_hint">The whole track, audio straight from the file through your equalizer — no microphone, no noise. The visualizer looks like in the player. The video goes to Movies/Palimpsest.</string>
     <string name="render_mode_cover">Cover</string>
     <string name="render_mode_lyrics">Lyrics</string>
-    <string name="render_no_lyrics_hint">A lyrics video needs synced lyrics (find them on the track’s Lyrics tab)</string>
+    <string name="render_no_lyrics_hint">No synced lyrics in the file or online (LRCLIB, NetEase, Yandex) — the video will show the cover</string>
     <string name="render_aspect_vertical">Vertical 9:16</string>
     <string name="render_aspect_horizontal">Horizontal 16:9</string>
     <string name="render_start">Create</string>
@@ -608,4 +608,5 @@
     <string name="lyrics_plain_badge">plain</string>
     <string name="lyrics_sources_loading">Searching every source…</string>
     <string name="lyrics_auto_searching">Looking for synced lyrics…</string>
+    <string name="render_lyrics_searching">Looking for synced lyrics in every source…</string>
 </resources>
