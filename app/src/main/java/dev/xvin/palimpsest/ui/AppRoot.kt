@@ -138,25 +138,30 @@ fun AppRoot(graph: AppGraph, activity: MainActivity) {
     val settings by graph.settings.flow.collectAsStateWithLifecycle(initialValue = null)
     val player by graph.player.state.collectAsStateWithLifecycle()
     var accent by remember { mutableStateOf(Ink.Vermilion) }
+    // The cover's dominant colour: Lane tints the whole app with it.
+    var tint by remember { mutableStateOf(Color(0xFF2A2A30)) }
 
     // Pull an accent colour out of the current cover.
     val ctx = LocalContext.current
     val artKey = player.nowPlaying?.artworkUri ?: player.nowPlaying?.artworkData
     LaunchedEffect(artKey, settings?.dynamicColor) {
-        if (settings?.dynamicColor == false || artKey == null) { accent = Ink.Vermilion; return@LaunchedEffect }
-        accent = withContext(Dispatchers.IO) {
+        if (settings?.dynamicColor == false || artKey == null) { accent = Ink.Vermilion; tint = Color(0xFF2A2A30); return@LaunchedEffect }
+        val picked = withContext(Dispatchers.IO) {
             runCatching {
                 val req = ImageRequest.Builder(ctx).data(artKey).size(128).allowHardware(false).build()
                 val bmp = SingletonImageLoader.get(ctx).execute(req).image?.toBitmap() ?: return@runCatching null
                 val p = Palette.from(bmp).generate()
                 val sw = p.vibrantSwatch ?: p.lightVibrantSwatch ?: p.dominantSwatch
-                sw?.rgb?.let { Color(it) }
+                val dom = p.dominantSwatch ?: sw
+                (sw?.rgb?.let { Color(it) } ?: Ink.Vermilion) to (dom?.rgb?.let { Color(it) } ?: Color(0xFF2A2A30))
             }.getOrNull()
-        } ?: Ink.Vermilion
+        }
+        accent = picked?.first ?: Ink.Vermilion
+        tint = picked?.second ?: Color(0xFF2A2A30)
     }
 
     val theme = settings?.theme ?: ThemeMode.DARK
-    PalimpsestTheme(accent, theme) {
+    PalimpsestTheme(accent, theme, settings?.uiStyle ?: dev.xvin.palimpsest.data.settings.UiStyle.PALIMPSEST, tint) {
         // Status/navigation bar icons must be dark on the light theme.
         val light = Ink.isLight
         LaunchedEffect(light) {

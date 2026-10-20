@@ -43,6 +43,16 @@ enum class ThemeMode(@androidx.annotation.StringRes val labelRes: Int) {
     SYSTEM(R.string.theme_system), DARK(R.string.theme_dark), AMOLED(R.string.theme_amoled), LIGHT(R.string.theme_light),
 }
 
+/**
+ * The look of the whole app. Palimpsest: warm ink and paper, a serif, the cover's colour as an
+ * accent. Lane: the cover takes over — full-bleed art, the background tinted by it, a bold sans
+ * and white pill buttons. More styles can join later.
+ */
+enum class UiStyle(@androidx.annotation.StringRes val labelRes: Int, @androidx.annotation.StringRes val descRes: Int) {
+    PALIMPSEST(R.string.style_palimpsest, R.string.style_palimpsest_desc),
+    LANE(R.string.style_lane, R.string.style_lane_desc),
+}
+
 /** Synced lyrics: the original, the original with a translation under each line, or only the translation. */
 enum class LyricsTranslation { OFF, BELOW, ONLY }
 
@@ -102,6 +112,7 @@ data class AppSettings(
     val trashMaxMb: Int,
     /** Last search queries, newest first. */
     val recentSearches: List<String>,
+    val uiStyle: UiStyle,
 ) {
     /** Profile for [deviceKey]: its own if one is assigned, otherwise the global one. */
     fun eqFor(deviceKey: String): EqProfile {
@@ -148,6 +159,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
         val embedLyrics = booleanPreferencesKey("embed_lyrics")
         val trashEnabled = booleanPreferencesKey("trash_enabled")
         val recentSearches = stringPreferencesKey("recent_searches")
+        val uiStyle = stringPreferencesKey("ui_style")
         val trashDays = androidx.datastore.preferences.core.intPreferencesKey("trash_days")
         val trashMaxMb = androidx.datastore.preferences.core.intPreferencesKey("trash_max_mb")
         val libSort = stringPreferencesKey("library_sort")
@@ -197,6 +209,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
             trashEnabled = p[K.trashEnabled] ?: true,
             trashDays = p[K.trashDays] ?: 30,
             trashMaxMb = p[K.trashMaxMb] ?: 2048,
+            uiStyle = p[K.uiStyle]?.let { runCatching { UiStyle.valueOf(it) }.getOrNull() } ?: UiStyle.PALIMPSEST,
             recentSearches = p[K.recentSearches]?.let { runCatching { json.decodeFromString<List<String>>(it) }.getOrNull() } ?: emptyList(),
             libraryView = LibraryView(p[K.libSort], p[K.libSource], p[K.libLiked] ?: false, p[K.libOffline] ?: false),
         )
@@ -229,6 +242,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
     suspend fun setDeviceEq(map: Map<String, String>) = edit { it[K.deviceEq] = json.encodeToString(map) }
     suspend fun setFadeSec(sec: Int) = edit { it[K.fadeSec] = sec }
     suspend fun setStreamCacheMb(mb: Int) = edit { it[K.streamCacheMb] = mb }
+    suspend fun setUiStyle(s: UiStyle) = edit { it[K.uiStyle] = s.name }
     suspend fun addRecentSearch(q: String) = edit { p ->
         val old = p[K.recentSearches]?.let { runCatching { json.decodeFromString<List<String>>(it) }.getOrNull() }.orEmpty()
         p[K.recentSearches] = json.encodeToString((listOf(q) + old.filterNot { it.equals(q, ignoreCase = true) }).take(12))
