@@ -713,4 +713,5 @@
     <string name="connected">подключено</string>
     <string name="settings_update_check_hint">Установлена: %1$s</string>
     <string name="settings_error_log_hint">Что и когда пошло не так — с объяснением и подробностями для отчёта об ошибке</string>
+    <string name="lane_radio_started">Радио по этому треку</string>
 </resources>

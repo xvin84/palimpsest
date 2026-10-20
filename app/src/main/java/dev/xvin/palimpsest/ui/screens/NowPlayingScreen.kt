@@ -116,6 +116,7 @@ import dev.xvin.palimpsest.i18n.label
 
 @Composable
 fun NowPlayingScreen(onClose: () -> Unit) {
+    if (dev.xvin.palimpsest.ui.theme.LocalUiStyle.current == dev.xvin.palimpsest.data.settings.UiStyle.LANE) { LaneNowPlaying(onClose); return }
     val graph = LocalGraph.current
     val nav = LocalNav.current
     val scope = rememberCoroutineScope()
@@ -373,7 +374,7 @@ fun NowPlayingScreen(onClose: () -> Unit) {
 }
 
 @Composable
-private fun LyricsPane(track: TrackEntity?, positionMs: Long, onSeek: (Long) -> Unit) {
+internal fun LyricsPane(track: TrackEntity?, positionMs: Long, onSeek: (Long) -> Unit) {
     val graph = LocalGraph.current
     val nav = LocalNav.current
     val accent = LocalAccent.current
@@ -641,7 +642,7 @@ private fun TranslationSwitch(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun QueueSheet(onDismiss: () -> Unit) {
+internal fun QueueSheet(onDismiss: () -> Unit) {
     val graph = LocalGraph.current
     val queue by graph.player.queue.collectAsStateWithLifecycle()
     val state by graph.player.state.collectAsStateWithLifecycle()
@@ -679,7 +680,7 @@ private fun QueueSheet(onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun SleepDialog(onDismiss: () -> Unit) {
+internal fun SleepDialog(onDismiss: () -> Unit) {
     val graph = LocalGraph.current
     val sleep by graph.player.sleep.collectAsStateWithLifecycle()
     AlertDialog(
@@ -716,7 +717,7 @@ private fun SleepDialog(onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun SpeedDialog(onDismiss: () -> Unit) {
+internal fun SpeedDialog(onDismiss: () -> Unit) {
     val graph = LocalGraph.current
     val state by graph.player.state.collectAsStateWithLifecycle()
     var speed by remember { mutableFloatStateOf(state.speed) }
@@ -755,8 +756,13 @@ fun MiniPlayer(onOpen: () -> Unit) {
     val position by remember { graph.player.positionFlow(500) }.collectAsStateWithLifecycle(0L to 0L)
     val accent = LocalAccent.current
     var swipe by remember { mutableFloatStateOf(0f) }
+    val lane = dev.xvin.palimpsest.ui.theme.LocalUiStyle.current == dev.xvin.palimpsest.data.settings.UiStyle.LANE
+    // Lane: a floating card in the cover's colour instead of a strip.
+    val tint = dev.xvin.palimpsest.ui.theme.LocalCoverTint.current
+    val cardModifier = if (lane) Modifier.padding(horizontal = 8.dp, vertical = 6.dp).clip(RoundedCornerShape(16.dp))
+        .background(androidx.compose.ui.graphics.lerp(Ink.Paper2, tint, if (Ink.isLight) 0.18f else 0.38f)) else Modifier.background(Ink.Paper2)
     Column(
-        Modifier.fillMaxWidth().background(Ink.Paper2).clickable(onClick = onOpen)
+        Modifier.fillMaxWidth().then(cardModifier).clickable(onClick = onOpen)
             .pointerInput(Unit) {
                 detectHorizontalDragGestures(
                     onDragEnd = {
@@ -769,7 +775,7 @@ fun MiniPlayer(onOpen: () -> Unit) {
             .graphicsLayer { translationX = swipe * 0.3f },
     ) {
         val frac = if (np.durationMs > 0) (position.first.toFloat() / np.durationMs).coerceIn(0f, 1f) else 0f
-        Box(Modifier.fillMaxWidth().height(2.dp).background(Ink.Line)) {
+        if (!lane) Box(Modifier.fillMaxWidth().height(2.dp).background(Ink.Line)) {
             Box(Modifier.fillMaxWidth(frac).height(2.dp).background(accent))
         }
         Row(Modifier.padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -788,6 +794,10 @@ fun MiniPlayer(onOpen: () -> Unit) {
             }
             IconButton(onClick = { graph.player.next() }) { Icon(Icons.Rounded.SkipNext, tr(R.string.next_track), tint = Ink.Muted) }
         }
+        if (lane) Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp).height(2.dp).clip(CircleShape).background(Ink.Text.copy(alpha = 0.2f))) {
+            Box(Modifier.fillMaxWidth(frac).height(2.dp).background(Ink.Text))
+        }
+        if (lane) Spacer(Modifier.height(6.dp))
     }
 }
 
@@ -796,7 +806,7 @@ fun MiniPlayer(onOpen: () -> Unit) {
  * "saved version — newer on Yandex: listen / download", or "this is the new/archived version".
  */
 @Composable
-private fun VersionChip(variant: String?, track: TrackEntity?, mediaId: String) {
+internal fun VersionChip(variant: String?, track: TrackEntity?, mediaId: String) {
     val graph = LocalGraph.current
     val nav = LocalNav.current
     val scope = rememberCoroutineScope()
@@ -835,7 +845,7 @@ private fun VersionChip(variant: String?, track: TrackEntity?, mediaId: String) 
 
 /** Big A | B switch: same moment of the song, other version. */
 @Composable
-private fun AbSwitch(ab: dev.xvin.palimpsest.playback.AbCompare, mediaId: String) {
+internal fun AbSwitch(ab: dev.xvin.palimpsest.playback.AbCompare, mediaId: String) {
     val graph = LocalGraph.current
     val accent = LocalAccent.current
     val isB = mediaId.startsWith(dev.xvin.palimpsest.playback.MediaItems.VERSION_PREFIX)

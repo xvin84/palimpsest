@@ -704,4 +704,5 @@
     <string name="connected">connected</string>
     <string name="settings_update_check_hint">Installed: %1$s</string>
     <string name="settings_error_log_hint">What went wrong and when, explained, with details to copy into a bug report</string>
+    <string name="lane_radio_started">Radio from this track</string>
 </resources>
