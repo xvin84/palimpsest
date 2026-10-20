@@ -15,6 +15,8 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import java.io.File
 import dev.xvin.palimpsest.R
 import dev.xvin.palimpsest.i18n.tr
@@ -32,6 +34,12 @@ class LyricsRepository(
     private val genius: dev.xvin.palimpsest.core.lyrics.GeniusLyrics,
     private val translator: dev.xvin.palimpsest.core.translate.Translator,
     private val translationsDir: File,
+    /** Background work: writing lyrics into files shouldn't hold up showing them. */
+    private val scope: kotlinx.coroutines.CoroutineScope,
+    /** Whether found or chosen lyrics go into the file's tag right away (a setting, on by default). */
+    private val embedEnabled: () -> Boolean,
+    /** Re-reads a file into the library after its tags changed. */
+    private val rescan: suspend (String) -> Unit,
 ) {
     /** Translated lines (same count as [lines]) into the app's language, cached per track, text and language. null = already in it. */
     suspend fun translate(trackId: Long, lines: List<String>): List<String>? = withContext(Dispatchers.IO) {
@@ -62,6 +70,32 @@ class LyricsRepository(
 
     private fun pin(trackId: Long) = runCatching { if (!isPinned(trackId)) pinnedFile.appendText("$trackId\n") }
 
+    /** One file at a time: two quick writes to the same FLAC must not interleave. */
+    private val writeLock = kotlinx.coroutines.sync.Mutex()
+
+    /**
+     * Puts [lyrics] (timed if there are timings) into the track's file, so it travels with the
+     * music to any player. Skipped for streams, read-only formats and when the tag already has it.
+     */
+    private fun embed(track: TrackEntity, lyrics: Lyrics) {
+        val path = track.path ?: return
+        val text = (lyrics.synced ?: lyrics.plain)?.takeIf { it.isNotBlank() } ?: return
+        if (!embedEnabled()) return
+        scope.launch(Dispatchers.IO) {
+            writeLock.withLock {
+                val file = File(path)
+                if (!file.isFile || !TagIO.canEdit(file)) return@withLock
+                val current = runCatching { TagIO.read(file).lyrics }.getOrNull()
+                if (normalize(current) == normalize(text)) return@withLock
+                runCatching { TagIO.write(file, TagEdit(lyrics = text)) }
+                    .onSuccess { runCatching { rescan(path) } }
+                    .onFailure { android.util.Log.w("Lyrics", "couldn't write lyrics into ${file.name}: $it") }
+            }
+        }
+    }
+
+    private fun normalize(s: String?) = s.orEmpty().replace("\r\n", "\n").trim()
+
     /** What's on the phone: saved in the app, the file's tag, a sidecar `.lrc`. */
     private suspend fun localAll(track: TrackEntity): List<Lyrics> = buildList {
         db.lyrics().get(track.id)?.let { add(Lyrics(it.plain, it.synced, it.source)) }
@@ -75,8 +109,10 @@ class LyricsRepository(
     /** The lyrics to show: a hand-picked choice as is, otherwise synced ones win over plain. */
     suspend fun local(track: TrackEntity): Lyrics? = withContext(Dispatchers.IO) {
         val all = localAll(track)
-        if (isPinned(track.id)) return@withContext all.firstOrNull()
-        all.firstOrNull { it.synced != null } ?: all.firstOrNull()
+        val best = if (isPinned(track.id)) all.firstOrNull() else all.firstOrNull { it.synced != null } ?: all.firstOrNull()
+        // Lyrics found or picked before this was automatic still make it into the file.
+        best?.let { embed(track, it) }
+        best
     }
 
     /** Every online source in parallel, in priority order (Yandex, LRCLIB, NetEase, Genius); failures are skipped. */
@@ -98,7 +134,10 @@ class LyricsRepository(
     suspend fun fetchOnline(track: TrackEntity): Lyrics? = withContext(Dispatchers.IO) {
         val all = online(track)
         val found = all.firstOrNull { it.synced != null } ?: all.firstOrNull()
-        if (found != null) db.lyrics().put(LyricsEntity(track.id, found.synced, found.plain, found.source))
+        if (found != null) {
+            db.lyrics().put(LyricsEntity(track.id, found.synced, found.plain, found.source))
+            embed(track, found)
+        }
         found
     }
 
@@ -110,6 +149,7 @@ class LyricsRepository(
         if (isPinned(track.id)) return@withContext null
         val found = online(track, includePlainOnly = false).firstOrNull { it.synced != null } ?: return@withContext null
         db.lyrics().put(LyricsEntity(track.id, found.synced, found.plain, found.source))
+        embed(track, found)
         found
     }
 
@@ -122,6 +162,7 @@ class LyricsRepository(
     suspend fun choose(track: TrackEntity, lyrics: Lyrics) = withContext(Dispatchers.IO) {
         db.lyrics().put(LyricsEntity(track.id, lyrics.synced, lyrics.plain, lyrics.source))
         pin(track.id)
+        embed(track, lyrics)
     }
 
     /** Saves edited lyrics; optionally also writes them into the file's tag. */
@@ -131,7 +172,8 @@ class LyricsRepository(
         if (text.isBlank()) db.lyrics().delete(track.id)
         else db.lyrics().put(LyricsEntity(track.id, l.synced, l.plain, l.source))
         if (embed && track.path != null && TagIO.canEdit(File(track.path))) {
-            TagIO.write(File(track.path), TagEdit(lyrics = text))
+            writeLock.withLock { TagIO.write(File(track.path), TagEdit(lyrics = text)) }
+            runCatching { rescan(track.path) }
         }
     }
 

@@ -92,6 +92,8 @@ data class AppSettings(
     val streamCacheMb: Int,
     /** Library «Tracks» view: sort mode and filters (enum/service names), kept between launches. */
     val libraryView: LibraryView,
+    /** Found or chosen lyrics are written into the file's tag right away. */
+    val embedLyrics: Boolean,
 ) {
     /** Profile for [deviceKey]: its own if one is assigned, otherwise the global one. */
     fun eqFor(deviceKey: String): EqProfile {
@@ -135,6 +137,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
         val waveLanguage = stringPreferencesKey("wave_language")
         val fadeSec = androidx.datastore.preferences.core.intPreferencesKey("fade_sec")
         val streamCacheMb = androidx.datastore.preferences.core.intPreferencesKey("stream_cache_mb")
+        val embedLyrics = booleanPreferencesKey("embed_lyrics")
         val libSort = stringPreferencesKey("library_sort")
         val libSource = stringPreferencesKey("library_source")
         val libLiked = booleanPreferencesKey("library_only_liked")
@@ -178,6 +181,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
             wave = WavePrefs(p[K.waveDiversity].orEmpty(), p[K.waveMood].orEmpty(), p[K.waveLanguage].orEmpty()),
             fadeSec = p[K.fadeSec] ?: 0,
             streamCacheMb = p[K.streamCacheMb] ?: 1024,
+            embedLyrics = p[K.embedLyrics] ?: true,
             libraryView = LibraryView(p[K.libSort], p[K.libSource], p[K.libLiked] ?: false, p[K.libOffline] ?: false),
         )
     }
@@ -209,6 +213,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
     suspend fun setDeviceEq(map: Map<String, String>) = edit { it[K.deviceEq] = json.encodeToString(map) }
     suspend fun setFadeSec(sec: Int) = edit { it[K.fadeSec] = sec }
     suspend fun setStreamCacheMb(mb: Int) = edit { it[K.streamCacheMb] = mb }
+    suspend fun setEmbedLyrics(on: Boolean) = edit { it[K.embedLyrics] = on }
     suspend fun setLibraryView(v: LibraryView) = edit {
         if (v.sort == null) it.remove(K.libSort) else it[K.libSort] = v.sort
         if (v.source == null) it.remove(K.libSource) else it[K.libSource] = v.source

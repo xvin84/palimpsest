@@ -63,6 +63,8 @@ class PlayerConnection(
     private val scope: CoroutineScope,
     /** Last session's queue, put back (paused) when the app starts with an idle player. */
     private val savedQueue: suspend () -> SavedQueue?,
+    /** Whether a track can play with no network (a local file or a fully cached stream). */
+    private val offlinePlayable: (TrackEntity) -> Boolean = { true },
 ) {
     private var controller: MediaController? = null
     private var connecting: Job? = null
@@ -173,6 +175,11 @@ class PlayerConnection(
         }
     }
 
+    private fun isOnline(): Boolean = runCatching {
+        val cm = context.getSystemService(android.net.ConnectivityManager::class.java)
+        cm.getNetworkCapabilities(cm.activeNetwork)?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+    }.getOrDefault(true)
+
     fun currentPosition(): Long = controller?.currentPosition ?: 0L
 
     // --- Commands ---------------------------------------------------------------------------------
@@ -184,11 +191,17 @@ class PlayerConnection(
         return playInternal(tracks, startIndex, shuffle)
     }
 
-    private fun playInternal(tracks: List<TrackEntity>, startIndex: Int, shuffle: Boolean) = scope.launch {
-        if (tracks.isEmpty()) return@launch
+    private fun playInternal(all: List<TrackEntity>, startIndex: Int, shuffle: Boolean) = scope.launch {
+        if (all.isEmpty()) return@launch
         val c = ctrl()
+        // With no network, cloud tracks that aren't cached can't load: leave them out of the queue
+        // (the one the user tapped stays — they asked for it). If nothing would be left, keep them all.
+        val picked = all.getOrNull(startIndex).takeIf { !shuffle }
+        val tracks = if (isOnline()) all else kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            all.filter { it === picked || offlinePlayable(it) }.ifEmpty { all }
+        }
         c.shuffleModeEnabled = shuffle
-        val start = if (shuffle) tracks.indices.random() else startIndex.coerceIn(0, tracks.lastIndex)
+        val start = if (shuffle) tracks.indices.random() else tracks.indexOf(picked).takeIf { it >= 0 } ?: startIndex.coerceIn(0, tracks.lastIndex)
         c.setMediaItems(tracks.map { bare(it.id.toString()) }, start, 0)
         c.prepare()
         c.play()

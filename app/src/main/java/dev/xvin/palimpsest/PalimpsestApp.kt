@@ -144,7 +144,8 @@ class AppGraph(val app: Application) {
     }
 
     val remote = RemoteRepository(db, settings, yandexAuth, yandex, providers, artistIndex) { e, ctx -> errors.report(e, ctx) }
-    val lyrics = LyricsRepository(db, yandex, LrcLibClient(http), dev.xvin.palimpsest.core.lyrics.NetEaseLyrics(http), dev.xvin.palimpsest.core.lyrics.GeniusLyrics(http), dev.xvin.palimpsest.core.translate.Translator(http), File(app.filesDir, "translations"))
+    val lyrics = LyricsRepository(db, yandex, LrcLibClient(http), dev.xvin.palimpsest.core.lyrics.NetEaseLyrics(http), dev.xvin.palimpsest.core.lyrics.GeniusLyrics(http), dev.xvin.palimpsest.core.translate.Translator(http), File(app.filesDir, "translations"),
+        appScope, embedEnabled = { settings.state.value?.embedLyrics != false }, rescan = { scanner.rescanFile(it) })
     val spotify = dev.xvin.palimpsest.core.spotify.SpotifyImporter(http)
     val releases = dev.xvin.palimpsest.data.remote.ReleaseWatcher(app, db, yandex)
     val covers = dev.xvin.palimpsest.data.library.CoverFinder(db, yandex, dev.xvin.palimpsest.core.covers.CoverArtArchive(http), http, scanner, app.cacheDir)
@@ -152,9 +153,28 @@ class AppGraph(val app: Application) {
     val scrobbler = dev.xvin.palimpsest.data.remote.Scrobbler(db, settings, listenBrainz)
     val downloads = Downloads(app, db, settings, http, remote, versions) { e, ctx -> errors.report(e, ctx) }
 
-    val player = PlayerConnection(app, mainScope) { settings.loadQueue() }.also { p ->
+    val player = PlayerConnection(app, mainScope, savedQueue = { settings.loadQueue() }, offlinePlayable = ::offlinePlayable).also { p ->
         p.onError = { e -> errors.report(e, tr(R.string.ctx_playback)) }
     }
+
+    /** True when there's a network that claims internet access. */
+    fun isOnline(): Boolean = runCatching {
+        val cm = app.getSystemService(android.net.ConnectivityManager::class.java)
+        cm.getNetworkCapabilities(cm.activeNetwork)?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+    }.getOrDefault(true)
+
+    /** Whether [track] can play with no network: a file on the phone, or a stream already cached whole. */
+    fun offlinePlayable(track: dev.xvin.palimpsest.data.db.TrackEntity): Boolean = when {
+        track.path != null -> File(track.path).isFile
+        track.remoteId != null -> isFullyCached(StreamResolver.uriFor(track.service, track.remoteId).toString())
+        else -> false
+    }
+
+    /** The stream cache holds every byte of [key] (the item's `palimpsest://` URI). */
+    fun isFullyCached(key: String): Boolean = runCatching {
+        val length = androidx.media3.datasource.cache.ContentMetadata.getContentLength(streamCache.getContentMetadata(key))
+        length > 0 && streamCache.isCached(key, 0, length)
+    }.getOrDefault(false)
     val radio = dev.xvin.palimpsest.playback.RadioController(remote, db, player, mainScope)
     val offlineWave = dev.xvin.palimpsest.playback.OfflineWave(db)
     val backups = dev.xvin.palimpsest.data.Backups(app, db, settings)

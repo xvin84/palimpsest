@@ -191,8 +191,38 @@ class PlaybackService : MediaLibraryService() {
         graph.appScope.launch { graph.settings.saveQueue(q) }
     }
 
+    /**
+     * With no network a cloud track that isn't cached can't load; instead of stumbling on each one
+     * (an error, a pause, a skip), jump straight to the next item that can play — in shuffle order
+     * too. True if it moved on.
+     */
+    private fun skipUnplayableOffline(): Boolean {
+        val item = player.currentMediaItem ?: return false
+        if (playableNow(item) || graph.isOnline()) return false
+        val timeline = player.currentTimeline
+        if (timeline.isEmpty) return false
+        val repeat = if (player.repeatMode == Player.REPEAT_MODE_ONE) Player.REPEAT_MODE_ALL else player.repeatMode
+        var idx = player.currentMediaItemIndex
+        repeat(player.mediaItemCount) {
+            idx = timeline.getNextWindowIndex(idx, repeat, player.shuffleModeEnabled)
+            if (idx == C.INDEX_UNSET || idx == player.currentMediaItemIndex) return false
+            if (playableNow(player.getMediaItemAt(idx))) {
+                player.seekTo(idx, 0)
+                return true
+            }
+        }
+        return false
+    }
+
+    /** Local files, content:// and fully cached streams play without the network. */
+    private fun playableNow(item: MediaItem): Boolean {
+        val uri = item.localConfiguration?.uri ?: return true
+        return uri.scheme != StreamResolver.SCHEME || graph.isFullyCached(uri.toString())
+    }
+
     private inner class PlayerListener : Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            if (skipUnplayableOffline()) return
             cameFromAutoTransition = reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO
             updateWidget(mediaItem)
             history.flush()

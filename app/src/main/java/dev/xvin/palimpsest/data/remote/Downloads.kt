@@ -158,7 +158,10 @@ class Downloads(
 
             // Tags: everything we know, so the file stands on its own in any player.
             val cover = (meta?.coverUrl ?: track.coverUrl)?.let { url -> runCatching { get(url) }.getOrNull() }
-            val lyrics = runCatching { provider.lyrics(remoteId) }.getOrNull()
+            // Lyrics already found or picked in the app win; otherwise the service's own.
+            val lyrics = db.lyrics().get(track.id)?.let { dev.xvin.palimpsest.core.model.Lyrics(it.plain, it.synced, it.source) }
+                ?.takeIf { !(it.synced ?: it.plain).isNullOrBlank() }
+                ?: runCatching { provider.lyrics(remoteId) }.getOrNull()
             val tagged = File(dir, ".download-$trackId.${info.extension}").also { temps += it }
             currentCoroutineContext().ensureActive()
             if (info.extension == "m4a" && Remux.isFragmentedMp4(tmp)) {
