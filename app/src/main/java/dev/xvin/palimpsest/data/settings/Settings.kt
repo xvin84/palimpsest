@@ -48,6 +48,9 @@ enum class LyricsTranslation { OFF, BELOW, ONLY }
 
 enum class VisualizerMode(private val labelRes: Int) { BARS(R.string.viz_bars), MIRROR(R.string.viz_mirror), RING(R.string.viz_ring), OFF(R.string.off_short); val label: String get() = tr(labelRes) }
 
+/** The library's last sort and filters. [sort] and [source] are enum names (null source = all). */
+data class LibraryView(val sort: String? = null, val source: String? = null, val onlyLiked: Boolean = false, val onlyOffline: Boolean = false)
+
 @Serializable
 data class SavedQueue(val trackIds: List<Long> = emptyList(), val index: Int = 0, val positionMs: Long = 0)
 
@@ -87,6 +90,8 @@ data class AppSettings(
     val fadeSec: Int,
     /** Size limit of the streaming cache, MB; takes effect on the next app start. */
     val streamCacheMb: Int,
+    /** Library «Tracks» view: sort mode and filters (enum/service names), kept between launches. */
+    val libraryView: LibraryView,
 ) {
     /** Profile for [deviceKey]: its own if one is assigned, otherwise the global one. */
     fun eqFor(deviceKey: String): EqProfile {
@@ -130,6 +135,10 @@ class Settings(private val context: Context, scope: CoroutineScope) {
         val waveLanguage = stringPreferencesKey("wave_language")
         val fadeSec = androidx.datastore.preferences.core.intPreferencesKey("fade_sec")
         val streamCacheMb = androidx.datastore.preferences.core.intPreferencesKey("stream_cache_mb")
+        val libSort = stringPreferencesKey("library_sort")
+        val libSource = stringPreferencesKey("library_source")
+        val libLiked = booleanPreferencesKey("library_only_liked")
+        val libOffline = booleanPreferencesKey("library_only_offline")
     }
 
     val defaultMusicRoot: String =
@@ -169,6 +178,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
             wave = WavePrefs(p[K.waveDiversity].orEmpty(), p[K.waveMood].orEmpty(), p[K.waveLanguage].orEmpty()),
             fadeSec = p[K.fadeSec] ?: 0,
             streamCacheMb = p[K.streamCacheMb] ?: 1024,
+            libraryView = LibraryView(p[K.libSort], p[K.libSource], p[K.libLiked] ?: false, p[K.libOffline] ?: false),
         )
     }
 
@@ -199,6 +209,12 @@ class Settings(private val context: Context, scope: CoroutineScope) {
     suspend fun setDeviceEq(map: Map<String, String>) = edit { it[K.deviceEq] = json.encodeToString(map) }
     suspend fun setFadeSec(sec: Int) = edit { it[K.fadeSec] = sec }
     suspend fun setStreamCacheMb(mb: Int) = edit { it[K.streamCacheMb] = mb }
+    suspend fun setLibraryView(v: LibraryView) = edit {
+        if (v.sort == null) it.remove(K.libSort) else it[K.libSort] = v.sort
+        if (v.source == null) it.remove(K.libSource) else it[K.libSource] = v.source
+        it[K.libLiked] = v.onlyLiked
+        it[K.libOffline] = v.onlyOffline
+    }
     suspend fun setWave(w: WavePrefs) = edit {
         it[K.waveDiversity] = w.diversity; it[K.waveMood] = w.mood; it[K.waveLanguage] = w.language
     }

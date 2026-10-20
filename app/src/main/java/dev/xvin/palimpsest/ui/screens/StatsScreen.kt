@@ -2,6 +2,8 @@ package dev.xvin.palimpsest.ui.screens
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -71,6 +73,17 @@ fun StatsScreen() {
     val days by remember(since) { plays.observeDays(since) }.collectAsStateWithLifecycle(emptyList())
     val recent by remember { plays.observeRecent(100) }.collectAsStateWithLifecycle(emptyList())
     val accent = LocalAccent.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+
+    // A tap plays (the list it's in, from that row on); a long press opens the track's menu.
+    fun playFrom(ids: List<Long?>, index: Int) = scope.launch {
+        val wanted = ids.filterNotNull().distinct()
+        val byId = graph.db.tracks().getMany(wanted).associateBy { it.id }
+        val tracks = wanted.mapNotNull { byId[it] }
+        val start = tracks.indexOfFirst { it.id == ids[index] }
+        if (start >= 0) graph.player.play(tracks, start)
+    }
+    fun showActions(id: Long) = scope.launch { graph.db.tracks().get(id)?.let(nav::showActions) }
 
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
@@ -104,7 +117,12 @@ fun StatsScreen() {
             item { SectionHeader(tr(R.string.stats_top)) }
             itemsIndexed(topTracks.take(10)) { i, row ->
                 Row(
-                    Modifier.fillMaxWidth().clickable(enabled = row.trackId != null) { row.trackId?.let { nav.openTrack(it, 0) } }
+                    Modifier.fillMaxWidth()
+                        .combinedClickable(
+                            enabled = row.trackId != null,
+                            onClick = { playFrom(topTracks.take(10).map { it.trackId }, i) },
+                            onLongClick = { row.trackId?.let(::showActions) },
+                        )
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -130,9 +148,14 @@ fun StatsScreen() {
         if (recent.isNotEmpty()) {
             item { SectionHeader(tr(R.string.stats_recent)) }
             val fmt = SimpleDateFormat("d MMM, HH:mm", Locale.getDefault())
-            items(recent, key = { it.id }) { e ->
+            itemsIndexed(recent, key = { _, e -> e.id }) { i, e ->
                 Row(
-                    Modifier.fillMaxWidth().clickable(enabled = e.trackId != null) { e.trackId?.let { nav.openTrack(it, 0) } }
+                    Modifier.fillMaxWidth()
+                        .combinedClickable(
+                            enabled = e.trackId != null,
+                            onClick = { playFrom(recent.map { it.trackId }, i) },
+                            onLongClick = { e.trackId?.let(::showActions) },
+                        )
                         .padding(horizontal = 16.dp, vertical = 7.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {

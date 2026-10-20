@@ -71,7 +71,6 @@ import dev.xvin.palimpsest.ui.components.TrackRow
 import dev.xvin.palimpsest.ui.theme.Ink
 import dev.xvin.palimpsest.ui.theme.LocalAccent
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.map
 import androidx.compose.runtime.LaunchedEffect
 import dev.xvin.palimpsest.R
 import dev.xvin.palimpsest.i18n.tr
@@ -137,15 +136,22 @@ fun LibraryScreen() {
 private fun TracksTab() {
     val graph = LocalGraph.current
     val nav = LocalNav.current
+    val scope = rememberCoroutineScope()
     val all by graph.db.tracks().observeAll().collectAsStateWithLifecycle(null)
     val playing by graph.player.state.collectAsStateWithLifecycle()
-    var source by rememberSaveable { mutableStateOf<Service?>(null) }
-    var onlyLiked by rememberSaveable { mutableStateOf(false) }
-    var onlyOffline by rememberSaveable { mutableStateOf(false) }
-    var sort by rememberSaveable { mutableStateOf(SortMode.TITLE) }
+    // The hot copy: already loaded when the tab opens, so the list and the wave card come up together.
+    val settings by graph.settings.state.collectAsStateWithLifecycle()
+    // Sort and filters live in settings, so the library opens the way it was left.
+    val view = settings?.libraryView ?: dev.xvin.palimpsest.data.settings.LibraryView()
+    val source = view.source?.let { runCatching { Service.valueOf(it) }.getOrNull() }
+    val onlyLiked = view.onlyLiked
+    val onlyOffline = view.onlyOffline
+    val sort = view.sort?.let { runCatching { SortMode.valueOf(it) }.getOrNull() } ?: SortMode.TITLE
+    fun update(v: dev.xvin.palimpsest.data.settings.LibraryView) { scope.launch { graph.settings.setLibraryView(v) } }
     var sortMenu by remember { mutableStateOf(false) }
 
     val list = all ?: return
+    if (settings == null) return
     val tracks = remember(list, source, onlyLiked, onlyOffline, sort) {
         list.asSequence()
             .filter { source == null || it.service == source }
@@ -170,15 +176,17 @@ private fun TracksTab() {
         return
     }
 
-    // The wave card shows up once settings load (and only with Yandex). A list resting at the top
-    // would keep its first visible row in place and leave the new card hidden above it, so jump up.
+    // The wave card (only with Yandex) is part of the very first frame of the list: it gets the
+    // already loaded settings instead of loading its own. A card that popped in later, empty at
+    // first, left the list anchored below it, hidden until the screen was touched.
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
-    val hasWave by remember { graph.settings.flow.map { it.yandexToken != null } }.collectAsStateWithLifecycle(false)
+    val s = settings!!
+    val hasWave = s.yandexToken != null
     LaunchedEffect(hasWave) {
         if (hasWave && listState.firstVisibleItemIndex <= 1) listState.scrollToItem(0)
     }
     LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 16.dp)) {
-        if (hasWave) item(key = "wave") { MyWaveCard() }
+        if (hasWave) item(key = "wave") { MyWaveCard(s.wave) }
         item(key = "offline-wave") { OfflineWaveRow() }
         item {
             Row(
@@ -186,10 +194,10 @@ private fun TracksTab() {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Pill(tr(R.string.filter_all), source == null && !onlyLiked && !onlyOffline, { source = null; onlyLiked = false; onlyOffline = false })
-                Pill(tr(R.string.filter_favorites), onlyLiked, { onlyLiked = !onlyLiked })
-                if (list.any { it.path == null }) Pill(tr(R.string.filter_downloaded), onlyOffline, { onlyOffline = !onlyOffline })
-                services.forEach { s -> Pill(s.label, source == s, { source = if (source == s) null else s }) }
+                Pill(tr(R.string.filter_all), source == null && !onlyLiked && !onlyOffline, { update(view.copy(source = null, onlyLiked = false, onlyOffline = false)) })
+                Pill(tr(R.string.filter_favorites), onlyLiked, { update(view.copy(onlyLiked = !onlyLiked)) })
+                if (list.any { it.path == null }) Pill(tr(R.string.filter_downloaded), onlyOffline, { update(view.copy(onlyOffline = !onlyOffline)) })
+                services.forEach { s -> Pill(s.label, source == s, { update(view.copy(source = if (source == s) null else s.name)) }) }
             }
         }
         item {
@@ -207,7 +215,7 @@ private fun TracksTab() {
                         Text(sort.label, color = Ink.Muted)
                     }
                     DropdownMenu(sortMenu, onDismissRequest = { sortMenu = false }) {
-                        SortMode.entries.forEach { m -> DropdownMenuItem(text = { Text(m.label) }, onClick = { sort = m; sortMenu = false }) }
+                        SortMode.entries.forEach { m -> DropdownMenuItem(text = { Text(m.label) }, onClick = { update(view.copy(sort = m.name)); sortMenu = false }) }
                     }
                 }
             }
@@ -402,15 +410,13 @@ fun NameDialog(title: String, initial: String, onDismiss: () -> Unit, onConfirm:
 
 /** «Моя волна»: Yandex's endless personal radio, one tap from the library. */
 @Composable
-private fun MyWaveCard() {
+private fun MyWaveCard(wave: dev.xvin.palimpsest.data.settings.WavePrefs) {
     val graph = LocalGraph.current
     val nav = LocalNav.current
     val scope = rememberCoroutineScope()
-    val settings by graph.settings.flow.collectAsStateWithLifecycle(null)
     val station by graph.radio.station.collectAsStateWithLifecycle()
     var starting by remember { mutableStateOf(false) }
     var tuning by remember { mutableStateOf(false) }
-    if (settings?.yandexToken == null) return
     if (tuning) WaveTuningSheet(onDismiss = { tuning = false })
     val accent = LocalAccent.current
     val active = station?.seed == dev.xvin.palimpsest.playback.RadioController.MY_WAVE
@@ -424,7 +430,7 @@ private fun MyWaveCard() {
                 if (active) { nav.openPlayer(); return@clickable }
                 starting = true
                 scope.launch {
-                    graph.radio.start(dev.xvin.palimpsest.playback.RadioController.MY_WAVE, tr(R.string.my_wave), settings?.wave?.seeds().orEmpty())
+                    graph.radio.start(dev.xvin.palimpsest.playback.RadioController.MY_WAVE, tr(R.string.my_wave), wave.seeds())
                         .onSuccess { nav.openPlayer() }
                         .onFailure { e ->
                             // No network? Don't leave the user in silence — play the offline mix instead.
