@@ -221,11 +221,13 @@ fun SectionHeader(text: String, modifier: Modifier = Modifier, action: (@Composa
 @Composable
 fun Pill(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     // Lane: selected pills are plain white (the theme's primary); Palimpsest: the accent ink.
-    val accent = if (dev.xvin.palimpsest.ui.theme.LocalUiStyle.current == dev.xvin.palimpsest.data.settings.UiStyle.LANE) MaterialTheme.colorScheme.primary else LocalAccent.current
+    val uiStyle = dev.xvin.palimpsest.ui.theme.LocalUiStyle.current
+    val accent = if (uiStyle != dev.xvin.palimpsest.data.settings.UiStyle.PALIMPSEST) MaterialTheme.colorScheme.primary else LocalAccent.current
+    val mono = uiStyle == dev.xvin.palimpsest.data.settings.UiStyle.MONO
     val bg by androidx.compose.animation.animateColorAsState(if (selected) accent else Ink.Paper3, androidx.compose.animation.core.tween(220), label = "pill")
     Box(
         modifier
-            .clip(RoundedCornerShape(50))
+            .clip(if (mono) RoundedCornerShape(0.dp) else RoundedCornerShape(50))
             .background(bg)
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 7.dp),

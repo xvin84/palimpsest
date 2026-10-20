@@ -50,6 +50,7 @@ import dev.xvin.palimpsest.ui.theme.Ink
 import kotlinx.coroutines.launch
 import androidx.annotation.StringRes
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.aspectRatio
@@ -252,11 +253,11 @@ private fun FieldRow(title: String, hint: String?, initial: String, label: Strin
 @Composable
 private fun StylePicker(current: UiStyle) {
     val graph = LocalGraph.current
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         UiStyle.entries.forEach { style ->
             val selected = style == current
             Column(
-                Modifier.weight(1f).clip(RoundedCornerShape(16.dp))
+                Modifier.width(158.dp).clip(RoundedCornerShape(16.dp))
                     .background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.14f) else Ink.Paper2)
                     .border(2.dp, if (selected) MaterialTheme.colorScheme.primary else Color.Transparent, RoundedCornerShape(16.dp))
                     .clickable { graph.appScope.launch { graph.settings.setUiStyle(style) } }
@@ -337,6 +338,43 @@ private fun StylePreview(style: UiStyle, modifier: Modifier) {
                 drawRect(Color.White.copy(alpha = 0.5f), Offset(w * 0.08f, h * 0.8f), Size(w * 0.84f, h * 0.006f))
                 drawCircle(Color.White, w * 0.022f, Offset(w * 0.2f, h * 0.803f))
                 drawRoundRect(Color.White, Offset(w * 0.32f, h * 0.85f), Size(w * 0.36f, h * 0.075f), CornerRadius(w * 0.05f))
+            }
+            UiStyle.GLASS -> {
+                drawRect(Brush.linearGradient(listOf(lerp(Color.Black, tint, 0.7f), lerp(Color.Black, accent, 0.4f), Color(0xFF101014))))
+                val side = w * 0.62f
+                drawRoundRect(accent, Offset((w - side) / 2, h * 0.08f), Size(side, side), CornerRadius(w * 0.08f))
+                drawRoundRect(Color.White.copy(alpha = 0.14f), Offset(w * 0.08f, h * 0.56f), Size(w * 0.84f, h * 0.38f), CornerRadius(w * 0.1f))
+                drawRect(Color.White, Offset(w * 0.16f, h * 0.62f), Size(w * 0.5f, h * 0.035f))
+                drawRoundRect(Color.White.copy(alpha = 0.35f), Offset(w * 0.16f, h * 0.72f), Size(w * 0.68f, h * 0.018f), CornerRadius(4f))
+                drawCircle(Color.White.copy(alpha = 0.9f), w * 0.07f, Offset(w / 2, h * 0.84f))
+            }
+            UiStyle.VINYL -> {
+                drawRect(Color(0xFF1B130E))
+                val c = Offset(w * 0.45f, h * 0.32f)
+                drawCircle(Color(0xFF0A0807), w * 0.36f, c)
+                for (k in 1..3) drawCircle(Color(0xFF2C2723), w * (0.36f - k * 0.07f), c, style = androidx.compose.ui.graphics.drawscope.Stroke(1.5f))
+                drawCircle(accent, w * 0.12f, c)
+                drawLine(Color(0xFFBFA88A), Offset(w * 0.92f, h * 0.06f), Offset(w * 0.7f, h * 0.42f), strokeWidth = w * 0.025f)
+                drawRect(Color(0xFFF3E6CF), Offset(w * 0.12f, h * 0.66f), Size(w * 0.55f, h * 0.035f))
+                drawRect(Color(0xFFBFA88A), Offset(w * 0.12f, h * 0.72f), Size(w * 0.35f, h * 0.025f))
+                drawCircle(Color(0xFFE39B3A), w * 0.08f, Offset(w / 2, h * 0.87f))
+            }
+            UiStyle.MONO -> {
+                drawRect(Color.Black)
+                val side = w * 0.66f
+                drawRect(Color(0xFF8A8A8A), Offset((w - side) / 2, h * 0.08f), Size(side, side))
+                drawRect(Color.White, Offset((w - side) / 2, h * 0.08f), Size(side, side), style = androidx.compose.ui.graphics.drawscope.Stroke(2f))
+                drawRect(Color.White, Offset(w * 0.17f, h * 0.6f), Size(w * 0.6f, h * 0.035f))
+                for (k in 0 until 12) drawRect(if (k < 5) Color.White else Color(0xFF444444), Offset(w * 0.17f + k * w * 0.055f, h * 0.71f), Size(w * 0.045f, h * 0.03f))
+                drawRect(Color.White, Offset(w * 0.38f, h * 0.8f), Size(w * 0.24f, h * 0.09f), style = androidx.compose.ui.graphics.drawscope.Stroke(2f))
+            }
+            UiStyle.NEON -> {
+                drawRect(Brush.verticalGradient(listOf(Color(0xFF0D0221), Color(0xFF2B115E))))
+                drawCircle(Brush.verticalGradient(listOf(Color(0xFFFFD319), Color(0xFFFF2975)), startY = h * 0.1f, endY = h * 0.45f), w * 0.26f, Offset(w / 2, h * 0.3f))
+                for (k in 0 until 6) drawLine(Color(0xFFFF3CD8).copy(alpha = 0.7f), Offset(0f, h * (0.5f + k * k * 0.012f)), Offset(w, h * (0.5f + k * k * 0.012f)), 1.5f)
+                for (k in -4..4) drawLine(Color(0xFFFF3CD8).copy(alpha = 0.6f), Offset(w / 2 + k * w * 0.05f, h * 0.5f), Offset(w / 2 + k * w * 0.3f, h * 0.8f), 1.5f)
+                drawRect(Color(0xFFF8F0FF), Offset(w * 0.15f, h * 0.83f), Size(w * 0.5f, h * 0.035f))
+                drawRect(Brush.horizontalGradient(listOf(Color(0xFFFF3CD8), Color(0xFF2CE5FF))), Offset(w * 0.15f, h * 0.9f), Size(w * 0.7f, h * 0.012f))
             }
         }
     }
