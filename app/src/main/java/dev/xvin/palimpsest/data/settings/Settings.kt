@@ -100,6 +100,8 @@ data class AppSettings(
     val trashDays: Int,
     /** Trash size limit, MB: the oldest files go first when it's exceeded (0 = no limit). */
     val trashMaxMb: Int,
+    /** Last search queries, newest first. */
+    val recentSearches: List<String>,
 ) {
     /** Profile for [deviceKey]: its own if one is assigned, otherwise the global one. */
     fun eqFor(deviceKey: String): EqProfile {
@@ -145,6 +147,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
         val streamCacheMb = androidx.datastore.preferences.core.intPreferencesKey("stream_cache_mb")
         val embedLyrics = booleanPreferencesKey("embed_lyrics")
         val trashEnabled = booleanPreferencesKey("trash_enabled")
+        val recentSearches = stringPreferencesKey("recent_searches")
         val trashDays = androidx.datastore.preferences.core.intPreferencesKey("trash_days")
         val trashMaxMb = androidx.datastore.preferences.core.intPreferencesKey("trash_max_mb")
         val libSort = stringPreferencesKey("library_sort")
@@ -194,6 +197,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
             trashEnabled = p[K.trashEnabled] ?: true,
             trashDays = p[K.trashDays] ?: 30,
             trashMaxMb = p[K.trashMaxMb] ?: 2048,
+            recentSearches = p[K.recentSearches]?.let { runCatching { json.decodeFromString<List<String>>(it) }.getOrNull() } ?: emptyList(),
             libraryView = LibraryView(p[K.libSort], p[K.libSource], p[K.libLiked] ?: false, p[K.libOffline] ?: false),
         )
     }
@@ -225,6 +229,11 @@ class Settings(private val context: Context, scope: CoroutineScope) {
     suspend fun setDeviceEq(map: Map<String, String>) = edit { it[K.deviceEq] = json.encodeToString(map) }
     suspend fun setFadeSec(sec: Int) = edit { it[K.fadeSec] = sec }
     suspend fun setStreamCacheMb(mb: Int) = edit { it[K.streamCacheMb] = mb }
+    suspend fun addRecentSearch(q: String) = edit { p ->
+        val old = p[K.recentSearches]?.let { runCatching { json.decodeFromString<List<String>>(it) }.getOrNull() }.orEmpty()
+        p[K.recentSearches] = json.encodeToString((listOf(q) + old.filterNot { it.equals(q, ignoreCase = true) }).take(12))
+    }
+    suspend fun clearRecentSearches() = edit { it.remove(K.recentSearches) }
     suspend fun setTrash(enabled: Boolean, days: Int, maxMb: Int) = edit {
         it[K.trashEnabled] = enabled; it[K.trashDays] = days; it[K.trashMaxMb] = maxMb
     }

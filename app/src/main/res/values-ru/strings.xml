@@ -652,4 +652,21 @@
         <item quantity="many">%d дней</item>
         <item quantity="other">%d дня</item>
     </plurals>
+    <string name="search_kind_all">Всё</string>
+    <string name="sort_relevance">По совпадению</string>
+    <string name="sort_newest">Сначала новые</string>
+    <string name="search_singles">Синглы</string>
+    <string name="search_only_available">Только доступные</string>
+    <string name="search_hit_artist">Исполнитель</string>
+    <string name="search_hit_album">Альбом</string>
+    <string name="search_hit_track">Трек</string>
+    <string name="search_hit_playlist">Плейлист</string>
+    <string name="show_more">Показать ещё</string>
+    <string name="show_all">Все</string>
+    <string name="search_recent">Недавние запросы</string>
+    <string name="search_nothing">Ничего не нашлось</string>
+    <string name="search_nothing_hint">Попробуй другое написание или поищи в другом сервисе</string>
+    <string name="search_empty_title">Найди что угодно</string>
+    <string name="search_empty_hint">Исполнители, альбомы, треки и плейлисты — в медиатеке, Яндекс Музыке или YouTube Music</string>
+    <string name="playlist">Плейлист</string>
 </resources>

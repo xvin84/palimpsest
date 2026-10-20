@@ -174,6 +174,25 @@ internal data class YSimilar(val similarTracks: List<YTrack> = emptyList())
 internal data class YSearchArtists(val results: List<YArtistFull> = emptyList())
 
 @Serializable
+internal data class YSearchAlbums(val results: List<YAlbumFull> = emptyList())
+
+@Serializable
+internal data class YSearchPlaylists(val results: List<YPlaylist> = emptyList())
+
+/** `best` holds a track, artist, album or playlist; [type] says which. */
+@Serializable
+internal data class YBest(val type: String? = null, val result: JsonElement? = null)
+
+@Serializable
+internal data class YSearchAll(
+    val best: YBest? = null,
+    val tracks: YSearchTracks? = null,
+    val artists: YSearchArtists? = null,
+    val albums: YSearchAlbums? = null,
+    val playlists: YSearchPlaylists? = null,
+)
+
+@Serializable
 internal data class YSearchArtistsResult(val artists: YSearchArtists? = null)
 
 @Serializable

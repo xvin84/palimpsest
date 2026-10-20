@@ -8,6 +8,9 @@ import dev.xvin.palimpsest.core.model.AuthRequiredException
 import dev.xvin.palimpsest.core.model.RadioBatch
 import dev.xvin.palimpsest.core.model.RemoteAlbum
 import dev.xvin.palimpsest.core.model.RemoteArtist
+import dev.xvin.palimpsest.core.model.SearchHit
+import dev.xvin.palimpsest.core.model.SearchResults
+import dev.xvin.palimpsest.core.model.SearchType
 import dev.xvin.palimpsest.core.model.WaveStation
 import dev.xvin.palimpsest.core.model.Lyrics
 import dev.xvin.palimpsest.core.model.MusicProvider
@@ -69,6 +72,36 @@ class YandexMusicProvider(
         return res.tracks?.results.orEmpty().map { it.toRemote() }
     }
 
+    override suspend fun searchAll(query: String, type: SearchType, page: Int): SearchResults {
+        val wire = when (type) {
+            SearchType.ALL -> "all"
+            SearchType.TRACKS -> "track"
+            SearchType.ARTISTS -> "artist"
+            SearchType.ALBUMS -> "album"
+            SearchType.PLAYLISTS -> "playlist"
+        }
+        val res: YSearchAll = get("/search", mapOf("text" to query, "type" to wire, "page" to page.toString(), "nocorrect" to "False"))
+        val best = res.best?.let { b ->
+            val r = b.result ?: return@let null
+            runCatching {
+                when (b.type) {
+                    "track" -> SearchHit.Track(Http.json.decodeFromJsonElement<YTrack>(r).toRemote())
+                    "artist" -> Http.json.decodeFromJsonElement<YArtistFull>(r).toRemote()?.let { SearchHit.Artist(it) }
+                    "album" -> Http.json.decodeFromJsonElement<YAlbumFull>(r).toRemote()?.let { SearchHit.Album(it) }
+                    "playlist" -> SearchHit.Playlist(Http.json.decodeFromJsonElement<YPlaylist>(r).toRemote())
+                    else -> null
+                }
+            }.getOrNull()
+        }
+        return SearchResults(
+            best = best,
+            tracks = res.tracks?.results.orEmpty().map { it.toRemote() },
+            artists = res.artists?.results.orEmpty().mapNotNull { it.toRemote() },
+            albums = res.albums?.results.orEmpty().mapNotNull { it.toRemote() },
+            playlists = res.playlists?.results.orEmpty().map { it.toRemote() },
+        )
+    }
+
     override suspend fun likedTracks(): List<RemoteTrack> {
         val likes: YLikes = get("/users/${uid()}/likes/tracks")
         val ids = likes.library.tracks.map { if (it.albumId != null) "${it.id}:${it.albumId}" else it.id }
@@ -77,16 +110,8 @@ class YandexMusicProvider(
 
     override suspend fun playlists(): List<RemotePlaylist> {
         val list: List<YPlaylist> = get("/users/${uid()}/playlists/list")
-        return list.map { p ->
-            RemotePlaylist(
-                service = Service.YANDEX,
-                id = "${p.owner?.uid ?: p.uid ?: uid()}:${p.kind}",
-                title = p.title,
-                owner = p.owner?.name ?: p.owner?.login,
-                trackCount = p.trackCount,
-                coverUrl = coverUrl(p.cover?.uri ?: p.cover?.itemsUri?.firstOrNull() ?: p.ogImage, 400),
-            )
-        }
+        val me = uid()
+        return list.map { it.toRemote(me) }
     }
 
     override suspend fun playlistTracks(playlistId: String): List<RemoteTrack> {
@@ -352,6 +377,15 @@ class YandexMusicProvider(
             artistIds = artists.filter { it.name.isNotBlank() }.map { it.id },
         )
     }
+
+    private fun YPlaylist.toRemote(fallbackUid: Long? = null) = RemotePlaylist(
+        service = Service.YANDEX,
+        id = "${owner?.uid ?: uid ?: fallbackUid}:$kind",
+        title = title,
+        owner = owner?.name ?: owner?.login,
+        trackCount = trackCount,
+        coverUrl = coverUrl(cover?.uri ?: cover?.itemsUri?.firstOrNull() ?: ogImage, 400),
+    )
 
     private fun YArtistFull.toRemote(): RemoteArtist? {
         val id = id ?: return null

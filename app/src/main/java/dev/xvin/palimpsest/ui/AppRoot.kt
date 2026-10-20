@@ -93,8 +93,9 @@ import dev.xvin.palimpsest.i18n.tr
 @Serializable object EqualizerRoute
 @Serializable data class ListRoute(val kind: TrackListKind, val key: String, val extra: String? = null)
 @Serializable data class TrackRoute(val trackId: Long, val tab: Int = 0)
-@Serializable data class ArtistRoute(val name: String, val remoteId: String? = null)
-@Serializable data class RemoteAlbumRoute(val albumId: String)
+@Serializable data class ArtistRoute(val name: String, val remoteId: String? = null, val service: dev.xvin.palimpsest.core.model.Service = dev.xvin.palimpsest.core.model.Service.YANDEX)
+@Serializable data class RemoteAlbumRoute(val albumId: String, val service: dev.xvin.palimpsest.core.model.Service = dev.xvin.palimpsest.core.model.Service.YANDEX)
+@Serializable data class RemotePlaylistRoute(val service: dev.xvin.palimpsest.core.model.Service, val id: String, val title: String)
 @Serializable data class SimilarRoute(val trackRemoteId: String, val title: String)
 @Serializable object ErrorsRoute
 @Serializable object ReleasesRoute
@@ -110,8 +111,9 @@ interface AppNav {
     fun openEqualizer()
     fun openSettings()
     fun openPlayer()
-    fun openArtist(name: String, remoteId: String? = null)
-    fun openRemoteAlbum(albumId: String)
+    fun openArtist(name: String, remoteId: String? = null, service: dev.xvin.palimpsest.core.model.Service = dev.xvin.palimpsest.core.model.Service.YANDEX)
+    fun openRemoteAlbum(albumId: String, service: dev.xvin.palimpsest.core.model.Service = dev.xvin.palimpsest.core.model.Service.YANDEX)
+    fun openRemotePlaylist(service: dev.xvin.palimpsest.core.model.Service, id: String, title: String)
     fun openSimilar(trackRemoteId: String, title: String)
     fun openErrors()
     fun openReleases()
@@ -228,8 +230,9 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
             override fun openEqualizer() { playerOpen = false; nav.navigate(EqualizerRoute) }
             override fun openSettings() { nav.navigate(SettingsRoute) }
             override fun openPlayer() { playerOpen = true }
-            override fun openArtist(name: String, remoteId: String?) { playerOpen = false; nav.navigate(ArtistRoute(name, remoteId)) }
-            override fun openRemoteAlbum(albumId: String) { playerOpen = false; nav.navigate(RemoteAlbumRoute(albumId)) }
+            override fun openArtist(name: String, remoteId: String?, service: dev.xvin.palimpsest.core.model.Service) { playerOpen = false; nav.navigate(ArtistRoute(name, remoteId, service)) }
+            override fun openRemoteAlbum(albumId: String, service: dev.xvin.palimpsest.core.model.Service) { playerOpen = false; nav.navigate(RemoteAlbumRoute(albumId, service)) }
+            override fun openRemotePlaylist(service: dev.xvin.palimpsest.core.model.Service, id: String, title: String) { playerOpen = false; nav.navigate(RemotePlaylistRoute(service, id, title)) }
             override fun openSimilar(trackRemoteId: String, title: String) { playerOpen = false; nav.navigate(SimilarRoute(trackRemoteId, title)) }
             override fun openErrors() { nav.navigate(ErrorsRoute) }
             override fun openReleases() { nav.navigate(ReleasesRoute) }
@@ -298,8 +301,9 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
                     composable<EqualizerRoute> { Screen { EqualizerScreen() } }
                     composable<ListRoute> { e -> Screen { val r = e.toRoute<ListRoute>(); TrackListScreen(r.kind, r.key, r.extra) } }
                     composable<TrackRoute> { e -> Screen { val r = e.toRoute<TrackRoute>(); TrackScreen(r.trackId, r.tab) } }
-                    composable<ArtistRoute> { e -> Screen { val r = e.toRoute<ArtistRoute>(); dev.xvin.palimpsest.ui.screens.ArtistScreen(r.name, r.remoteId) } }
-                    composable<RemoteAlbumRoute> { e -> Screen { dev.xvin.palimpsest.ui.screens.RemoteAlbumScreen(e.toRoute<RemoteAlbumRoute>().albumId) } }
+                    composable<ArtistRoute> { e -> Screen { val r = e.toRoute<ArtistRoute>(); dev.xvin.palimpsest.ui.screens.ArtistScreen(r.name, r.remoteId, r.service) } }
+                    composable<RemoteAlbumRoute> { e -> Screen { val r = e.toRoute<RemoteAlbumRoute>(); dev.xvin.palimpsest.ui.screens.RemoteAlbumScreen(r.albumId, r.service) } }
+                    composable<RemotePlaylistRoute> { e -> Screen { val r = e.toRoute<RemotePlaylistRoute>(); dev.xvin.palimpsest.ui.screens.RemotePlaylistScreen(r.service, r.id, r.title) } }
                     composable<SimilarRoute> { e -> Screen { val r = e.toRoute<SimilarRoute>(); dev.xvin.palimpsest.ui.screens.SimilarScreen(r.trackRemoteId, r.title) } }
                     composable<ErrorsRoute> { Screen { dev.xvin.palimpsest.ui.screens.ErrorsScreen() } }
                     composable<ReleasesRoute> { Screen { dev.xvin.palimpsest.ui.screens.ReleasesScreen() } }

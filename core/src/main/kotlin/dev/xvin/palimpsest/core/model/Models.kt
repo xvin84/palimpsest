@@ -84,6 +84,28 @@ data class RemotePlaylist(
     val coverUrl: String? = null,
 )
 
+/** What a search looks for: everything at once, or one kind with a full page of it. */
+enum class SearchType { ALL, TRACKS, ARTISTS, ALBUMS, PLAYLISTS }
+
+/** The single best match the service picked for a query, shown as a big card on top. */
+sealed interface SearchHit {
+    data class Track(val track: RemoteTrack) : SearchHit
+    data class Artist(val artist: RemoteArtist) : SearchHit
+    data class Album(val album: RemoteAlbum) : SearchHit
+    data class Playlist(val playlist: RemotePlaylist) : SearchHit
+}
+
+/** One search, grouped by kind. With [SearchType.ALL] each group is a short preview. */
+data class SearchResults(
+    val best: SearchHit? = null,
+    val tracks: List<RemoteTrack> = emptyList(),
+    val artists: List<RemoteArtist> = emptyList(),
+    val albums: List<RemoteAlbum> = emptyList(),
+    val playlists: List<RemotePlaylist> = emptyList(),
+) {
+    val isEmpty get() = best == null && tracks.isEmpty() && artists.isEmpty() && albums.isEmpty() && playlists.isEmpty()
+}
+
 /** A resolved, directly playable/downloadable stream. */
 data class StreamInfo(
     val url: String,

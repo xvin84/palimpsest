@@ -9,6 +9,8 @@ import dev.xvin.palimpsest.core.model.AuthRequiredException
 import dev.xvin.palimpsest.core.model.RadioBatch
 import dev.xvin.palimpsest.core.model.MusicProvider
 import dev.xvin.palimpsest.core.model.RemoteTrack
+import dev.xvin.palimpsest.core.model.SearchResults
+import dev.xvin.palimpsest.core.model.SearchType
 import dev.xvin.palimpsest.core.model.Service
 import dev.xvin.palimpsest.core.yandex.YDeviceCode
 import dev.xvin.palimpsest.core.yandex.YandexAuth
@@ -294,8 +296,14 @@ class RemoteRepository(
 
     // --- Artist cards, albums, similar, radio (Yandex) ---------------------------------------------
 
-    /** Artist page data: by known id, else by an id stored with the library's tracks, else by search. */
-    suspend fun artistInfo(name: String, remoteIdHint: String?): ArtistInfo? = withContext(Dispatchers.IO) {
+    private val youtube get() = providers[Service.YOUTUBE] as? dev.xvin.palimpsest.core.youtube.YouTubeProvider
+
+    /**
+     * Artist page data: by known id, else by an id stored with the library's tracks, else by search.
+     * YouTube Music artists come by their channel id.
+     */
+    suspend fun artistInfo(name: String, remoteIdHint: String?, service: Service = Service.YANDEX): ArtistInfo? = withContext(Dispatchers.IO) {
+        if (service == Service.YOUTUBE && remoteIdHint != null) return@withContext youtube?.artist(remoteIdHint, name)
         if (!yandex.isReady) return@withContext null
         val id = remoteIdHint
             ?: db.artists().remoteIdOf(name)
@@ -304,7 +312,16 @@ class RemoteRepository(
         yandexCall { yandex.artistInfo(id) }
     }
 
-    suspend fun album(albumId: String): AlbumWithTracks = withContext(Dispatchers.IO) { yandexCall { yandex.albumWithTracks(albumId) } }
+    suspend fun album(albumId: String, service: Service = Service.YANDEX): AlbumWithTracks = withContext(Dispatchers.IO) {
+        if (service == Service.YOUTUBE) youtube?.album(albumId) ?: throw IllegalStateException("YouTube unavailable")
+        else yandexCall { yandex.albumWithTracks(albumId) }
+    }
+
+    /** A service playlist's tracks (Yandex «owner:kind», a YouTube list id). */
+    suspend fun playlist(service: Service, id: String): List<RemoteTrack> = withContext(Dispatchers.IO) {
+        val p = providers[service] ?: return@withContext emptyList()
+        if (service == Service.YANDEX) yandexCall { p.playlistTracks(id) } else p.playlistTracks(id)
+    }
 
     suspend fun similar(trackRemoteId: String): List<RemoteTrack> = withContext(Dispatchers.IO) { yandexCall { yandex.similarTracks(trackRemoteId) } }
 
@@ -322,4 +339,10 @@ class RemoteRepository(
 
     suspend fun search(service: Service, query: String): List<RemoteTrack> =
         providers[service]?.takeIf { it.isReady }?.search(query) ?: emptyList()
+
+    /** Search by kind on one service; ALL also brings the service's best match. */
+    suspend fun searchAll(service: Service, query: String, type: SearchType, page: Int = 0): SearchResults = withContext(Dispatchers.IO) {
+        val p = providers[service]?.takeIf { it.isReady } ?: return@withContext SearchResults()
+        if (service == Service.YANDEX) yandexCall { p.searchAll(query, type, page) } else p.searchAll(query, type, page)
+    }
 }

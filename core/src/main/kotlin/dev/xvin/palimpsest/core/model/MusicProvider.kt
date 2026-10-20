@@ -12,6 +12,10 @@ interface MusicProvider {
 
     suspend fun search(query: String, page: Int = 0): List<RemoteTrack>
 
+    /** Search by kind (artists, albums, playlists, or all of them with a best match). Tracks only by default. */
+    suspend fun searchAll(query: String, type: SearchType, page: Int = 0): SearchResults =
+        if (type == SearchType.ALL || type == SearchType.TRACKS) SearchResults(tracks = search(query, page)) else SearchResults()
+
     suspend fun likedTracks(): List<RemoteTrack> = emptyList()
 
     suspend fun playlists(): List<RemotePlaylist> = emptyList()

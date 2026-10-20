@@ -643,4 +643,21 @@
         <item quantity="one">%d day</item>
         <item quantity="other">%d days</item>
     </plurals>
+    <string name="search_kind_all">All</string>
+    <string name="sort_relevance">Best match</string>
+    <string name="sort_newest">Newest first</string>
+    <string name="search_singles">Singles</string>
+    <string name="search_only_available">Only available</string>
+    <string name="search_hit_artist">Artist</string>
+    <string name="search_hit_album">Album</string>
+    <string name="search_hit_track">Track</string>
+    <string name="search_hit_playlist">Playlist</string>
+    <string name="show_more">Show more</string>
+    <string name="show_all">Show all</string>
+    <string name="search_recent">Recent searches</string>
+    <string name="search_nothing">Nothing found</string>
+    <string name="search_nothing_hint">Try another spelling, or search on another service</string>
+    <string name="search_empty_title">Find anything</string>
+    <string name="search_empty_hint">Artists, albums, tracks and playlists — in your library, on Yandex Music or YouTube Music</string>
+    <string name="playlist">Playlist</string>
 </resources>

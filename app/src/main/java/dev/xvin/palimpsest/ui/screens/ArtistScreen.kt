@@ -51,6 +51,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.xvin.palimpsest.core.model.AlbumWithTracks
 import dev.xvin.palimpsest.core.model.ArtistInfo
 import dev.xvin.palimpsest.core.model.RemoteTrack
+import dev.xvin.palimpsest.core.model.Service
+import dev.xvin.palimpsest.i18n.label
 import dev.xvin.palimpsest.ui.LocalNav
 import dev.xvin.palimpsest.ui.components.Artwork
 import dev.xvin.palimpsest.ui.components.LocalGraph
@@ -96,7 +98,7 @@ private class RemoteActions(
 )
 
 @Composable
-fun ArtistScreen(name: String, remoteId: String?) {
+fun ArtistScreen(name: String, remoteId: String?, service: Service = Service.YANDEX) {
     val graph = LocalGraph.current
     val nav = LocalNav.current
     val scope = rememberCoroutineScope()
@@ -104,7 +106,7 @@ fun ArtistScreen(name: String, remoteId: String?) {
     val local by remember(name) { graph.db.artists().observeTracksOf(name) }.collectAsStateWithLifecycle(emptyList())
     val playing by graph.player.state.collectAsStateWithLifecycle()
     val info by produceState<Loaded<ArtistInfo?>>(Loaded.Loading, name, remoteId) {
-        value = runCatching { graph.remote.artistInfo(name, remoteId) }.fold({ Loaded.Ok(it) }, { Loaded.Failed(it) })
+        value = runCatching { graph.remote.artistInfo(name, remoteId, service) }.fold({ Loaded.Ok(it) }, { Loaded.Failed(it) })
     }
     val artist = (info as? Loaded.Ok)?.value
     var showAllLocal by remember { mutableStateOf(false) }
@@ -138,7 +140,7 @@ fun ArtistScreen(name: String, remoteId: String?) {
                     }
                     OutlinedButton(onClick = { graph.player.play(local, shuffle = true) }, contentPadding = compactPadding) { Icon(Icons.Rounded.Shuffle, tr(R.string.shuffle)) }
                 }
-                artist?.let { a ->
+                artist?.takeIf { it.artist.service == Service.YANDEX }?.let { a ->
                     OutlinedButton(onClick = {
                         scope.launch {
                             graph.radio.start("artist:${a.artist.id}", tr(R.string.radio_title, a.artist.name)).onFailure { nav.error(it, tr(R.string.ctx_radio_start)) }
@@ -182,7 +184,7 @@ fun ArtistScreen(name: String, remoteId: String?) {
                 item {
                     LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         items(a.albums, key = { it.id }) { al ->
-                            Column(Modifier.width(140.dp).clickable { nav.openRemoteAlbum(al.id) }) {
+                            Column(Modifier.width(140.dp).clickable { nav.openRemoteAlbum(al.id, al.service) }) {
                                 Artwork(al.coverUrl, al.title, Modifier.size(140.dp), corner = 10.dp)
                                 Spacer(Modifier.height(6.dp))
                                 Text(al.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -197,7 +199,7 @@ fun ArtistScreen(name: String, remoteId: String?) {
                 item {
                     LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         items(a.similar, key = { it.id }) { s ->
-                            Column(Modifier.width(88.dp).clickable { nav.openArtist(s.name, s.id) }, horizontalAlignment = Alignment.CenterHorizontally) {
+                            Column(Modifier.width(88.dp).clickable { nav.openArtist(s.name, s.id, s.service) }, horizontalAlignment = Alignment.CenterHorizontally) {
                                 Artwork(s.coverUrl, s.name, Modifier.size(80.dp), corner = 40.dp)
                                 Spacer(Modifier.height(6.dp))
                                 Text(s.name, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis, color = Ink.Text)
@@ -225,12 +227,12 @@ private fun compact(n: Int) = when {
 
 /** An album straight from Yandex: play, shuffle or download it whole. */
 @Composable
-fun RemoteAlbumScreen(albumId: String) {
+fun RemoteAlbumScreen(albumId: String, service: Service = Service.YANDEX) {
     val graph = LocalGraph.current
     val nav = LocalNav.current
     val actions = rememberRemoteActions()
     val data by produceState<Loaded<AlbumWithTracks>>(Loaded.Loading, albumId) {
-        value = runCatching { graph.remote.album(albumId) }.fold({ Loaded.Ok(it) }, { Loaded.Failed(it) })
+        value = runCatching { graph.remote.album(albumId, service) }.fold({ Loaded.Ok(it) }, { Loaded.Failed(it) })
     }
     RemoteListLayout(
         title = (data as? Loaded.Ok)?.value?.album?.title ?: "",
@@ -240,7 +242,28 @@ fun RemoteAlbumScreen(albumId: String) {
         tracks = (data as? Loaded.Ok)?.value?.tracks.orEmpty(),
         numbered = true,
         actions = actions,
-        onArtist = { nav.openArtist(it, null) },
+        onArtist = { if (service == Service.YANDEX) nav.openArtist(it, null) },
+    )
+}
+
+/** A service playlist (Yandex or YouTube Music): play, shuffle or download it whole. */
+@Composable
+fun RemotePlaylistScreen(service: Service, id: String, title: String) {
+    val graph = LocalGraph.current
+    val actions = rememberRemoteActions()
+    val data by produceState<Loaded<List<RemoteTrack>>>(Loaded.Loading, service, id) {
+        value = runCatching { graph.remote.playlist(service, id) }.fold({ Loaded.Ok(it) }, { Loaded.Failed(it) })
+    }
+    val tracks = (data as? Loaded.Ok)?.value.orEmpty()
+    RemoteListLayout(
+        title = title,
+        subtitle = service.label + if (tracks.isNotEmpty()) " · " + plural(R.plurals.tracks, tracks.size) else "",
+        cover = tracks.firstOrNull()?.coverUrl,
+        state = data,
+        tracks = tracks,
+        numbered = false,
+        actions = actions,
+        onArtist = null,
     )
 }
 
