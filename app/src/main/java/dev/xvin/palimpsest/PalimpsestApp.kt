@@ -36,6 +36,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import java.io.File
 import java.io.IOException
@@ -112,6 +113,9 @@ class AppGraph(val app: Application) {
     val scanner = LibraryScanner(db, settings, artistIndex)
     val versions = VersionRepository(db, settings, scanner)
     val duplicates = dev.xvin.palimpsest.data.library.Duplicates(db, versions, artistIndex)
+    val trash = dev.xvin.palimpsest.data.library.Trash(db, settings, scanner, File(app.filesDir, "trash.json")).also { t ->
+        appScope.launch { t.enforceLimits() }
+    }
 
     val yandexAuth = YandexAuth(http)
     val yandex = YandexMusicProvider({ settings.state.value?.yandexToken }, http)

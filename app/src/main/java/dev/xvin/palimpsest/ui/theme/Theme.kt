@@ -117,6 +117,8 @@ fun PalimpsestTheme(accent: Color = Ink.Vermilion, theme: ThemeMode = ThemeMode.
         secondaryContainer = Ink.Paper3,
         onSecondaryContainer = Ink.Text,
         tertiary = a,
+        // Snackbar buttons sit on the inverse surface: the accent, made legible on it.
+        inversePrimary = readableAccent(a, light = !palette.isLight),
         background = Ink.Paper,
         onBackground = Ink.Text,
         surface = Ink.Paper,

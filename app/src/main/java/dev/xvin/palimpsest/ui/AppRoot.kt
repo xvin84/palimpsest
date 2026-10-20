@@ -101,6 +101,7 @@ import dev.xvin.palimpsest.i18n.tr
 @Serializable object DuplicatesRoute
 @Serializable object StorageRoute
 @Serializable object WrappedRoute
+@Serializable object TrashRoute
 
 /** Navigation actions any screen may trigger. */
 interface AppNav {
@@ -117,8 +118,11 @@ interface AppNav {
     fun openDuplicates()
     fun openStorage()
     fun openWrapped()
+    fun openTrash()
     fun showActions(track: TrackEntity)
     fun toast(message: String)
+    /** A snackbar with a button, e.g. «Undo». */
+    fun toast(message: String, actionLabel: String, onAction: () -> Unit)
     /** Logs [t] and shows it explained, with hints and copyable details. */
     fun error(t: Throwable, context: String)
     fun showError(info: dev.xvin.palimpsest.errors.ErrorInfo)
@@ -179,6 +183,7 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
     var actionsFor by remember { mutableStateOf<TrackEntity?>(null) }
     val snackbar = remember { SnackbarHostState() }
     var toastMessage by remember { mutableStateOf<String?>(null) }
+    var toastAction by remember { mutableStateOf<Pair<String, () -> Unit>?>(null) }
     val player by graph.player.state.collectAsStateWithLifecycle()
     val openRequests by activity.openPlayerRequests
 
@@ -193,7 +198,15 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
     LaunchedEffect(settingsRequest) {
         if (settingsRequest) { playerOpen = false; nav.navigate(SettingsRoute); activity.openSettingsRequest.value = false }
     }
-    LaunchedEffect(toastMessage) { toastMessage?.let { snackbar.showSnackbar(it); toastMessage = null } }
+    LaunchedEffect(toastMessage) {
+        toastMessage?.let { msg ->
+            val action = toastAction
+            val r = snackbar.showSnackbar(msg, actionLabel = action?.first, duration = if (action != null) androidx.compose.material3.SnackbarDuration.Long else androidx.compose.material3.SnackbarDuration.Short)
+            if (r == androidx.compose.material3.SnackbarResult.ActionPerformed) action?.second?.invoke()
+            toastMessage = null
+            toastAction = null
+        }
+    }
     // Background errors (playback, downloads, sync): a short snackbar, details one tap away.
     LaunchedEffect(Unit) {
         graph.errors.shown.collect { info ->
@@ -223,8 +236,10 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
             override fun openDuplicates() { nav.navigate(DuplicatesRoute) }
             override fun openStorage() { nav.navigate(StorageRoute) }
             override fun openWrapped() { nav.navigate(WrappedRoute) }
+            override fun openTrash() { nav.navigate(TrashRoute) }
             override fun showActions(track: TrackEntity) { actionsFor = track }
-            override fun toast(message: String) { toastMessage = message }
+            override fun toast(message: String) { toastAction = null; toastMessage = message }
+            override fun toast(message: String, actionLabel: String, onAction: () -> Unit) { toastAction = actionLabel to onAction; toastMessage = message }
             override fun error(t: Throwable, context: String) { graph.errors.report(t, context, show = false)?.let { errorShown = it } }
             override fun showError(info: dev.xvin.palimpsest.errors.ErrorInfo) { errorShown = info }
             override fun back() { if (playerOpen) playerOpen = false else nav.popBackStack() }
@@ -291,6 +306,7 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
                     composable<DuplicatesRoute> { Screen { dev.xvin.palimpsest.ui.screens.DuplicatesScreen() } }
                     composable<StorageRoute> { Screen { dev.xvin.palimpsest.ui.screens.StorageScreen() } }
                     composable<WrappedRoute> { Screen { dev.xvin.palimpsest.ui.screens.WrappedScreen() } }
+                    composable<TrashRoute> { Screen { dev.xvin.palimpsest.ui.screens.TrashScreen() } }
                 }
             }
 

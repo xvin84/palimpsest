@@ -21,6 +21,7 @@ import dev.xvin.palimpsest.core.model.Service
         Index("folder"),
     ],
 )
+@kotlinx.serialization.Serializable
 data class TrackEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val path: String?,

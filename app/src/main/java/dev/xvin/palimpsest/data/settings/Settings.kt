@@ -94,6 +94,12 @@ data class AppSettings(
     val libraryView: LibraryView,
     /** Found or chosen lyrics are written into the file's tag right away. */
     val embedLyrics: Boolean,
+    /** Deleted files go to the trash first (else they're gone at once). */
+    val trashEnabled: Boolean,
+    /** Days a file stays in the trash (0 = until emptied by hand). */
+    val trashDays: Int,
+    /** Trash size limit, MB: the oldest files go first when it's exceeded (0 = no limit). */
+    val trashMaxMb: Int,
 ) {
     /** Profile for [deviceKey]: its own if one is assigned, otherwise the global one. */
     fun eqFor(deviceKey: String): EqProfile {
@@ -138,6 +144,9 @@ class Settings(private val context: Context, scope: CoroutineScope) {
         val fadeSec = androidx.datastore.preferences.core.intPreferencesKey("fade_sec")
         val streamCacheMb = androidx.datastore.preferences.core.intPreferencesKey("stream_cache_mb")
         val embedLyrics = booleanPreferencesKey("embed_lyrics")
+        val trashEnabled = booleanPreferencesKey("trash_enabled")
+        val trashDays = androidx.datastore.preferences.core.intPreferencesKey("trash_days")
+        val trashMaxMb = androidx.datastore.preferences.core.intPreferencesKey("trash_max_mb")
         val libSort = stringPreferencesKey("library_sort")
         val libSource = stringPreferencesKey("library_source")
         val libLiked = booleanPreferencesKey("library_only_liked")
@@ -182,6 +191,9 @@ class Settings(private val context: Context, scope: CoroutineScope) {
             fadeSec = p[K.fadeSec] ?: 0,
             streamCacheMb = p[K.streamCacheMb] ?: 1024,
             embedLyrics = p[K.embedLyrics] ?: true,
+            trashEnabled = p[K.trashEnabled] ?: true,
+            trashDays = p[K.trashDays] ?: 30,
+            trashMaxMb = p[K.trashMaxMb] ?: 2048,
             libraryView = LibraryView(p[K.libSort], p[K.libSource], p[K.libLiked] ?: false, p[K.libOffline] ?: false),
         )
     }
@@ -213,6 +225,9 @@ class Settings(private val context: Context, scope: CoroutineScope) {
     suspend fun setDeviceEq(map: Map<String, String>) = edit { it[K.deviceEq] = json.encodeToString(map) }
     suspend fun setFadeSec(sec: Int) = edit { it[K.fadeSec] = sec }
     suspend fun setStreamCacheMb(mb: Int) = edit { it[K.streamCacheMb] = mb }
+    suspend fun setTrash(enabled: Boolean, days: Int, maxMb: Int) = edit {
+        it[K.trashEnabled] = enabled; it[K.trashDays] = days; it[K.trashMaxMb] = maxMb
+    }
     suspend fun setEmbedLyrics(on: Boolean) = edit { it[K.embedLyrics] = on }
     suspend fun setLibraryView(v: LibraryView) = edit {
         if (v.sort == null) it.remove(K.libSort) else it[K.libSort] = v.sort

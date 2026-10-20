@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -69,6 +71,8 @@ fun StorageScreen() {
     var busy by remember { mutableStateOf(false) }
     var confirmVersions by remember { mutableStateOf<Int?>(null) }
     LaunchedEffect(reload) { report = graph.storage.report() }
+    val trashEntries by graph.trash.entries.collectAsStateWithLifecycle()
+    val trashBytes = trashEntries.sumOf { it.sizeBytes }
 
     fun size(bytes: Long) = Formatter.formatShortFileSize(context, bytes)
     fun run(done: String, block: suspend () -> Unit) {
@@ -99,6 +103,7 @@ fun StorageScreen() {
                 Slice(tr(R.string.storage_images), r.imagesBytes, Color(0xFF6FAF7A)),
                 Slice(tr(R.string.storage_other), r.otherCacheBytes, Color(0xFFC9A04F)),
                 Slice(tr(R.string.backup), r.backupsBytes, Ink.Muted),
+                Slice(tr(R.string.trash), trashBytes, Color(0xFFB8655A)),
             )
             item { UsageBar(slices, r, ::size) }
             item {
@@ -142,6 +147,12 @@ fun StorageScreen() {
                 Category(slices[4], size(r.otherCacheBytes), tr(R.string.storage_other_hint)) {
                     TextButton(onClick = { run(tr(R.string.storage_cleared)) { graph.storage.clearOther() } }, enabled = !busy && r.otherCacheBytes > 0) { Text(tr(R.string.clear)) }
                 }
+            }
+            item {
+                Category(slices[6], size(trashBytes), tr(R.string.storage_trash_hint, trashEntries.size)) {
+                    TextButton(onClick = nav::openTrash) { Text(tr(R.string.open)) }
+                }
+                Column(Modifier.padding(start = 24.dp)) { TrashSettings() }
             }
             item {
                 Category(slices[5], size(r.backupsBytes), tr(R.string.storage_backups_hint, r.backupsCount)) {
@@ -199,5 +210,91 @@ private fun Category(slice: Slice, size: String, hint: String, actions: (@Compos
         }
         Text(hint, Modifier.padding(start = 24.dp), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
         if (actions != null) Row(Modifier.padding(start = 12.dp)) { actions() }
+    }
+}
+
+/** Trash on/off, how long files stay and how much it may hold. Used in Storage and in Settings. */
+@Composable
+fun TrashSettings() {
+    val graph = LocalGraph.current
+    val context = LocalContext.current
+    val s by graph.settings.state.collectAsStateWithLifecycle()
+    val settings = s ?: return
+    fun set(enabled: Boolean = settings.trashEnabled, days: Int = settings.trashDays, mb: Int = settings.trashMaxMb) =
+        graph.appScope.launch { graph.settings.setTrash(enabled, days, mb); graph.trash.enforceLimits() }
+    ToggleRow(tr(R.string.trash_enabled), tr(R.string.trash_enabled_hint), settings.trashEnabled) { set(enabled = it) }
+    if (!settings.trashEnabled) return
+    Text(tr(R.string.trash_keep), Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium)
+    FlowRow(
+        Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        listOf(7, 30, 90, 0).forEach { d ->
+            Pill(if (d == 0) tr(R.string.trash_keep_forever) else dev.xvin.palimpsest.i18n.plural(R.plurals.days, d), settings.trashDays == d, { set(days = d) })
+        }
+    }
+    Text(tr(R.string.trash_limit), Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium)
+    FlowRow(
+        Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        listOf(512, 1024, 2048, 5120, 0).forEach { mb ->
+            val label = if (mb == 0) tr(R.string.trash_no_limit) else Formatter.formatShortFileSize(context, if (mb < 1024) mb * 1_000_000L else mb / 1024 * 1_000_000_000L)
+            Pill(label, settings.trashMaxMb == mb, { set(mb = mb) })
+        }
+    }
+}
+
+/** «Корзина»: deleted files, each one restorable or gone for good. */
+@Composable
+fun TrashScreen() {
+    val graph = LocalGraph.current
+    val nav = LocalNav.current
+    val context = LocalContext.current
+    val entries by graph.trash.entries.collectAsStateWithLifecycle()
+    var confirmEmpty by remember { mutableStateOf(false) }
+    val fmt = remember { java.text.SimpleDateFormat("d MMM, HH:mm", java.util.Locale.getDefault()) }
+    LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 24.dp)) {
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = nav::back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, tr(R.string.back)) }
+                Text(tr(R.string.trash), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+                if (entries.isNotEmpty()) TextButton(onClick = { confirmEmpty = true }) { Text(tr(R.string.trash_empty_action)) }
+            }
+        }
+        if (entries.isEmpty()) item {
+            Text(tr(R.string.trash_is_empty), Modifier.padding(16.dp), color = Ink.Muted)
+        }
+        items(entries.sortedByDescending { it.deletedAt }, key = { it.trashPath }) { e ->
+            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(e.track.title, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    Text(
+                        listOf(e.track.artist, fmt.format(java.util.Date(e.deletedAt)), Formatter.formatShortFileSize(context, e.sizeBytes)).joinToString(" · "),
+                        style = MaterialTheme.typography.bodySmall, color = Ink.Muted, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    )
+                }
+                TextButton(onClick = {
+                    graph.appScope.launch { nav.toast(if (graph.trash.restore(e)) tr(R.string.restored, e.track.title) else tr(R.string.restore_failed)) }
+                }) { Text(tr(R.string.restore)) }
+                IconButton(onClick = { graph.appScope.launch { graph.trash.purge(e) } }) {
+                    Icon(Icons.Rounded.Close, tr(R.string.delete_forever), tint = Ink.Muted)
+                }
+            }
+        }
+    }
+    if (confirmEmpty) {
+        AlertDialog(
+            onDismissRequest = { confirmEmpty = false },
+            containerColor = Ink.Paper2,
+            title = { Text(tr(R.string.trash_empty_action)) },
+            text = { Text(tr(R.string.trash_empty_confirm, entries.size)) },
+            confirmButton = {
+                TextButton(onClick = { confirmEmpty = false; graph.appScope.launch { graph.trash.empty() } }) {
+                    Text(tr(R.string.delete), color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { confirmEmpty = false }) { Text(tr(R.string.cancel)) } },
+        )
     }
 }

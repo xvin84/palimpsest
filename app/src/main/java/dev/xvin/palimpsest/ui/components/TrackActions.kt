@@ -20,6 +20,10 @@ import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DriveFileMove
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.History
@@ -67,6 +71,8 @@ fun TrackActionsSheet(initial: TrackEntity, onDismiss: () -> Unit) {
     val t = track ?: return
     var pickPlaylist by remember { mutableStateOf(false) }
     var renderDialog by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    var moveDialog by remember { mutableStateOf(false) }
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val storedArtists by graph.db.artists().observeForTrack(initial.id).collectAsStateWithLifecycle(emptyList())
     val artists = storedArtists.ifEmpty {
@@ -105,6 +111,8 @@ fun TrackActionsSheet(initial: TrackEntity, onDismiss: () -> Unit) {
             }
             if (t.path != null) Action(Icons.Rounded.Edit, tr(R.string.action_tags)) { act { nav.openTrack(t.id, 0) } }
             if (t.path != null) Action(Icons.Rounded.Movie, tr(R.string.render_action)) { renderDialog = true }
+            if (t.path != null) Action(Icons.Rounded.DriveFileMove, tr(R.string.action_move_file)) { moveDialog = true }
+            if (t.path != null) Action(Icons.Rounded.Delete, tr(R.string.action_delete_file)) { confirmDelete = true }
             Action(Icons.Rounded.History, tr(R.string.action_versions)) { act { nav.openTrack(t.id, 2) } }
             t.album?.let { album -> Action(Icons.Rounded.Album, tr(R.string.action_album, album)) { act { nav.openList(TrackListKind.ALBUM, album, t.albumArtist ?: t.artist) } } }
             artists.forEach { a -> Action(Icons.Rounded.Person, a.name) { act { nav.openArtist(a.name, a.remoteId) } } }
@@ -122,6 +130,44 @@ fun TrackActionsSheet(initial: TrackEntity, onDismiss: () -> Unit) {
         }
     }
 
+    if (confirmDelete) {
+        val trashOn = graph.settings.state.value?.trashEnabled != false
+        val days = graph.settings.state.value?.trashDays ?: 30
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            containerColor = Ink.Paper2,
+            title = { Text(tr(R.string.delete_file_title)) },
+            text = {
+                Text(
+                    listOfNotNull(
+                        t.path?.substringAfterLast('/'),
+                        if (!trashOn) tr(R.string.delete_file_forever) else if (days > 0) tr(R.string.delete_file_to_trash_days, days) else tr(R.string.delete_file_to_trash),
+                        if (t.remoteId != null) tr(R.string.delete_file_stays_stream, t.service.label) else null,
+                    ).joinToString("\n\n"),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDelete = false
+                    onDismiss()
+                    graph.appScope.launch {
+                        val before = graph.trash.entries.value.size
+                        graph.trash.delete(listOf(t))
+                        val entry = graph.trash.entries.value.drop(before).firstOrNull { it.track.id == t.id }
+                        if (entry != null) nav.toast(tr(R.string.deleted_to_trash, t.title), tr(R.string.undo)) {
+                            graph.appScope.launch { graph.trash.restore(entry) }
+                        } else nav.toast(tr(R.string.deleted_file, t.title))
+                    }
+                }) { Text(tr(R.string.delete), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(tr(R.string.cancel)) } },
+        )
+    }
+
+    if (moveDialog) {
+        MoveFileDialog(t, onDismiss = { moveDialog = false; onDismiss() })
+    }
+
     if (renderDialog) {
         dev.xvin.palimpsest.ui.screens.RenderDialog(t, onDismiss = { renderDialog = false; onDismiss() })
     }
@@ -137,6 +183,64 @@ fun TrackActionsSheet(initial: TrackEntity, onDismiss: () -> Unit) {
             },
         )
     }
+}
+
+/** «Move to folder»: the library's folders to pick from, or any path typed by hand. */
+@Composable
+fun MoveFileDialog(track: TrackEntity, onDismiss: () -> Unit) {
+    val graph = LocalGraph.current
+    val nav = LocalNav.current
+    val current = track.path?.substringBeforeLast('/').orEmpty()
+    var target by remember { mutableStateOf(current) }
+    val folders by androidx.compose.runtime.produceState(emptyList<java.io.File>()) { value = graph.trash.folders() }
+    val roots = graph.settings.state.value?.musicRoots.orEmpty()
+    fun short(path: String) = roots.firstOrNull { path == it || path.startsWith("$it/") }
+        ?.let { r -> r.substringAfterLast('/') + path.removePrefix(r) } ?: path
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Ink.Paper2,
+        title = { Text(tr(R.string.move_file_title)) },
+        text = {
+            Column {
+                androidx.compose.material3.OutlinedTextField(
+                    target, { target = it }, Modifier.fillMaxWidth(),
+                    label = { Text(tr(R.string.move_file_folder)) },
+                    supportingText = { Text(tr(R.string.move_file_hint)) },
+                    trailingIcon = {
+                        if (target.isNotEmpty()) androidx.compose.material3.IconButton(onClick = { target = "" }) {
+                            Icon(androidx.compose.material.icons.Icons.Rounded.Close, tr(R.string.clear))
+                        }
+                    },
+                )
+                LazyColumn(Modifier.padding(top = 6.dp).heightIn(max = 280.dp)) {
+                    items(folders, key = { it.absolutePath }) { f ->
+                        val selected = f.absolutePath == target.trimEnd('/')
+                        Text(
+                            short(f.absolutePath),
+                            color = if (selected) MaterialTheme.colorScheme.primary else Ink.Text,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 2, overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.fillMaxWidth().clickable { target = f.absolutePath }.padding(vertical = 10.dp),
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = target.isNotBlank() && target.trimEnd('/') != current,
+                onClick = {
+                    val dir = java.io.File(target.trim().trimEnd('/'))
+                    onDismiss()
+                    graph.appScope.launch {
+                        val moved = graph.trash.move(listOf(track), dir)
+                        nav.toast(if (moved > 0) tr(R.string.moved_file, short(dir.absolutePath)) else tr(R.string.move_failed))
+                    }
+                },
+            ) { Text(tr(R.string.move)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr(R.string.cancel)) } },
+    )
 }
 
 fun techLine(t: TrackEntity): String = listOfNotNull(
