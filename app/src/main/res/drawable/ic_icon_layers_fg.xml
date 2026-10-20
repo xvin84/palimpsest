@@ -1,0 +1,19 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android" xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <!-- Pages of a palimpsest: older ones show through behind the current one. -->
+    <group android:rotation="-14" android:pivotX="54" android:pivotY="54">
+        <path android:fillColor="#40E4572E" android:pathData="M40,33h28a4,4 0 0,1 4,4v34a4,4 0 0,1 -4,4h-28a4,4 0 0,1 -4,-4v-34a4,4 0 0,1 4,-4z" />
+    </group>
+    <group android:rotation="-6" android:pivotX="54" android:pivotY="54">
+        <path android:fillColor="#80E4572E" android:pathData="M40,33h28a4,4 0 0,1 4,4v34a4,4 0 0,1 -4,4h-28a4,4 0 0,1 -4,-4v-34a4,4 0 0,1 4,-4z" />
+    </group>
+    <path android:pathData="M40,33h28a4,4 0 0,1 4,4v34a4,4 0 0,1 -4,4h-28a4,4 0 0,1 -4,-4v-34a4,4 0 0,1 4,-4z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="36" android:startY="33" android:endX="72" android:endY="75"
+                android:startColor="#FFF0703F" android:endColor="#FFC93A1B" />
+        </aapt:attr>
+    </path>
+    <!-- Lines of text, and a note. -->
+    <path android:fillColor="#E6F4ECDD" android:pathData="M42,41h16v2.6h-16z M42,47h24v2.6h-24z M42,53h20v2.6h-20z" />
+    <path android:fillColor="#FFF4ECDD" android:pathData="M60,58v8.5a3.2,3.2 0 1,1 -2.2,-3v-7.5h7v3h-4.8z" />
+</vector>

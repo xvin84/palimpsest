@@ -715,4 +715,13 @@
     <string name="settings_error_log_hint">Что и когда пошло не так — с объяснением и подробностями для отчёта об ошибке</string>
     <string name="lane_radio_started">Радио по этому треку</string>
     <string name="service_bandcamp">Bandcamp</string>
+    <string name="settings_app_icon">Иконка приложения</string>
+    <string name="settings_app_icon_hint">Значок на рабочем столе. Меняется за пару секунд; некоторые лаунчеры при этом убирают его в список приложений.</string>
+    <string name="app_icon_changed">Иконка изменена — на рабочем столе обновится через пару секунд</string>
+    <string name="icon_classic">Классика</string>
+    <string name="icon_vinyl">Винил</string>
+    <string name="icon_layers">Слои</string>
+    <string name="icon_neon">Неон</string>
+    <string name="icon_cassette">Кассета</string>
+    <string name="icon_lane">Lane</string>
 </resources>

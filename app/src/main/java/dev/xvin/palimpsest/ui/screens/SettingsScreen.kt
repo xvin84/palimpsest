@@ -78,6 +78,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.graphicsLayer
 import dev.xvin.palimpsest.data.settings.AppSettings
 import dev.xvin.palimpsest.data.settings.ThemeMode
 import dev.xvin.palimpsest.data.settings.UiStyle
@@ -270,6 +271,43 @@ private fun StylePicker(current: UiStyle) {
     }
 }
 
+/** The launcher icons as tiles; a tap switches the home-screen icon. */
+@Composable
+private fun IconPicker() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val nav = LocalNav.current
+    var current by remember { mutableStateOf(dev.xvin.palimpsest.ui.theme.AppIcon.current(context)) }
+    FlowRow(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        dev.xvin.palimpsest.ui.theme.AppIcon.entries.forEach { icon ->
+            val selected = icon == current
+            Column(
+                Modifier.width(72.dp).clip(RoundedCornerShape(12.dp)).clickable {
+                    if (!selected) {
+                        dev.xvin.palimpsest.ui.theme.AppIcon.set(context, icon)
+                        current = icon
+                        nav.toast(tr(R.string.app_icon_changed))
+                    }
+                }.padding(vertical = 6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Box(
+                    Modifier.size(60.dp).clip(CircleShape)
+                        .border(if (selected) 3.dp else 0.dp, if (selected) MaterialTheme.colorScheme.primary else Color.Transparent, CircleShape),
+                ) {
+                    // An adaptive icon is 108dp with the visible part in the middle 72dp: scale up to crop the margin.
+                    androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(icon.background), null, Modifier.fillMaxSize().graphicsLayer { scaleX = 1.5f; scaleY = 1.5f })
+                    androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(icon.foreground), null, Modifier.fillMaxSize().graphicsLayer { scaleX = 1.5f; scaleY = 1.5f })
+                }
+                Spacer(Modifier.height(4.dp))
+                Text(tr(icon.labelRes), style = MaterialTheme.typography.labelMedium, color = if (selected) Ink.Text else Ink.Muted, maxLines = 1)
+            }
+        }
+    }
+}
+
 /** A tiny drawing of the player in each style, so the choice is visual. */
 @Composable
 private fun StylePreview(style: UiStyle, modifier: Modifier) {
@@ -325,6 +363,12 @@ private fun settingItems(settings: AppSettings): List<SettingItem> {
         Text(styleTitle, Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp))
         Text(tr(R.string.settings_style_hint), Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
         StylePicker(settings.uiStyle)
+    }
+    val iconTitle = tr(R.string.settings_app_icon)
+    add(SettingsCategory.APPEARANCE, iconTitle, tr(R.string.settings_app_icon_hint), "icon иконка значок launcher") {
+        Text(iconTitle, Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp))
+        Text(tr(R.string.settings_app_icon_hint), Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
+        IconPicker()
     }
     val themeTitle = tr(R.string.settings_theme)
     add(SettingsCategory.APPEARANCE, themeTitle, tr(R.string.settings_theme_hint), "theme dark light amoled тема тёмная светлая") {

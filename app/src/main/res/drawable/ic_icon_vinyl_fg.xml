@@ -1,0 +1,15 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <!-- The record. -->
+    <path android:fillColor="#FF0B0A09" android:pathData="M23,54a31,31 0 1,0 62,0a31,31 0 1,0 -62,0z" />
+    <!-- Grooves. -->
+    <path android:strokeColor="#FF2C2723" android:strokeWidth="0.8" android:pathData="M27,54a27,27 0 1,0 54,0a27,27 0 1,0 -54,0z" />
+    <path android:strokeColor="#FF2C2723" android:strokeWidth="0.8" android:pathData="M31,54a23,23 0 1,0 46,0a23,23 0 1,0 -46,0z" />
+    <path android:strokeColor="#FF2C2723" android:strokeWidth="0.8" android:pathData="M35,54a19,19 0 1,0 38,0a19,19 0 1,0 -38,0z" />
+    <!-- Light catching the vinyl. -->
+    <path android:fillColor="#26FFFFFF" android:pathData="M54,54L36,30A31,31 0 0,1 54,23z" />
+    <path android:fillColor="#14FFFFFF" android:pathData="M54,54L72,78A31,31 0 0,1 54,85z" />
+    <!-- Label with the P. -->
+    <path android:fillColor="#FFE4572E" android:pathData="M42,54a12,12 0 1,0 24,0a12,12 0 1,0 -24,0z" />
+    <path android:fillColor="#FFEDE6DA" android:pathData="M50,47h5a4,4 0 0,1 0,8h-2.5v5h-2.5z M52.5,49.5v3h2.5a1.5,1.5 0 0,0 0,-3z" />
+</vector>

@@ -706,4 +706,13 @@
     <string name="settings_error_log_hint">What went wrong and when, explained, with details to copy into a bug report</string>
     <string name="lane_radio_started">Radio from this track</string>
     <string name="service_bandcamp">Bandcamp</string>
+    <string name="settings_app_icon">App icon</string>
+    <string name="settings_app_icon_hint">The icon on the home screen. It changes in a few seconds; some launchers move it back to the app list.</string>
+    <string name="app_icon_changed">Icon changed — it shows up on the home screen in a few seconds</string>
+    <string name="icon_classic">Classic</string>
+    <string name="icon_vinyl">Vinyl</string>
+    <string name="icon_layers">Layers</string>
+    <string name="icon_neon">Neon</string>
+    <string name="icon_cassette">Cassette</string>
+    <string name="icon_lane">Lane</string>
 </resources>
