@@ -82,6 +82,13 @@ without it the app can only play.
 
 New versions show up in Settings → Updates and install over the current one.
 
+**If the phone refuses to install it:**
+- *«Blocked by Play Protect» / «unsafe app»*: tap «More details» → «Install anyway». Builds before 0.4.1 were signed
+  with a development certificate that Play Protect distrusts; later ones use a proper key (and still update the old ones).
+- *Samsung «Auto Blocker»*: Settings → Security and privacy → Auto Blocker → off (you can turn it back on afterwards).
+- *Xiaomi / HyperOS*: allow installing from the file manager or browser you opened the APK in.
+- *«App not installed» on Android 12 or older*: Palimpsest needs Android 13 or newer.
+
 ## Build
 
 Requirements: JDK 17, Android SDK (compileSdk 37).

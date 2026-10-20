@@ -25,6 +25,25 @@ section() { # prints the "## <version>" section of a changelog without its headi
 ./gradlew --quiet :core:test :app:assembleRelease
 mkdir -p build
 cp app/build/outputs/apk/release/app-release.apk "$apk"
+
+# After scripts/rotate-key.sh: sign with the new key plus the rotation lineage (APK Signature Scheme
+# v3 only — the app needs Android 13, which verifies v3). The old debug-certificate key only vouches
+# for the new one inside the lineage, so Play Protect sees a proper certificate and old installs
+# still update in place.
+prop() { grep "^$1=" ~/.gradle/gradle.properties | cut -d= -f2-; }
+if grep -q '^palimpsest.keystore2=' ~/.gradle/gradle.properties; then
+    bt=$(ls -d ~/Android/Sdk/build-tools/* | sort -V | tail -1)
+    "$bt/apksigner" sign --v1-signing-enabled false --v2-signing-enabled false --v3-signing-enabled true \
+        --rotation-min-sdk-version 28 \
+        --ks "$(prop palimpsest.keystore)" --ks-key-alias "$(prop palimpsest.key.alias)" \
+        --ks-pass "pass:$(prop palimpsest.keystore.password)" --key-pass "pass:$(prop palimpsest.key.password)" \
+        --next-signer --ks "$(prop palimpsest.keystore2)" --ks-key-alias "$(prop palimpsest.key2.alias)" \
+        --ks-pass "pass:$(prop palimpsest.keystore2.password)" --key-pass "pass:$(prop palimpsest.keystore2.password)" \
+        --lineage "$(prop palimpsest.lineage)" "$apk"
+    "$bt/apksigner" verify --print-certs "$apk" | grep -m1 "certificate DN"
+else
+    echo "Note: still signed with the debug certificate; run scripts/rotate-key.sh once (Play Protect blocks such APKs)." >&2
+fi
 {
     section CHANGELOG.ru.md
     echo
