@@ -28,6 +28,8 @@ music folder as a properly tagged file.
 - Duplicate finder: copies merge into one track and the extra files become its versions.
 - Missing covers are found (Yandex, MusicBrainz / Cover Art Archive) and embedded into the files.
 - **Storage screen**: what the app keeps (music, old versions, streaming cache, covers, backups) and how to free it.
+- Files can be deleted and moved; deleted ones wait in a trash and come back with their likes and history.
+- Search by kind — tracks, artists, albums, playlists — with a best-match card, sorting and filters.
 
 **Track versions**
 - A re-uploaded track downloads next to the old one; the old file moves to `Music/.palimpsest/versions/`, hidden from other players.
@@ -41,7 +43,7 @@ music folder as a properly tagged file.
 - ReplayGain, a limiter against clipping, speed and pitch (slowed / nightcore), sleep timer with a fade-out.
 - Spectrum visualiser (bars, mirror, ring around the cover) without the microphone permission.
 - Synced lyrics from the file tag, a `.lrc`, Yandex, **LRCLIB**, **NetEase** or **Genius**; tap a line to seek;
-  a translation into the app's language — under each line or instead of it.
+  a translation into the app's language — under each line or instead of it. Found lyrics go straight into the file's tag.
 - Seek on the track's waveform; the colours follow the cover.
 
 **Services**
@@ -49,8 +51,9 @@ music folder as a properly tagged file.
   covers and synced lyrics; liked tracks download right away. **My Wave** (with mood/character/language tuning and
   activity stations), radio by track or artist, artist pages, albums, similar tracks, new release notifications.
 - **YouTube Music**: no account needed — search, streaming, downloads (M4A with tags).
+- **Bandcamp**: search, artists, albums, streaming and downloads.
 - **Spotify**: playlists and albums are imported by link and matched on Yandex or YouTube.
-- The proxy setting applies only to YouTube, Spotify and the cover databases; everything else goes direct.
+- The proxy setting applies only to YouTube, Spotify, Bandcamp and the cover databases; everything else goes direct.
 - Offline wave: a mix of your downloads when there's no network.
 
 **Make a video from a track**
@@ -66,7 +69,9 @@ music folder as a properly tagged file.
 - History, most played, Wrapped-style yearly stories, a «now listening» share card (or the file itself), ListenBrainz scrobbling.
 - Errors explained in plain words with what to try next, and a journal with copyable details.
 - Backups of the library, history, playlists, versions and settings (never sign-in tokens); weekly and one-tap restore.
+- Styles **Palimpsest** and **Lane** (full-bleed cover, backgrounds in its colour), switched with one tap.
 - Themes: dark, AMOLED black, light, or follow the system. English and Russian.
+- Settings by category, with search and an explanation for each option.
 - Updates itself from GitHub Releases.
 
 ## Install
@@ -109,6 +114,8 @@ desktop/  Compose Multiplatform preview
 ```
 
 Kotlin · Jetpack Compose · Media3 (ExoPlayer, Transformer) · Room · jaudiotagger · NewPipe Extractor
+
+Fonts: Playfair Display and Manrope, both under the SIL Open Font License.
 
 ## License
 

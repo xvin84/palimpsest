@@ -2,6 +2,37 @@
 
 **English** | [Русский](CHANGELOG.ru.md)
 
+## 0.4.0 — 2026-10-20
+
+### New
+- **Styles**: a «Style» section in Settings — Palimpsest (as before) and the new **Lane**. In Lane the cover fills the
+  top of the player and melts into a backdrop of its colour, the whole app is tinted by it, headings are set in Manrope,
+  buttons are white pills, the seek bar is a hairline and the mini player floats as a card. One tap switches; works with
+  the dark, AMOLED and light themes.
+- **Reworked settings**: categories with summaries, a search over every option, an explanation under each one.
+- **Search by kind**: all / tracks / artists / albums / playlists, a best-match card on top (search for an artist and
+  get their card and their songs first), sort and filters, «Show more», recent searches. YouTube Music artists, albums
+  and playlists open in the app.
+- **Bandcamp** as a source: search, artist and album pages, streaming and downloads (MP3 128). Paid-only tracks are
+  skipped with an explanation. From Russia it needs the proxy setting.
+- **Delete and move files** from a track's menu. Deleted files go to a trash (Storage → Trash): undo right away or
+  restore later with likes, history and playlists. Retention time and size limit are adjustable, or the trash can be off.
+- **Lyrics saved into files**: lyrics found or picked go into the file's tag (timed when there are timings), so any
+  player shows them. Downloads carry the lyrics chosen in the app. Can be switched off.
+
+### Changed
+- Lyrics videos look for synced lyrics in every source (the file, Yandex, LRCLIB, NetEase); only when there are none
+  anywhere is the cover used. Plain lyrics don't count for videos.
+- The library remembers its sort and filters.
+- In History and Most played a tap plays the track, a long press opens its menu (it used to open the tag editor).
+- With no network the queue leaves out cloud tracks that aren't cached, and when the network drops the player jumps
+  to what it can play.
+- Library search ignores case in any alphabet.
+
+### Fixed
+- The My Wave card sometimes appeared only after touching the screen.
+- Covers and streams from CDNs with broken IPv6 could take 15 seconds and still fail.
+
 ## 0.3.3 — 2026-10-19
 
 ### Fixed
