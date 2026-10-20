@@ -76,12 +76,14 @@ object FileNames {
             if ("music.yandex" in urlTag) return Service.YANDEX
             if ("youtube.com" in urlTag || "youtu.be" in urlTag) return Service.YOUTUBE
             if ("spotify.com" in urlTag) return Service.SPOTIFY
+            if ("bandcamp.com" in urlTag) return Service.BANDCAMP
         }
         val lower = relativePath.lowercase()
         return when {
             "яндекс" in lower || "yandex" in lower -> Service.YANDEX
             "youtube" in lower || ytId.containsMatchIn(relativePath.substringBeforeLast('.')) -> Service.YOUTUBE
             "spotify" in lower -> Service.SPOTIFY
+            "bandcamp" in lower -> Service.BANDCAMP
             else -> Service.LOCAL
         }
     }

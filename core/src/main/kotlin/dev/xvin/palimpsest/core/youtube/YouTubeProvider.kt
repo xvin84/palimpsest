@@ -43,7 +43,7 @@ import org.schabi.newpipe.extractor.stream.StreamInfo as NpStreamInfo
  * YouTube / YouTube Music via NewPipe Extractor — no account and no API key needed.
  * Search goes to the YouTube Music "songs" filter so results are actual tracks, not videos.
  */
-class YouTubeProvider(http: OkHttpClient = Http.client) : MusicProvider {
+class YouTubeProvider(http: OkHttpClient = Http.client) : MusicProvider, dev.xvin.palimpsest.core.model.BrowsableProvider {
     override val service = Service.YOUTUBE
     override val isReady = true
 
@@ -91,7 +91,9 @@ class YouTubeProvider(http: OkHttpClient = Http.client) : MusicProvider {
     override suspend fun playlistTracks(playlistId: String): List<RemoteTrack> = album(playlistId).tracks
 
     /** An album (or any playlist) with its songs; tracks without an album get this one's title and cover. */
-    suspend fun album(playlistId: String): AlbumWithTracks = guarded {
+    override suspend fun album(id: String): AlbumWithTracks = albumImpl(id)
+
+    private suspend fun albumImpl(playlistId: String): AlbumWithTracks = guarded {
         withContext(Dispatchers.IO) {
             val url = playlistUrl(playlistId)
             val info = PlaylistInfo.getInfo(ServiceList.YouTube, url)
@@ -124,7 +126,9 @@ class YouTubeProvider(http: OkHttpClient = Http.client) : MusicProvider {
     }
 
     /** An artist page: songs and albums found under the artist's name, and the channel's description. */
-    suspend fun artist(channelId: String, name: String): ArtistInfo = guarded {
+    override suspend fun artist(id: String, name: String): ArtistInfo = artistImpl(id, name)
+
+    private suspend fun artistImpl(channelId: String, name: String): ArtistInfo = guarded {
         coroutineScope {
             val wanted = TrackMatcher.normalize(name)
             val channel = async(Dispatchers.IO) { runCatching { ChannelInfo.getInfo(ServiceList.YouTube, channelUrl(channelId)) }.getOrNull() }

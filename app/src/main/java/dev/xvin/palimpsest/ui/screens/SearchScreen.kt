@@ -217,7 +217,11 @@ fun SearchScreen() {
             throw e
         } catch (e: Throwable) {
             failure = e
-            error = graph.errors.report(e, if (source == Service.YOUTUBE) tr(R.string.ctx_search_youtube) else tr(R.string.ctx_search_yandex), show = false)?.title
+            error = graph.errors.report(e, when (source) {
+                Service.YOUTUBE -> tr(R.string.ctx_search_youtube)
+                Service.YANDEX -> tr(R.string.ctx_search_yandex)
+                else -> tr(R.string.tab_search) + " · " + source!!.displayName
+            }, show = false)?.title
             remote = SearchResults()
         }
         loading = false
@@ -291,6 +295,7 @@ fun SearchScreen() {
             Pill(tr(R.string.tab_library), source == null, { source = null })
             Pill(tr(R.string.service_yandex), source == Service.YANDEX, { source = Service.YANDEX })
             Pill("YouTube Music", source == Service.YOUTUBE, { source = Service.YOUTUBE })
+            Pill("Bandcamp", source == Service.BANDCAMP, { source = Service.BANDCAMP })
         }
         Row(
             Modifier.fillMaxWidth().padding(top = 8.dp),

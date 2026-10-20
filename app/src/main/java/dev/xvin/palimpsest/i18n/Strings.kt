@@ -39,6 +39,7 @@ val Service.label: String
             Service.YANDEX -> R.string.service_yandex
             Service.YOUTUBE -> R.string.service_youtube
             Service.SPOTIFY -> R.string.service_spotify
+            Service.BANDCAMP -> R.string.service_bandcamp
         },
     )
 

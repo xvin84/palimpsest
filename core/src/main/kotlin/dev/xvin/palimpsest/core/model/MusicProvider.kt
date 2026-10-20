@@ -33,3 +33,9 @@ interface MusicProvider {
 
     suspend fun lyrics(id: String): Lyrics? = null
 }
+
+/** A provider with artist and album pages of its own (YouTube Music, Bandcamp). */
+interface BrowsableProvider {
+    suspend fun artist(id: String, name: String): ArtistInfo
+    suspend fun album(id: String): AlbumWithTracks
+}

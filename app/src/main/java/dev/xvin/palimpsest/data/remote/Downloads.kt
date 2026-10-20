@@ -273,6 +273,7 @@ class Downloads(
             Service.YANDEX -> "Яндекс"
             Service.YOUTUBE -> "YouTube"
             Service.SPOTIFY -> "Spotify"
+            Service.BANDCAMP -> "Bandcamp"
             Service.LOCAL -> "Разное"
         }
     }

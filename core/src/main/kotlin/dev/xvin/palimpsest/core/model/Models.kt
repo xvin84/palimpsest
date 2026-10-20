@@ -12,6 +12,7 @@ enum class Service(val displayName: String) {
     YANDEX("Yandex Music"),
     YOUTUBE("YouTube"),
     SPOTIFY("Spotify"),
+    BANDCAMP("Bandcamp"),
 }
 
 /** A track as a remote service describes it, before it enters the local library. */

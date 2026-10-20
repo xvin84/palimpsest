@@ -69,6 +69,7 @@ class PalimpsestApp : Application(), SingletonImageLoader.Factory {
             .memoryCache { MemoryCache.Builder().maxSizePercent(context, 0.15).build() }
             .diskCache { DiskCache.Builder().directory(File(cacheDir, "coil")).maxSizeBytes(128L shl 20).build() }
             .crossfade(180)
+            .apply { if (BuildConfig.DEBUG) logger(coil3.util.DebugLogger()) }
             // Same client as everything else, so remote covers honour the YouTube proxy.
             .components { add(OkHttpNetworkFetcherFactory(callFactory = { graph.http })) }
             .build()
@@ -86,7 +87,7 @@ class AppGraph(val app: Application) {
 
     /** Optional proxy used only for YouTube/Spotify hosts (often unreachable directly). */
     private val proxySelector = object : ProxySelector() {
-        private val hosts = listOf("youtube.com", "googlevideo.com", "ytimg.com", "youtu.be", "ggpht.com", "googleapis.com", "googleusercontent.com", "spotify.com", "scdn.co", "spotifycdn.com", "musicbrainz.org", "coverartarchive.org", "archive.org")
+        private val hosts = listOf("youtube.com", "googlevideo.com", "ytimg.com", "youtu.be", "ggpht.com", "googleapis.com", "googleusercontent.com", "spotify.com", "scdn.co", "spotifycdn.com", "musicbrainz.org", "coverartarchive.org", "archive.org", "bandcamp.com", "bcbits.com")
 
         override fun select(uri: URI?): List<Proxy> {
             val proxy = settings.state.value?.proxy
@@ -102,6 +103,9 @@ class AppGraph(val app: Application) {
 
     val http: OkHttpClient = OkHttpClient.Builder()
         .proxySelector(proxySelector)
+        // IPv4 first: on networks with broken IPv6 (some mobile carriers, the emulator) a CDN's
+        // v6 address only times out. IPv6-only networks still get their v6 addresses.
+        .dns { host -> okhttp3.Dns.SYSTEM.lookup(host).sortedBy { it is java.net.Inet6Address } }
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
@@ -120,6 +124,7 @@ class AppGraph(val app: Application) {
     val yandexAuth = YandexAuth(http)
     val yandex = YandexMusicProvider({ settings.state.value?.yandexToken }, http)
     val youtube: YouTubeProvider by lazy { YouTubeProvider(http) }
+    val bandcamp: dev.xvin.palimpsest.core.newpipe.NewPipeProvider by lazy { dev.xvin.palimpsest.core.newpipe.NewPipeProvider.bandcamp(http) }
 
     /** Lazy view so YouTube/NewPipe only initialises when first used. */
     val providers: Map<Service, MusicProvider> = object : AbstractMap<Service, MusicProvider>() {
@@ -127,11 +132,13 @@ class AppGraph(val app: Application) {
             get() = setOf(
                 java.util.AbstractMap.SimpleEntry(Service.YANDEX, yandex as MusicProvider),
                 java.util.AbstractMap.SimpleEntry(Service.YOUTUBE, youtube as MusicProvider),
+                java.util.AbstractMap.SimpleEntry(Service.BANDCAMP, bandcamp as MusicProvider),
             )
 
         override fun get(key: Service): MusicProvider? = when (key) {
             Service.YANDEX -> yandex
             Service.YOUTUBE -> youtube
+            Service.BANDCAMP -> bandcamp
             else -> null
         }
     }

@@ -128,6 +128,7 @@ class LibraryScanner(private val db: AppDatabase, private val settings: Settings
         val yandex = YandexLinks.parse(tags.url)
         val remoteId = when (service) {
             Service.YANDEX -> yandex?.second
+            Service.BANDCAMP -> tags.url?.takeIf { "bandcamp.com" in it }?.removePrefix("https://")?.removePrefix("http://")?.trimEnd('/')
             Service.YOUTUBE -> guess.youtubeId ?: tags.url?.let { Regex("""(?:v=|youtu\.be/)([A-Za-z0-9_-]{11})""").find(it)?.groupValues?.get(1) }
             else -> null
         }

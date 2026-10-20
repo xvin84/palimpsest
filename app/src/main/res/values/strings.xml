@@ -358,7 +358,7 @@
     <string name="settings_listenbrainz_token">ListenBrainz token</string>
     <string name="settings_music_folders">Music folders</string>
     <string name="settings_network">Network</string>
-    <string name="settings_proxy_hint">Proxy for YouTube and Spotify only (e.g. 127.0.0.1:10808 or socks://host:port). Yandex and everything else go direct.</string>
+    <string name="settings_proxy_hint">Proxy for YouTube, Spotify and Bandcamp only (e.g. 127.0.0.1:10808 or socks://host:port). Yandex and everything else go direct.</string>
     <string name="settings_quality">Quality</string>
     <string name="settings_refresh_library">Refresh library</string>
     <string name="settings_replaygain">Volume normalization (ReplayGain)</string>
@@ -705,4 +705,5 @@
     <string name="settings_update_check_hint">Installed: %1$s</string>
     <string name="settings_error_log_hint">What went wrong and when, explained, with details to copy into a bug report</string>
     <string name="lane_radio_started">Radio from this track</string>
+    <string name="service_bandcamp">Bandcamp</string>
 </resources>

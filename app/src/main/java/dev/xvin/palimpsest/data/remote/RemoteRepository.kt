@@ -296,14 +296,12 @@ class RemoteRepository(
 
     // --- Artist cards, albums, similar, radio (Yandex) ---------------------------------------------
 
-    private val youtube get() = providers[Service.YOUTUBE] as? dev.xvin.palimpsest.core.youtube.YouTubeProvider
-
     /**
      * Artist page data: by known id, else by an id stored with the library's tracks, else by search.
      * YouTube Music artists come by their channel id.
      */
     suspend fun artistInfo(name: String, remoteIdHint: String?, service: Service = Service.YANDEX): ArtistInfo? = withContext(Dispatchers.IO) {
-        if (service == Service.YOUTUBE && remoteIdHint != null) return@withContext youtube?.artist(remoteIdHint, name)
+        if (service != Service.YANDEX && remoteIdHint != null) return@withContext (providers[service] as? dev.xvin.palimpsest.core.model.BrowsableProvider)?.artist(remoteIdHint, name)
         if (!yandex.isReady) return@withContext null
         val id = remoteIdHint
             ?: db.artists().remoteIdOf(name)
@@ -313,8 +311,8 @@ class RemoteRepository(
     }
 
     suspend fun album(albumId: String, service: Service = Service.YANDEX): AlbumWithTracks = withContext(Dispatchers.IO) {
-        if (service == Service.YOUTUBE) youtube?.album(albumId) ?: throw IllegalStateException("YouTube unavailable")
-        else yandexCall { yandex.albumWithTracks(albumId) }
+        if (service == Service.YANDEX) yandexCall { yandex.albumWithTracks(albumId) }
+        else (providers[service] as? dev.xvin.palimpsest.core.model.BrowsableProvider)?.album(albumId) ?: throw IllegalStateException("${service.displayName} unavailable")
     }
 
     /** A service playlist's tracks (Yandex «owner:kind», a YouTube list id). */
