@@ -1,0 +1,83 @@
+# Desktop packages for every release: Linux (.deb, .rpm, portable .tar.gz), Windows (.msi, .exe)
+# and macOS (.dmg), each with a bundled ffmpeg so playback works out of the box.
+# Runs when a release is published (scripts/release.sh publishes the Android APK first).
+name: Desktop packages
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to attach the packages to
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            tasks: packageDeb packageRpm createDistributable
+          - os: windows-latest
+            tasks: packageMsi packageExe
+          - os: macos-latest
+            tasks: packageDmg
+    runs-on: ${{ matrix.os }}
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: ffmpeg (Linux, static)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update && sudo apt-get install -y rpm
+          curl -L -o ff.tar.xz https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
+          mkdir -p desktop/resources/linux ff && tar -xf ff.tar.xz -C ff --strip-components=1
+          cp ff/ffmpeg desktop/resources/linux/ffmpeg && chmod +x desktop/resources/linux/ffmpeg
+      - name: ffmpeg (Windows, static)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          curl -L -o ff.zip https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip
+          unzip -q ff.zip -d ff
+          mkdir -p desktop/resources/windows
+          cp ff/*/bin/ffmpeg.exe desktop/resources/windows/ffmpeg.exe
+      - name: ffmpeg (macOS, static)
+        if: runner.os == 'macOS'
+        run: |
+          curl -L -o ff.zip https://evermeet.cx/ffmpeg/getrelease/zip
+          unzip -q ff.zip -d ff
+          mkdir -p desktop/resources/macos
+          cp ff/ffmpeg desktop/resources/macos/ffmpeg && chmod +x desktop/resources/macos/ffmpeg
+
+      - name: Build
+        shell: bash
+        run: |
+          tasks=""
+          for t in ${{ matrix.tasks }}; do tasks="$tasks :desktop:$t"; done
+          ./gradlew --no-daemon $tasks
+
+      - name: Attach to the release
+        shell: bash
+        run: |
+          out=desktop/build/compose/binaries/main
+          files=$(find $out -maxdepth 2 -type f \( -name '*.deb' -o -name '*.rpm' -o -name '*.msi' -o -name '*.exe' -o -name '*.dmg' \))
+          if [ -d $out/app/Palimpsest ]; then
+            tar -C $out/app -czf Palimpsest-linux-x64.tar.gz Palimpsest
+            files="$files Palimpsest-linux-x64.tar.gz"
+          fi
+          gh release upload "$TAG" $files --clobber

@@ -2,6 +2,23 @@
 
 **English** | [Русский](CHANGELOG.ru.md)
 
+## 0.4.1 — 2026-10-21
+
+### New
+- **Three more styles**: Glass (the cover blurred over the whole screen, controls on frosted glass), Vinyl (the cover
+  becomes the label of a spinning record, with a tonearm and warm retro colours) and Mono (black and white only,
+  a monospace font, an ASCII progress bar). Picked next to Palimpsest and Lane.
+- **A choice of app icons**: Classic, Vinyl, Layers, Neon, Cassette, Lane — Settings → Appearance.
+- **Palimpsest for the desktop**, a full app: the library as a track table plus albums, artists and folders, favourites
+  and playlists, a queue, Yandex Music (sign-in by code, My Wave, likes, playlists), YouTube Music and Bandcamp, search by
+  kind, artist and album pages, downloads with tags, synced lyrics with translation, a full-window player, history, the
+  Palimpsest and Lane styles, keyboard shortcuts. Packages for Windows, macOS and Linux are in this release.
+
+### Fixed
+- **«Blocked for security reasons» on some phones**: releases were signed with a development certificate that Play
+  Protect blocks. They now use a proper key; installed copies update in place as usual.
+- In the Lane style the lyrics could run over the track title.
+
 ## 0.4.0 — 2026-10-20
 
 ### New

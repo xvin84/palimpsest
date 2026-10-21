@@ -7,3 +7,8 @@ local.properties
 captures/
 *.apk
 *.keystore
+
+# ffmpeg is downloaded into desktop/resources/<os>/ by CI, never committed
+desktop/resources/linux/
+desktop/resources/windows/
+desktop/resources/macos/

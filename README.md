@@ -69,7 +69,7 @@ music folder as a properly tagged file.
 - History, most played, Wrapped-style yearly stories, a «now listening» share card (or the file itself), ListenBrainz scrobbling.
 - Errors explained in plain words with what to try next, and a journal with copyable details.
 - Backups of the library, history, playlists, versions and settings (never sign-in tokens); weekly and one-tap restore.
-- Styles **Palimpsest** and **Lane** (full-bleed cover, backgrounds in its colour), switched with one tap.
+- Styles **Palimpsest**, **Lane** (full-bleed cover, backgrounds in its colour), **Glass**, **Vinyl** and **Mono**, switched with one tap; six app icons to choose from.
 - Themes: dark, AMOLED black, light, or follow the system. English and Russian.
 - Settings by category, with search and an explanation for each option.
 - Updates itself from GitHub Releases.
@@ -81,6 +81,11 @@ Download `palimpsest-<version>.apk` from [Releases](https://github.com/xvin84/pa
 without it the app can only play.
 
 New versions show up in Settings → Updates and install over the current one.
+
+**Desktop** (Windows, macOS, Linux): take the `.msi`/`.exe`, `.dmg`, `.deb`/`.rpm` or the portable
+`Palimpsest-linux-x64.tar.gz` from the same release. They include their own Java and ffmpeg. The library, Yandex Music,
+YouTube Music, Bandcamp, lyrics and downloads work as on the phone; the window adapts from half a screen to full screen.
+Keys: Space — pause, ←/→ — seek, Ctrl+←/→ — previous/next, Ctrl+F — search; double-click plays, right-click opens a track's menu.
 
 **If the phone refuses to install it:**
 - *«Blocked by Play Protect» / «unsafe app»*: tap «More details» → «Install anyway». Builds before 0.4.1 were signed
@@ -100,7 +105,8 @@ Requirements: JDK 17, Android SDK (compileSdk 37).
                                         # palimpsest.keystore / .keystore.password / .key.alias / .key.password,
                                         # otherwise with the debug key
 LIVE=1 ./gradlew :core:test --tests '*LiveTest*'   # hits the real services (YouTube, LRCLIB, NetEase, Genius…)
-./gradlew :desktop:run                  # desktop preview (Linux): library from ~/Music on the same core
+./gradlew :desktop:run                  # the desktop app (needs ffmpeg on PATH when run like this)
+./gradlew :desktop:packageDistributionForCurrentOS   # a native package for this OS
 ```
 
 ## How it's built

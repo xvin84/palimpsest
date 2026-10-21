@@ -61,6 +61,8 @@ compose.desktop {
                 upgradeUuid = "6b0f0c1e-3a4d-4d8f-9a39-2f1d6e7b5a11"
             }
             macOS {
+                // macOS refuses versions starting with 0; the app itself shows the real one.
+                packageVersion = "1." + appVersion.get().substringBefore('-').substringAfter('.')
                 iconFile.set(project.file("icons/palimpsest.icns"))
                 bundleID = "dev.xvin.palimpsest"
             }
