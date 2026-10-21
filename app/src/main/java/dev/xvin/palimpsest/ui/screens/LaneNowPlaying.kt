@@ -236,10 +236,9 @@ fun LaneNowPlaying(onClose: () -> Unit) {
             }
             // A light scrim behind the status bar, and the melt into the backdrop below.
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.35f), 0.18f to Color.Transparent, 0.55f to Color.Transparent, 1f to top)))
+            // With lyrics on, the cover only dims; the lyrics themselves sit between the top bar and the title.
             androidx.compose.animation.AnimatedVisibility(showLyrics, enter = fadeIn(tween(220)), exit = fadeOut(tween(220))) {
-                Box(Modifier.fillMaxSize().background(top.copy(alpha = 0.82f)).statusBarsPadding().padding(top = 56.dp, start = 20.dp, end = 20.dp)) {
-                    LyricsPane(track, position.first, onSeek = { graph.player.seekTo(it) })
-                }
+                Box(Modifier.fillMaxSize().background(top.copy(alpha = 0.82f)))
             }
         }
 
@@ -282,7 +281,10 @@ fun LaneNowPlaying(onClose: () -> Unit) {
                 }
             }
 
-            Spacer(Modifier.weight(1f))
+            // The lyrics get exactly the space above the title, so they can never run into it.
+            Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp)) {
+                if (showLyrics) LyricsPane(track, position.first, onSeek = { graph.player.seekTo(it) })
+            }
 
             if (vizMode != VisualizerMode.OFF && !showLyrics) {
                 Visualizer(graph.effects, if (vizMode == VisualizerMode.RING) VisualizerMode.BARS else vizMode, fg.copy(alpha = 0.45f), state.isPlaying, Modifier.fillMaxWidth().height(36.dp))
