@@ -116,7 +116,14 @@ import dev.xvin.palimpsest.i18n.label
 
 @Composable
 fun NowPlayingScreen(onClose: () -> Unit) {
-    if (dev.xvin.palimpsest.ui.theme.LocalUiStyle.current == dev.xvin.palimpsest.data.settings.UiStyle.LANE) { LaneNowPlaying(onClose); return }
+    when (dev.xvin.palimpsest.ui.theme.LocalUiStyle.current) {
+        dev.xvin.palimpsest.data.settings.UiStyle.LANE -> { LaneNowPlaying(onClose); return }
+        dev.xvin.palimpsest.data.settings.UiStyle.GLASS -> { GlassNowPlaying(onClose); return }
+        dev.xvin.palimpsest.data.settings.UiStyle.VINYL -> { VinylNowPlaying(onClose); return }
+        dev.xvin.palimpsest.data.settings.UiStyle.MONO -> { MonoNowPlaying(onClose); return }
+        dev.xvin.palimpsest.data.settings.UiStyle.NEON -> { NeonNowPlaying(onClose); return }
+        dev.xvin.palimpsest.data.settings.UiStyle.PALIMPSEST -> Unit
+    }
     val graph = LocalGraph.current
     val nav = LocalNav.current
     val scope = rememberCoroutineScope()

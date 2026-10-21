@@ -86,6 +86,39 @@ data class Palette(
             )
         }
 
+        /** Glass: deep, strongly tinted by the cover; panels are frosted layers above it. */
+        fun glass(tint: Color, light: Boolean): Palette = if (light) Palette(
+            lerp(Color(0xFFF2F2F6), tint, 0.14f), lerp(Color(0xFFFFFFFF), tint, 0.08f), lerp(Color(0xFFE8E8EE), tint, 0.12f), lerp(Color(0xFFDADAE2), tint, 0.14f),
+            Color(0x22000000), Color(0xFF111114), Color(0xFF5C5C66), Color(0xFF8C8C96), isLight = true,
+        ) else Palette(
+            lerp(Color(0xFF07070A), tint, 0.24f), lerp(Color(0xFF121216), tint, 0.28f), lerp(Color(0xFF1C1C22), tint, 0.30f), lerp(Color(0xFF26262E), tint, 0.30f),
+            Color(0x33FFFFFF), Color(0xFFFFFFFF), Color(0xFFC2C2CC), Color(0xFF7E7E88),
+        )
+
+        /** Vinyl: espresso and cream, like a record sleeve from the seventies. */
+        fun vinyl(light: Boolean): Palette = if (light) Palette(
+            Color(0xFFF3E6CF), Color(0xFFEAD9BC), Color(0xFFDFCBA9), Color(0xFFD3BD97),
+            Color(0xFFCDB792), Color(0xFF2B1D14), Color(0xFF6B5442), Color(0xFF9A8470), isLight = true,
+        ) else Palette(
+            Color(0xFF1B130E), Color(0xFF251A13), Color(0xFF30231A), Color(0xFF3B2B20),
+            Color(0xFF3E2E22), Color(0xFFF3E6CF), Color(0xFFBFA88A), Color(0xFF7D6A55),
+        )
+
+        /** Mono: black and white, nothing else. */
+        fun mono(light: Boolean): Palette = if (light) Palette(
+            Color(0xFFFFFFFF), Color(0xFFF2F2F2), Color(0xFFE4E4E4), Color(0xFFD6D6D6),
+            Color(0xFF000000), Color(0xFF000000), Color(0xFF555555), Color(0xFF8A8A8A), isLight = true,
+        ) else Palette(
+            Color(0xFF000000), Color(0xFF0D0D0D), Color(0xFF1A1A1A), Color(0xFF262626),
+            Color(0xFFFFFFFF), Color(0xFFFFFFFF), Color(0xFF9A9A9A), Color(0xFF5E5E5E),
+        )
+
+        /** Neon: synthwave night — violet ink, pink and cyan light. Always dark. */
+        val Neon = Palette(
+            Color(0xFF0D0221), Color(0xFF160536), Color(0xFF200A4A), Color(0xFF2B115E),
+            Color(0xFF3A1A73), Color(0xFFF8F0FF), Color(0xFFB7A6D9), Color(0xFF7A68A6),
+        )
+
         /** Old paper: warm off-white with brown-black ink. */
         val Light = Palette(
             Color(0xFFF7F2E8), Color(0xFFEFE8DA), Color(0xFFE5DCCB), Color(0xFFDBD1BE),
@@ -141,6 +174,37 @@ private val laneTypography = Typography().let { t ->
     )
 }
 
+private val glassTypography = Typography().let { t ->
+    t.copy(
+        displayLarge = t.displayLarge.copy(fontWeight = FontWeight.SemiBold, letterSpacing = (-0.5).sp),
+        displayMedium = t.displayMedium.copy(fontWeight = FontWeight.SemiBold, fontSize = 34.sp, letterSpacing = (-0.5).sp),
+        headlineLarge = t.headlineLarge.copy(fontWeight = FontWeight.SemiBold),
+        headlineMedium = t.headlineMedium.copy(fontWeight = FontWeight.SemiBold),
+        headlineSmall = t.headlineSmall.copy(fontWeight = FontWeight.SemiBold),
+        titleLarge = t.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+        titleMedium = t.titleMedium.copy(fontWeight = FontWeight.Medium),
+    )
+}
+
+private val monoTypography = Typography().let { t ->
+    fun TextStyle.m(w: FontWeight = fontWeight ?: FontWeight.Normal) = copy(fontFamily = FontFamily.Monospace, fontWeight = w, letterSpacing = 0.sp)
+    Typography(
+        displayLarge = t.displayLarge.m(FontWeight.Bold).copy(fontSize = 38.sp), displayMedium = t.displayMedium.m(FontWeight.Bold).copy(fontSize = 30.sp),
+        displaySmall = t.displaySmall.m(FontWeight.Bold), headlineLarge = t.headlineLarge.m(FontWeight.Bold), headlineMedium = t.headlineMedium.m(FontWeight.Bold),
+        headlineSmall = t.headlineSmall.m(FontWeight.Bold), titleLarge = t.titleLarge.m(FontWeight.Bold), titleMedium = t.titleMedium.m(FontWeight.Bold),
+        titleSmall = t.titleSmall.m(FontWeight.Bold), bodyLarge = t.bodyLarge.m(), bodyMedium = t.bodyMedium.m(), bodySmall = t.bodySmall.m(),
+        labelLarge = t.labelLarge.m(FontWeight.Bold), labelMedium = t.labelMedium.m(), labelSmall = t.labelSmall.m(),
+    )
+}
+
+private val neonTypography = laneTypography.let { t ->
+    t.copy(
+        displayMedium = t.displayMedium.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, letterSpacing = 0.sp),
+        headlineLarge = t.headlineLarge.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
+        headlineMedium = t.headlineMedium.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
+    )
+}
+
 /** The accent currently in effect (default vermilion, or one picked from the cover). */
 val LocalAccent = staticCompositionLocalOf { Ink.Vermilion }
 
@@ -162,21 +226,37 @@ fun PalimpsestTheme(
     val systemDark = isSystemInDarkTheme()
     val lane = style == UiStyle.LANE
     val animatedTint by animateColorAsState(tint, tween(700), label = "tint")
-    val palette = if (lane) Palette.lane(animatedTint, theme, systemDark) else when (theme) {
-        ThemeMode.SYSTEM -> if (systemDark) Palette.Dark else Palette.Light
-        ThemeMode.DARK -> Palette.Dark
-        ThemeMode.AMOLED -> Palette.Amoled
-        ThemeMode.LIGHT -> Palette.Light
+    val wantLight = theme == ThemeMode.LIGHT || (theme == ThemeMode.SYSTEM && !systemDark)
+    val palette = when (style) {
+        UiStyle.LANE -> Palette.lane(animatedTint, theme, systemDark)
+        UiStyle.GLASS -> Palette.glass(animatedTint, wantLight)
+        UiStyle.VINYL -> Palette.vinyl(wantLight)
+        UiStyle.MONO -> Palette.mono(wantLight)
+        UiStyle.NEON -> Palette.Neon
+        UiStyle.PALIMPSEST -> when (theme) {
+            ThemeMode.SYSTEM -> if (systemDark) Palette.Dark else Palette.Light
+            ThemeMode.DARK -> Palette.Dark
+            ThemeMode.AMOLED -> Palette.Amoled
+            ThemeMode.LIGHT -> Palette.Light
+        }
     }
     // Set before any child reads Ink, so the first frame is already in the right colours.
     if (Ink.palette != palette) Ink.palette = palette
-    val a by animateColorAsState(readableAccent(accent, palette.isLight), tween(600), label = "accent")
+    // Some styles have an accent of their own instead of the cover's.
+    val styleAccent = when (style) {
+        UiStyle.VINYL -> if (palette.isLight) Color(0xFFB4561B) else Color(0xFFE39B3A)
+        UiStyle.MONO -> palette.text
+        UiStyle.NEON -> Color(0xFFFF3CD8)
+        else -> readableAccent(accent, palette.isLight)
+    }
+    val a by animateColorAsState(styleAccent, tween(600), label = "accent")
     val base = if (palette.isLight) lightColorScheme() else darkColorScheme()
     // Lane's buttons are plain white (black on light) pills; the cover colour lives in the backdrop.
-    val primary = if (lane) palette.text else a
+    val whitePrimary = lane || style == UiStyle.GLASS || style == UiStyle.MONO
+    val primary = if (whitePrimary) palette.text else a
     val scheme = base.copy(
         primary = primary,
-        onPrimary = if (lane) palette.paper.let { if (palette.isLight) Color.White else Color.Black } else if (a.luminance() > 0.45f) Ink.Paper else Color.White,
+        onPrimary = if (whitePrimary) (if (palette.isLight) Color.White else Color.Black) else if (a.luminance() > 0.45f) Color.Black else Color.White,
         primaryContainer = a.copy(alpha = 0.22f).compositeOver(Ink.Paper2),
         onPrimaryContainer = Ink.Text,
         secondary = Ink.Muted,
@@ -203,7 +283,14 @@ fun PalimpsestTheme(
         scrim = Color.Black,
     )
     CompositionLocalProvider(LocalAccent provides a, LocalUiStyle provides style, LocalCoverTint provides animatedTint) {
-        MaterialTheme(colorScheme = scheme, typography = if (lane) laneTypography else typography) {
+        val type = when (style) {
+            UiStyle.LANE -> laneTypography
+            UiStyle.GLASS -> glassTypography
+            UiStyle.MONO -> monoTypography
+            UiStyle.NEON -> neonTypography
+            UiStyle.VINYL, UiStyle.PALIMPSEST -> typography
+        }
+        MaterialTheme(colorScheme = scheme, typography = type) {
             // Text drawn outside a Surface/Scaffold must still be ivory, not the default black.
             CompositionLocalProvider(androidx.compose.material3.LocalContentColor provides Ink.Text, content = content)
         }

@@ -51,6 +51,10 @@ enum class ThemeMode(@androidx.annotation.StringRes val labelRes: Int) {
 enum class UiStyle(@androidx.annotation.StringRes val labelRes: Int, @androidx.annotation.StringRes val descRes: Int) {
     PALIMPSEST(R.string.style_palimpsest, R.string.style_palimpsest_desc),
     LANE(R.string.style_lane, R.string.style_lane_desc),
+    GLASS(R.string.style_glass, R.string.style_glass_desc),
+    VINYL(R.string.style_vinyl, R.string.style_vinyl_desc),
+    MONO(R.string.style_mono, R.string.style_mono_desc),
+    NEON(R.string.style_neon, R.string.style_neon_desc),
 }
 
 /** Synced lyrics: the original, the original with a translation under each line, or only the translation. */

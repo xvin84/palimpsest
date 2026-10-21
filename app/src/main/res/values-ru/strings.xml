@@ -724,4 +724,12 @@
     <string name="icon_neon">Неон</string>
     <string name="icon_cassette">Кассета</string>
     <string name="icon_lane">Lane</string>
+    <string name="style_glass">Glass</string>
+    <string name="style_glass_desc">Матовое стекло поверх размытой обложки; мягко и воздушно</string>
+    <string name="style_vinyl">Vinyl</string>
+    <string name="style_vinyl_desc">Крутящаяся пластинка с тонармом, эспрессо и сливки, конверт из семидесятых</string>
+    <string name="style_mono">Mono</string>
+    <string name="style_mono_desc">Чёрное и белое, моноширинный шрифт, прямые углы, ASCII-прогресс</string>
+    <string name="style_neon">Neon</string>
+    <string name="style_neon_desc">Synthwave-ночь: фиолетовый, розовое и голубое свечение, сетка до горизонта</string>
 </resources>
