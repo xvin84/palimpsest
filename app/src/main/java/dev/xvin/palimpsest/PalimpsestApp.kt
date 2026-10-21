@@ -197,8 +197,8 @@ class AppGraph(val app: Application) {
     val storage = dev.xvin.palimpsest.data.Storage(app, db, versions, backups) { streamCache }
 
     /** Plays the offline mix; false if nothing is downloaded yet. */
-    suspend fun startOfflineWave(): Boolean {
-        val list = offlineWave.build()
+    suspend fun startOfflineWave(mood: dev.xvin.palimpsest.playback.WaveMood = dev.xvin.palimpsest.playback.WaveMood.ANY): Boolean {
+        val list = offlineWave.build(mood = mood)
         if (list.isEmpty()) return false
         player.play(list)
         return true

@@ -1,5 +1,6 @@
 package dev.xvin.palimpsest.ui.screens
 
+import kotlin.math.roundToInt
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -186,6 +187,13 @@ private fun TagsTab(t: TrackEntity) {
             Text("${t.service.label} · id ${t.remoteId}", style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
         }
         t.replayGainTrackDb?.let { Text(tr(R.string.track_replaygain).format(it), style = MaterialTheme.typography.bodySmall, color = Ink.Muted) }
+        if (t.bpm != null && t.bpm > 0) {
+            val key = dev.xvin.palimpsest.core.analysis.AudioFeatures.keyName(t.musicalKey)?.let { "$it (${t.musicalKey})" }
+            Text(
+                listOfNotNull(tr(R.string.track_bpm, t.bpm.roundToInt()), key, t.energy?.let { tr(R.string.track_energy, (it * 100).roundToInt()) }).joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall, color = Ink.Muted,
+            )
+        }
     }
 }
 

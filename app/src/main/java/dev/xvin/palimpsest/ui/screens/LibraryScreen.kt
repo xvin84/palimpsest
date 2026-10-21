@@ -466,20 +466,43 @@ private fun OfflineWaveRow() {
     val graph = LocalGraph.current
     val nav = LocalNav.current
     val scope = rememberCoroutineScope()
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp).clip(RoundedCornerShape(14.dp)).background(Ink.Paper2)
-            .clickable {
-                scope.launch {
-                    if (graph.startOfflineWave()) nav.openPlayer() else nav.toast(tr(R.string.offline_wave_empty))
+    val analysed by graph.db.tracks().observeAnalysedCount().collectAsStateWithLifecycle(0)
+    fun start(mood: dev.xvin.palimpsest.playback.WaveMood) {
+        scope.launch {
+            if (graph.startOfflineWave(mood)) nav.openPlayer() else nav.toast(tr(R.string.offline_wave_empty))
+        }
+    }
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp).clip(RoundedCornerShape(14.dp)).background(Ink.Paper2),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().clickable { start(dev.xvin.palimpsest.playback.WaveMood.ANY) }.padding(horizontal = 18.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(tr(R.string.offline_wave), style = MaterialTheme.typography.titleMedium)
+                Text(tr(R.string.offline_wave_subtitle), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
+            }
+            Text("▶", color = LocalAccent.current, style = MaterialTheme.typography.titleLarge)
+        }
+        // Moods need the audio analysed (Library health → Analyse audio).
+        if (analysed > 0) {
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = 12.dp, end = 12.dp, bottom = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                listOf(
+                    dev.xvin.palimpsest.playback.WaveMood.CALM to R.string.mood_calm,
+                    dev.xvin.palimpsest.playback.WaveMood.ENERGETIC to R.string.mood_energetic,
+                    dev.xvin.palimpsest.playback.WaveMood.FOCUS to R.string.mood_focus,
+                    dev.xvin.palimpsest.playback.WaveMood.SAD to R.string.mood_sad,
+                ).forEach { (mood, label) ->
+                    Text(
+                        tr(label), style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.clip(RoundedCornerShape(50)).background(Ink.Paper3).clickable { start(mood) }.padding(horizontal = 14.dp, vertical = 7.dp),
+                    )
                 }
             }
-            .padding(horizontal = 18.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(tr(R.string.offline_wave), style = MaterialTheme.typography.titleMedium)
-            Text(tr(R.string.offline_wave_subtitle), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
         }
-        Text("▶", color = LocalAccent.current, style = MaterialTheme.typography.titleLarge)
     }
 }

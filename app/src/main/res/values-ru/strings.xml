@@ -799,4 +799,10 @@
     <string name="health_fix_analyse">Проанализировать звук</string>
     <string name="settings_health">Здоровье медиатеки</string>
     <string name="settings_health_hint">Обложки, тексты, теги, дубликаты, качество — в одном месте</string>
+    <string name="mood_calm">Спокойно</string>
+    <string name="mood_energetic">Бодро</string>
+    <string name="mood_focus">Фокус</string>
+    <string name="mood_sad">Грустно</string>
+    <string name="track_bpm">%1$d BPM</string>
+    <string name="track_energy">энергия %1$d %%</string>
 </resources>

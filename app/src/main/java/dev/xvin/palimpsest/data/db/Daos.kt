@@ -97,6 +97,9 @@ interface TrackDao {
     @Query("UPDATE tracks SET bpm = :bpm, musicalKey = :key, energy = :energy WHERE id = :id")
     suspend fun setAnalysis(id: Long, bpm: Float?, key: String?, energy: Float?)
 
+    @Query("SELECT COUNT(*) FROM tracks WHERE bpm > 0")
+    fun observeAnalysedCount(): Flow<Int>
+
     @Query("SELECT * FROM tracks WHERE path IS NOT NULL AND bpm IS NULL")
     suspend fun notAnalysed(): List<TrackEntity>
 

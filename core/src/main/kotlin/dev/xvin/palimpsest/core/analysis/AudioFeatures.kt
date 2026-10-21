@@ -1,6 +1,8 @@
 package dev.xvin.palimpsest.core.analysis
 
 import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.min
 import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.ln
@@ -124,6 +126,27 @@ object AudioFeatures {
         val na = a.dropLast(1).toIntOrNull() ?: return false; val nb = b.dropLast(1).toIntOrNull() ?: return false
         val d = ((na - nb) % 12 + 12) % 12
         return (a.last() == b.last() && (d == 0 || d == 1 || d == 11)) || (na == nb)
+    }
+
+    /**
+     * How rough going from one track to the next feels: 0 is seamless. Tempo counts with half and
+     * double time folded in, key by Camelot distance, energy by the jump. Unknown parts cost a little.
+     */
+    fun transitionCost(bpmA: Float?, keyA: String?, energyA: Float?, bpmB: Float?, keyB: String?, energyB: Float?): Double {
+        var cost = 0.0
+        cost += if (bpmA != null && bpmB != null && bpmA > 0 && bpmB > 0) {
+            val r = abs(log2(bpmB.toDouble() / bpmA))
+            min(min(r, abs(r - 1)), abs(r + 1)) * 6 // 12 % tempo off ≈ 1
+        } else 0.5
+        cost += if (keyA.isNullOrEmpty() || keyB.isNullOrEmpty()) 0.5 else if (compatible(keyA, keyB)) 0.0 else camelotSteps(keyA, keyB) * 0.25
+        cost += if (energyA != null && energyB != null) abs(energyA - energyB) * 2.0 else 0.3
+        return cost
+    }
+
+    private fun camelotSteps(a: String, b: String): Int {
+        val na = a.dropLast(1).toIntOrNull() ?: return 3; val nb = b.dropLast(1).toIntOrNull() ?: return 3
+        val d = ((na - nb) % 12 + 12) % 12
+        return min(d, 12 - d) + if (a.last() != b.last()) 1 else 0
     }
 
     private fun correlation(a: DoubleArray, b: DoubleArray): Double {
