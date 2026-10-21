@@ -55,6 +55,8 @@ enum class CompressTarget(val ext: String, val bitrate: Int, val labelRes: Int, 
     FLAC16("flac", 0, R.string.compress_flac16, R.string.compress_flac16_desc),
     AAC256("m4a", 256_000, R.string.compress_aac256, R.string.compress_aac256_desc),
     AAC128("m4a", 128_000, R.string.compress_aac128, R.string.compress_aac128_desc),
+    /** Only lossy files (MP3 256/320 and the like): a second lossy pass, so a small, honest loss. */
+    LOSSY_AAC192("m4a", 192_000, R.string.compress_lossy192, R.string.compress_lossy192_desc),
 }
 
 data class CompressPlan(val target: CompressTarget, val tracks: List<TrackEntity>, val bytesBefore: Long, val bytesAfter: Long)
@@ -105,6 +107,7 @@ class Compressor(
         val isLossless = lossless.any { codec.startsWith(it) }
         return when (target) {
             CompressTarget.FLAC16 -> codec.startsWith("flac") && (t.bitsPerSample ?: 16) > 16
+            CompressTarget.LOSSY_AAC192 -> !isLossless && (t.bitrateKbps ?: 0) * 1000 >= 250_000
             else -> isLossless || (t.bitrateKbps ?: 0) * 1000 > target.bitrate * 3 / 2
         }
     }

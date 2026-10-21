@@ -839,4 +839,6 @@
     <string name="lan_last">Последняя синхронизация %1$s</string>
     <string name="lan_done">Готово</string>
     <string name="lan_report">♥ +%1$d / −%2$d · плейлисты %3$d · прослушивания +%4$d</string>
+    <string name="compress_lossy192">MP3 → AAC 192 кбит/с</string>
+    <string name="compress_lossy192_desc">Только для MP3 и других сжатых файлов 256–320 кбит/с: примерно на 40 % меньше. Повторное сжатие с потерями немного ухудшает звук — на слух почти незаметно, но обратно не вернуть (треки с Яндекса можно скачать заново).</string>
 </resources>

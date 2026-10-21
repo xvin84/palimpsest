@@ -2,7 +2,7 @@
 
 **English** | [Русский](CHANGELOG.ru.md)
 
-## Unreleased
+## 0.4.3 — 2026-10-21
 
 ### New
 - **Library health** (Settings → Library, Storage): tracks without a cover, lyrics or tags, duplicates, lossy and
@@ -15,6 +15,8 @@
 - **Karaoke**: lyrics with word timings (enhanced LRC, NetEase) fill the sung line word by word.
 - **Sync with the computer** over the home network: likes, own playlists and history; pairs with a 6-digit code,
   syncs on demand, on launch and in the background.
+- **MP3 → AAC 192** in Shrink the library: for MP3 and other lossy files of 256–320 kbps, about 40 % smaller
+  (a second lossy pass — said plainly).
 - Desktop: **media keys and the system's player controls** on Linux (MPRIS); «Sync with the phone» setting.
 
 ### Fixed
