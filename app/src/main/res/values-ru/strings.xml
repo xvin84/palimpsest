@@ -776,4 +776,6 @@
     <string name="compress_done">Готово: %1$d файлов, меньше на %2$s</string>
     <string name="compress_failed">не вышло: %1$d</string>
     <string name="compress_note">Перекодировано в %1$s</string>
+    <string name="compress_trial">Сначала попробовать на 3 треках</string>
+    <string name="compress_trial_hint">Оригиналы этих трёх останутся версиями — послушай, потом перекодируй остальное.</string>
 </resources>

@@ -767,4 +767,6 @@
     <string name="compress_done">Done: %1$d files, %2$s smaller</string>
     <string name="compress_failed">failed: %1$d</string>
     <string name="compress_note">Converted to %1$s</string>
+    <string name="compress_trial">First try it on 3 tracks</string>
+    <string name="compress_trial_hint">The originals of those three stay as versions — listen, then convert the rest.</string>
 </resources>

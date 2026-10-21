@@ -85,6 +85,10 @@ fun CompressScreen() {
                     tr(R.string.compress_done, state.total - state.failed, size(state.savedBytes)) + if (state.failed > 0) " · " + tr(R.string.compress_failed, state.failed) else "",
                     Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium,
                 )
+                if (state.converted.size in 1..5) Text(
+                    state.converted.joinToString("\n") { "• $it" },
+                    Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall, color = Ink.Muted,
+                )
             }
             items(CompressTarget.entries) { t ->
                 val p = plans?.get(t)
@@ -121,6 +125,12 @@ fun CompressScreen() {
             }
             item {
                 val n = plans?.get(target)?.tracks?.size ?: 0
+                // A trial first: three files, originals kept as versions, to listen to before the rest.
+                if (n > 3) androidx.compose.material3.OutlinedButton(
+                    onClick = { graph.compressor.start(target, keepOld = true, limit = 3) },
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp).fillMaxWidth(),
+                ) { Text(tr(R.string.compress_trial)) }
+                if (n > 3) Text(tr(R.string.compress_trial_hint), Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
                 Button(onClick = { graph.compressor.start(target, keepOld) }, enabled = n > 0, modifier = Modifier.padding(16.dp).fillMaxWidth()) {
                     Text(if (n > 0) tr(R.string.compress_start, n) else tr(R.string.compress_nothing))
                 }

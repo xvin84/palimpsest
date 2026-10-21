@@ -65,6 +65,8 @@ data class CompressState(
     val current: String? = null,
     val savedBytes: Long = 0,
     val failed: Int = 0,
+    /** «Artist — Title» of what was converted in this run (shown after a trial). */
+    val converted: List<String> = emptyList(),
 )
 
 /**
@@ -103,24 +105,26 @@ class Compressor(
         CompressPlan(target, tracks, tracks.sumOf { it.sizeBytes }, tracks.sumOf { estimate(it, target) })
     }
 
-    fun start(target: CompressTarget, keepOld: Boolean) {
+    /** [limit]: convert only the first few (a trial run to listen to before doing the rest). */
+    fun start(target: CompressTarget, keepOld: Boolean, limit: Int = 0) {
         val req = OneTimeWorkRequestBuilder<CompressWorker>()
-            .setInputData(workDataOf(CompressWorker.KEY_TARGET to target.name, CompressWorker.KEY_KEEP to keepOld))
+            .setInputData(workDataOf(CompressWorker.KEY_TARGET to target.name, CompressWorker.KEY_KEEP to keepOld, CompressWorker.KEY_LIMIT to limit))
             .build()
         WorkManager.getInstance(context).enqueueUniqueWork(UNIQUE, ExistingWorkPolicy.KEEP, req)
     }
 
     fun cancel() = WorkManager.getInstance(context).cancelUniqueWork(UNIQUE)
 
-    suspend fun run(target: CompressTarget, keepOld: Boolean) {
-        val plan = plan(target)
+    suspend fun run(target: CompressTarget, keepOld: Boolean, limit: Int = 0) {
+        val full = plan(target)
+        val plan = if (limit > 0) full.copy(tracks = full.tracks.take(limit)) else full
         _state.value = CompressState(running = true, total = plan.tracks.size)
         try {
             plan.tracks.forEachIndexed { i, t ->
                 currentCoroutineContext().ensureActive()
                 _state.value = _state.value.copy(done = i, current = "${t.artist} — ${t.title}")
                 runCatching { convert(t, target, keepOld) }
-                    .onSuccess { saved -> _state.value = _state.value.copy(savedBytes = _state.value.savedBytes + saved) }
+                    .onSuccess { saved -> _state.value = _state.value.copy(savedBytes = _state.value.savedBytes + saved, converted = _state.value.converted + "${t.artist} — ${t.title}") }
                     .onFailure { e ->
                         if (e is kotlinx.coroutines.CancellationException) throw e
                         android.util.Log.w("Compressor", "${t.title}: $e", e)
@@ -364,13 +368,14 @@ class CompressWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
         val graph = (applicationContext as PalimpsestApp).graph
         val target = runCatching { CompressTarget.valueOf(inputData.getString(KEY_TARGET)!!) }.getOrNull() ?: return Result.failure()
         val keep = inputData.getBoolean(KEY_KEEP, false)
+        val limit = inputData.getInt(KEY_LIMIT, 0)
         runCatching { setForeground(getForegroundInfo()) }
         val nm = applicationContext.getSystemService(NotificationManager::class.java)
         kotlinx.coroutines.coroutineScope {
             val ticker = launch {
                 graph.compressor.state.collect { s -> nm.notify(NOTIFICATION_ID, notification(s)) }
             }
-            graph.compressor.run(target, keep)
+            graph.compressor.run(target, keep, limit)
             ticker.cancel()
         }
         nm.cancel(NOTIFICATION_ID)
@@ -395,6 +400,7 @@ class CompressWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
     companion object {
         const val KEY_TARGET = "target"
         const val KEY_KEEP = "keep"
+        const val KEY_LIMIT = "limit"
         private const val CHANNEL = "compress"
         private const val NOTIFICATION_ID = 4711
     }

@@ -2,6 +2,24 @@
 
 **English** | [Русский](CHANGELOG.ru.md)
 
+## 0.4.2 — 2026-10-21
+
+### New
+- **FLAC versions** (Settings → Library/Downloads): for every file stored as MP3/AAC the app looks for the same
+  recording on Yandex Music — by the file’s link, or by artist, title and length — and downloads the FLAC as a version
+  next to it. In the player you compare them A/B at the same second and answer «Same song?»: only «yes» replaces the
+  file (the old one goes to history), «not it» drops the find for good.
+- **Shrink the library** (Storage): hi-res FLAC → CD-quality FLAC (16-bit; sounds the same, ~40 % smaller), or AAC
+  256/128 kbps. Converted on the phone with tags, cover, lyrics, link and ReplayGain; originals deleted or kept as
+  versions. A trial run on 3 tracks first. A result of the wrong length is refused.
+
+### Fixed
+- «Replace with FLAC» saved some tracks as .m4a: Yandex sends FLAC inside MP4 — it’s now unpacked into a real .flac,
+  bit for bit.
+- Covers were never written into FLAC files (cover search and downloads).
+- MP3/M4A service links went into a tag field nothing read back — YouTube downloads lost their link after «re-read tags».
+- With a lyrics translation the sung line drifted to the bottom; it now rests a little below the top (desktop too).
+
 ## 0.4.1 — 2026-10-21
 
 ### New
