@@ -59,10 +59,13 @@ jobs:
       - name: ffmpeg (macOS, static)
         if: runner.os == 'macOS'
         run: |
-          curl -L -o ff.zip https://evermeet.cx/ffmpeg/getrelease/zip
-          unzip -q ff.zip -d ff
-          mkdir -p desktop/resources/macos
-          cp ff/ffmpeg desktop/resources/macos/ffmpeg && chmod +x desktop/resources/macos/ffmpeg
+          mkdir -p desktop/resources/macos ff
+          arch=$(uname -m); [ "$arch" = arm64 ] || arch=amd64
+          # Static builds; a second source as a fallback. Without either the app asks for `brew install ffmpeg`.
+          if curl -fL -o ff.zip "https://ffmpeg.martin-riedl.de/redirect/latest/macos/$arch/release/ffmpeg.zip" && unzip -q ff.zip -d ff; then :
+          elif curl -fL -o ff.zip "https://evermeet.cx/ffmpeg/getrelease/ffmpeg/zip" && unzip -q -o ff.zip -d ff; then :
+          else echo "::warning::no static ffmpeg for macOS"; exit 0; fi
+          cp "$(find ff -name ffmpeg -type f | head -1)" desktop/resources/macos/ffmpeg && chmod +x desktop/resources/macos/ffmpeg
 
       - name: Build
         shell: bash
