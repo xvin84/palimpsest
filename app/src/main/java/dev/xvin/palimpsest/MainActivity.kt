@@ -28,6 +28,8 @@ class MainActivity : ComponentActivity() {
     val openPlayerRequests = mutableStateOf(0)
     /** Album to open (from a "new release" notification). */
     val openAlbumRequest = mutableStateOf<String?>(null)
+    /** A Yandex Music, YouTube or Bandcamp link opened or shared into the app. */
+    val openLinkRequest = mutableStateOf<dev.xvin.palimpsest.core.links.MusicLink?>(null)
     val openSettingsRequest = mutableStateOf(false)
     val hasStorageAccess = mutableStateOf(false)
 
@@ -108,6 +110,18 @@ class MainActivity : ComponentActivity() {
         if (intent.getBooleanExtra(EXTRA_OPEN_SETTINGS, false)) { openSettingsRequest.value = true; return }
         if (intent.getBooleanExtra(EXTRA_OPEN_PLAYER, false)) {
             openPlayerRequests.value++
+            return
+        }
+        val linkText = when {
+            intent.action == Intent.ACTION_SEND && intent.type == "text/plain" -> intent.getStringExtra(Intent.EXTRA_TEXT)
+            intent.action == Intent.ACTION_VIEW && intent.data?.scheme?.startsWith("http") == true -> intent.data.toString()
+            else -> null
+        }
+        if (linkText != null) {
+            val link = dev.xvin.palimpsest.core.links.MusicLink.find(linkText)
+            if (link != null) openLinkRequest.value = link
+            else android.widget.Toast.makeText(this, dev.xvin.palimpsest.i18n.tr(R.string.link_unknown), android.widget.Toast.LENGTH_LONG).show()
+            setIntent(Intent(this, MainActivity::class.java))
             return
         }
         val uri: Uri = when (intent.action) {

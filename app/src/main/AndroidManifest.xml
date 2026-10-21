@@ -64,6 +64,28 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="audio/*" />
             </intent-filter>
+            <!-- Links to Yandex Music, YouTube and Bandcamp: opened, or shared as text from any app. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="music.yandex.ru" />
+                <data android:host="music.yandex.com" />
+                <data android:host="music.yandex.by" />
+                <data android:host="music.yandex.kz" />
+                <data android:host="youtu.be" />
+                <data android:host="youtube.com" />
+                <data android:host="www.youtube.com" />
+                <data android:host="m.youtube.com" />
+                <data android:host="music.youtube.com" />
+                <data android:host="*.bandcamp.com" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
         </activity>
 
         <!-- App icons to choose from in Settings → Appearance: switching enables one alias, disables the rest. -->

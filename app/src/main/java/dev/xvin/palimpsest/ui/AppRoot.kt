@@ -1,5 +1,6 @@
 package dev.xvin.palimpsest.ui
 
+import kotlinx.coroutines.launch
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
@@ -206,6 +207,38 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
     val albumRequest by activity.openAlbumRequest
     LaunchedEffect(albumRequest) {
         albumRequest?.let { playerOpen = false; nav.navigate(RemoteAlbumRoute(it)); activity.openAlbumRequest.value = null }
+    }
+    val linkRequest by activity.openLinkRequest
+    LaunchedEffect(linkRequest) {
+        val link = linkRequest ?: return@LaunchedEffect
+        activity.openLinkRequest.value = null
+        playerOpen = false
+        when (link.kind) {
+            dev.xvin.palimpsest.core.links.MusicLink.Kind.TRACK -> {
+                toastAction = null; toastMessage = tr(R.string.link_opening)
+                // Outside this effect: clearing the request above restarts (and would cancel) it.
+                graph.mainScope.launch {
+                    val r = runCatching { kotlinx.coroutines.withTimeout(40_000) { graph.remote.track(link.service, link.id) } }
+                    val t = r.getOrNull()
+                    if (t != null) {
+                        graph.player.play(listOf(graph.remote.ensureTrack(t)))
+                        playerOpen = true
+                    } else {
+                        r.exceptionOrNull()?.let { graph.errors.report(it, tr(R.string.link_opening), show = false) }
+                        toastAction = null
+                        toastMessage = tr(R.string.link_failed, link.service.displayName) +
+                            when {
+                                link.service == dev.xvin.palimpsest.core.model.Service.YOUTUBE -> " " + tr(R.string.link_youtube_proxy)
+                                link.service == dev.xvin.palimpsest.core.model.Service.YANDEX && !graph.yandex.isReady -> " " + tr(R.string.link_yandex_login)
+                                else -> ""
+                            }
+                    }
+                }
+            }
+            dev.xvin.palimpsest.core.links.MusicLink.Kind.ALBUM -> nav.navigate(RemoteAlbumRoute(link.id, link.service))
+            dev.xvin.palimpsest.core.links.MusicLink.Kind.ARTIST -> nav.navigate(ArtistRoute("", link.id, link.service))
+            dev.xvin.palimpsest.core.links.MusicLink.Kind.PLAYLIST -> nav.navigate(RemotePlaylistRoute(link.service, link.id, tr(R.string.link_playlist)))
+        }
     }
     val settingsRequest by activity.openSettingsRequest
     LaunchedEffect(settingsRequest) {

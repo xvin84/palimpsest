@@ -321,6 +321,12 @@ class RemoteRepository(
         if (service == Service.YANDEX) yandexCall { p.playlistTracks(id) } else p.playlistTracks(id)
     }
 
+    /** One track by its service id (from a link). */
+    suspend fun track(service: Service, id: String): RemoteTrack? = withContext(Dispatchers.IO) {
+        val p = providers[service] ?: return@withContext null
+        if (service == Service.YANDEX) yandexCall { p.track(id) } else p.track(id)
+    }
+
     suspend fun similar(trackRemoteId: String): List<RemoteTrack> = withContext(Dispatchers.IO) { yandexCall { yandex.similarTracks(trackRemoteId) } }
 
     suspend fun radioStart(seeds: List<String>): RadioBatch = withContext(Dispatchers.IO) { yandexCall { yandex.radioStart(seeds) } }

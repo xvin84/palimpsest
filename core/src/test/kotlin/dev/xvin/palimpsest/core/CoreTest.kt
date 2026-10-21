@@ -348,3 +348,20 @@ class AudioFeaturesTest {
         check(f.camelot == "8A")
     }
 }
+
+class MusicLinkTest {
+    @org.junit.Test fun parses() {
+        fun p(u: String) = dev.xvin.palimpsest.core.links.MusicLink.find(u)?.let { "${it.service} ${it.kind} ${it.id}" }
+        check(p("https://music.yandex.ru/album/4766/track/57703") == "YANDEX TRACK 57703")
+        check(p("Послушай: https://music.yandex.com/track/123?utm_source=x") == "YANDEX TRACK 123")
+        check(p("https://music.yandex.ru/album/4766") == "YANDEX ALBUM 4766")
+        check(p("https://music.yandex.ru/artist/41191/tracks") == "YANDEX ARTIST 41191")
+        check(p("https://music.yandex.ru/users/music-blog/playlists/2363") == "YANDEX PLAYLIST music-blog:2363")
+        check(p("https://youtu.be/dQw4w9WgXcQ?si=abc") == "YOUTUBE TRACK dQw4w9WgXcQ")
+        check(p("https://music.youtube.com/watch?v=dQw4w9WgXcQ&list=RD") == "YOUTUBE TRACK dQw4w9WgXcQ")
+        check(p("https://www.youtube.com/playlist?list=PL123abc") == "YOUTUBE PLAYLIST PL123abc")
+        check(p("https://lorn.bandcamp.com/album/vessel") == "BANDCAMP ALBUM lorn.bandcamp.com/album/vessel")
+        check(p("https://lorn.bandcamp.com/track/anvil") == "BANDCAMP TRACK lorn.bandcamp.com/track/anvil")
+        check(p("https://example.com/x") == null)
+    }
+}

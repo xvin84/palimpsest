@@ -815,4 +815,10 @@
     <string name="budget_auto">Следить самому</string>
     <string name="budget_auto_hint">Раз в неделю, на зарядке</string>
     <string name="budget_now">Уложиться сейчас (%1$d)</string>
+    <string name="link_unknown">Здесь нет ссылки на Яндекс Музыку, YouTube или Bandcamp</string>
+    <string name="link_opening">Открываю ссылку…</string>
+    <string name="link_failed">Не получилось открыть на %1$s</string>
+    <string name="link_playlist">Плейлист</string>
+    <string name="link_youtube_proxy">— если YouTube у вас тормозит, укажите прокси в Настройках → Сеть.</string>
+    <string name="link_yandex_login">— сначала войдите в Яндекс Музыку во вкладке «Сервисы».</string>
 </resources>
