@@ -1,5 +1,8 @@
 package dev.xvin.palimpsest.ui.screens
 
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.scrollBy
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -306,6 +309,7 @@ fun NowPlayingScreen(onClose: () -> Unit) {
             }
             val ab by graph.player.ab.collectAsStateWithLifecycle()
             if (ab != null && ab!!.trackId == np.trackId) AbSwitch(ab!!, np.mediaId) else VersionChip(np.variant, track, np.mediaId)
+            FlacCandidatePrompt(track, np.mediaId)
             Spacer(Modifier.height(8.dp))
             val wave by produceState<FloatArray?>(null, track?.id, track?.path, track?.modifiedAt, np.variant) {
                 value = null
@@ -490,8 +494,15 @@ internal fun LyricsPane(track: TrackEntity?, positionMs: Long, onSeek: (Long) ->
             }
             val translateOn = mode != dev.xvin.palimpsest.data.settings.LyricsTranslation.OFF && translation != null
             val only = translateOn && mode == dev.xvin.palimpsest.data.settings.LyricsTranslation.ONLY
-            LaunchedEffect(current) {
-                if (current >= 0) listState.animateScrollToItem((current - 2).coerceAtLeast(0))
+            // The sung line rests a little below the top, whatever the height of the lines around it
+            // (a translation makes each line several rows tall).
+            LaunchedEffect(current, translateOn) {
+                if (current < 0) return@LaunchedEffect
+                val info = listState.layoutInfo
+                val anchor = ((info.viewportEndOffset - info.viewportStartOffset) * 0.18f).toInt()
+                val visible = info.visibleItemsInfo.firstOrNull { it.index == current }
+                if (visible != null) listState.animateScrollBy((visible.offset - anchor).toFloat(), tween(450))
+                else { listState.scrollToItem(current); listState.scrollBy(-anchor.toFloat()) }
             }
             LaunchedEffect(touches, status) {
                 controlsVisible = true

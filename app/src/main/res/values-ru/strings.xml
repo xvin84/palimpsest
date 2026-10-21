@@ -730,4 +730,27 @@
     <string name="style_vinyl_desc">Крутящаяся пластинка с тонармом, эспрессо и сливки, конверт из семидесятых</string>
     <string name="style_mono">Mono</string>
     <string name="style_mono_desc">Чёрное и белое, моноширинный шрифт, прямые углы, ASCII-прогресс</string>
+    <string name="flac_title">FLAC-версии</string>
+    <string name="flac_explain">Для каждого файла в сжатом формате (MP3, AAC…) Palimpsest ищет ту же запись в Яндекс Музыке — по ссылке в файле или по исполнителю, названию и длительности — и скачивает её во FLAC как версию рядом с твоим файлом. Ничего не заменяется, пока ты не послушаешь и не скажешь, что это та же песня.</string>
+    <string name="flac_searching">Ищу: %1$d из %2$d, FLAC нашёлся для %3$d</string>
+    <string name="flac_needs_yandex">Войди в Яндекс Музыку (Сервисы) — FLAC берётся оттуда.</string>
+    <string name="flac_last_result">Прошлый поиск: FLAC нашёлся для %1$d, не нашёлся для %2$d</string>
+    <string name="flac_search_n">Найти FLAC для %1$d треков</string>
+    <string name="flac_nothing_lossy">Искать нечего: все файлы без потерь или ждут проверки</string>
+    <string name="flac_downloading">Скачиваю FLAC: осталось %1$d</string>
+    <string name="flac_to_review">Ждут твоего «та ли это песня?»: %1$d</string>
+    <string name="flac_compare_line">Сейчас %1$s · %2$s → %3$s · %4$s</string>
+    <string name="flac_compare">Сравнить</string>
+    <string name="flac_not_it">Не то</string>
+    <string name="flac_its_it">Это она</string>
+    <string name="flac_its_it_replace">Да — заменить на FLAC</string>
+    <string name="flac_replaced">«%1$s» теперь во FLAC</string>
+    <string name="flac_none_waiting">Нет FLAC-версий на проверке.</string>
+    <string name="flac_same_song">FLAC (B) — та же песня, что твой файл (A)? Переключайся между ними и ответь.</string>
+    <string name="flac_found_for_track">Для этого трека нашёлся FLAC. Сравнить с твоим файлом?</string>
+    <string name="flac_all">Все</string>
+    <string name="flac_candidate_note">FLAC из %1$s — ждёт «та ли это песня?»</string>
+    <string name="flac_candidate_ready">FLAC найден, ждёт проверки</string>
+    <string name="flac_accepted_note">FLAC подтверждён тобой %1$s</string>
+    <string name="flac_settings_hint">Найти FLAC для файлов в MP3/AAC; каждый ты подтверждаешь на слух, прежде чем он заменит файл</string>
 </resources>

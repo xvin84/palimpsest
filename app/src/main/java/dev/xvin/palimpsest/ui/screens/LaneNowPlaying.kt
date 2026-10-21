@@ -316,6 +316,7 @@ fun LaneNowPlaying(onClose: () -> Unit) {
             }
             val ab by graph.player.ab.collectAsStateWithLifecycle()
             if (ab != null && ab!!.trackId == np.trackId) AbSwitch(ab!!, np.mediaId) else VersionChip(np.variant, track, np.mediaId)
+            FlacCandidatePrompt(track, np.mediaId)
 
             Spacer(Modifier.height(14.dp))
             LaneSeekBar(position.first, np.durationMs, fg, onSeek = { graph.player.seekTo(it) })

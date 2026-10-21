@@ -63,6 +63,12 @@ data class DownloadItem(
 )
 
 /**
+ * What a download is for: a normal one; a FLAC kept as a «same song?» candidate next to the
+ * library file; or a re-download in another quality replacing the file.
+ */
+enum class DownloadMode { NORMAL, CANDIDATE, REQUALITY }
+
+/**
  * Downloads service tracks into the music folder, fully tagged (cover, lyrics, URL link), and
  * hands them to [VersionRepository] so a re-uploaded track never silently replaces the old one.
  * Work runs in WorkManager so big batches ("download all likes") survive the app going away.
@@ -82,8 +88,8 @@ class Downloads(
     @Volatile private var currentJob: Job? = null
 
     /** Downloads one track as a child job, so [skipCurrent] can drop just this one. */
-    suspend fun runOne(trackId: Long, upgrade: Boolean) = coroutineScope {
-        val job = launch { download(trackId, upgrade) }
+    suspend fun runOne(trackId: Long, mode: DownloadMode, candidateRemoteId: String? = null, quality: dev.xvin.palimpsest.core.model.Quality? = null, keepOld: Boolean? = null) = coroutineScope {
+        val job = launch { download(trackId, mode, candidateRemoteId, quality, keepOld) }
         currentJob = job
         job.join()
         currentJob = null
@@ -92,15 +98,35 @@ class Downloads(
     /** «Пропустить» in the notification: abandons the track being downloaded, the queue goes on. */
     fun skipCurrent() { currentJob?.cancel() }
 
-    /** [upgrade]: re-download already downloaded tracks, but only if the service has lossless. */
-    suspend fun enqueue(trackIds: List<Long>, upgrade: Boolean = false) {
+    suspend fun enqueue(trackIds: List<Long>) = enqueue(trackIds, DownloadMode.NORMAL)
+
+    /**
+     * [candidates]: track → Yandex track id of a FLAC to fetch for it as a «same song?» candidate
+     * (the id may come from a search, for files not linked to Yandex). [quality]/[keepOld]: for
+     * [DownloadMode.REQUALITY].
+     */
+    suspend fun enqueue(
+        trackIds: List<Long>,
+        mode: DownloadMode,
+        candidates: Map<Long, String> = emptyMap(),
+        quality: dev.xvin.palimpsest.core.model.Quality? = null,
+        keepOld: Boolean? = null,
+    ) {
         if (trackIds.isEmpty()) return
-        val tracks = db.tracks().getMany(trackIds).filter { it.remoteId != null }
+        val tracks = db.tracks().getMany(trackIds).filter { it.remoteId != null || candidates[it.id] != null }
         _items.update { m -> m + tracks.associate { it.id to DownloadItem(it.id, it.title, it.artist, DownloadState.QUEUED) } }
         val wm = WorkManager.getInstance(context)
         tracks.map { it.id }.chunked(250).forEach { chunk ->
             val req = OneTimeWorkRequestBuilder<DownloadWorker>()
-                .setInputData(workDataOf(DownloadWorker.KEY_IDS to chunk.toLongArray(), DownloadWorker.KEY_UPGRADE to upgrade))
+                .setInputData(
+                    workDataOf(
+                        DownloadWorker.KEY_IDS to chunk.toLongArray(),
+                        DownloadWorker.KEY_MODE to mode.name,
+                        DownloadWorker.KEY_REMOTE_IDS to chunk.map { candidates[it].orEmpty() }.toTypedArray(),
+                        DownloadWorker.KEY_QUALITY to quality?.name,
+                        DownloadWorker.KEY_KEEP_OLD to (keepOld?.toString() ?: ""),
+                    ),
+                )
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                 .build()
             wm.enqueueUniqueWork(UNIQUE, ExistingWorkPolicy.APPEND_OR_REPLACE, req)
@@ -118,11 +144,19 @@ class Downloads(
         _items.update { m -> m[id]?.let { m + (id to f(it)) } ?: m }
 
     /** Downloads one track. Called from the worker. */
-    suspend fun download(trackId: Long, upgrade: Boolean = false) = withContext(Dispatchers.IO) {
+    suspend fun download(
+        trackId: Long,
+        mode: DownloadMode = DownloadMode.NORMAL,
+        candidateRemoteId: String? = null,
+        quality: dev.xvin.palimpsest.core.model.Quality? = null,
+        keepOld: Boolean? = null,
+    ) = withContext(Dispatchers.IO) {
         val track = db.tracks().get(trackId) ?: return@withContext
-        val remoteId = track.remoteId ?: return@withContext
+        // A candidate found by search is a Yandex track, whatever the file was linked to (if anything).
+        val service = if (candidateRemoteId != null) dev.xvin.palimpsest.core.model.Service.YANDEX else track.service
+        val remoteId = candidateRemoteId ?: track.remoteId ?: return@withContext
         if (_items.value[trackId] == null) _items.update { it + (trackId to DownloadItem(trackId, track.title, track.artist, DownloadState.QUEUED)) }
-        if (track.path != null && File(track.path).isFile && !track.updateAvailable && !upgrade) {
+        if (track.path != null && File(track.path).isFile && !track.updateAvailable && mode == DownloadMode.NORMAL) {
             set(trackId) { it.copy(state = DownloadState.SKIPPED, message = tr(R.string.dl_already)) }
             return@withContext
         }
@@ -132,15 +166,20 @@ class Downloads(
         val temps = ArrayList<File>()
         try {
             val s = settings.state.filterNotNull().first()
-            val provider = remote.providers[track.service] ?: error(tr(R.string.dl_no_provider, track.service))
+            val provider = remote.providers[service] ?: error(tr(R.string.dl_no_provider, service))
             val meta: RemoteTrack? = runCatching { provider.track(remoteId) }.getOrNull()
-            val dir = File(s.downloadDir, serviceFolder(track.service)).apply { mkdirs() }
+            val dir = File(s.downloadDir, serviceFolder(service)).apply { mkdirs() }
             val tmp = File(dir, ".download-$trackId.part").also { temps += it }
             // Stream URLs are short-lived and YouTube occasionally rejects one with 403:
             // resolve a fresh link and try again before giving up.
             var attempt = 0
-            var info = provider.resolveStream(remoteId, dev.xvin.palimpsest.core.model.Quality.LOSSLESS.takeIf { upgrade } ?: s.quality, forDownload = true)
-            if (upgrade && !info.codec.startsWith("flac") && info.codec != "alac") {
+            val wanted = when (mode) {
+                DownloadMode.CANDIDATE -> dev.xvin.palimpsest.core.model.Quality.LOSSLESS
+                DownloadMode.REQUALITY -> quality ?: s.quality
+                DownloadMode.NORMAL -> s.quality
+            }
+            var info = provider.resolveStream(remoteId, wanted, forDownload = true)
+            if (mode == DownloadMode.CANDIDATE && !info.codec.startsWith("flac") && info.codec != "alac") {
                 set(trackId) { it.copy(state = DownloadState.SKIPPED, message = tr(R.string.dl_no_lossless, info.codec)) }
                 return@withContext
             }
@@ -152,7 +191,7 @@ class Downloads(
                     if (++attempt >= 3 || e.message?.startsWith("HTTP 4") != true) throw e
                     Log.i(TAG, "retrying $trackId after ${e.message}")
                     delay(1500L * attempt)
-                    info = provider.resolveStream(remoteId, s.quality, forDownload = true)
+                    info = provider.resolveStream(remoteId, wanted, forDownload = true)
                 }
             }
 
@@ -162,9 +201,16 @@ class Downloads(
             val lyrics = db.lyrics().get(track.id)?.let { dev.xvin.palimpsest.core.model.Lyrics(it.plain, it.synced, it.source) }
                 ?.takeIf { !(it.synced ?: it.plain).isNullOrBlank() }
                 ?: runCatching { provider.lyrics(remoteId) }.getOrNull()
-            val tagged = File(dir, ".download-$trackId.${info.extension}").also { temps += it }
+            // FLAC packed in MP4 («flac-mp4») is still FLAC: unpacked into a real .flac, bit for bit.
+            val flacInMp4 = dev.xvin.palimpsest.core.audio.FlacMp4.isFlacInMp4(tmp)
+            val ext = if (flacInMp4) "flac" else info.extension
+            val codec = if (flacInMp4) "flac" else info.codec
+            val tagged = File(dir, ".download-$trackId.$ext").also { temps += it }
             currentCoroutineContext().ensureActive()
-            if (info.extension == "m4a" && Remux.isFragmentedMp4(tmp)) {
+            if (flacInMp4) {
+                dev.xvin.palimpsest.core.audio.FlacMp4.extract(tmp, tagged)
+                tmp.delete()
+            } else if (ext == "m4a" && Remux.isFragmentedMp4(tmp)) {
                 runCatching { Remux.toPlainMp4(tmp, tagged) { job?.isActive == false }; tmp.delete() }
                     .onFailure {
                         if (it is CancellationException) throw it
@@ -194,14 +240,19 @@ class Downloads(
 
             currentCoroutineContext().ensureActive()
             val baseName = FileNames.sanitize("${track.artist} - ${track.title}")
-            var target = File(dir, "$baseName.${info.extension}")
+            var target = File(dir, "$baseName.$ext")
             // Never overwrite a file that isn't this track's own (another track's, or an unindexed one).
             if (target.exists() && db.tracks().byPath(target.absolutePath)?.id != track.id) {
-                target = File(dir, "$baseName ($remoteId).${info.extension}")
+                target = File(dir, "$baseName ($remoteId).$ext")
             }
 
-            val note = tr(R.string.dl_note, track.service.displayName, info.codec, if (info.bitrateKbps > 0) " ${info.bitrateKbps} kbps" else "")
-            when (versions.installNewAudio(db.tracks().get(trackId)!!, tagged, target, note)) {
+            val note = tr(R.string.dl_note, service.displayName, codec, if (info.bitrateKbps > 0) " ${info.bitrateKbps} kbps" else "")
+            if (mode == DownloadMode.CANDIDATE) {
+                versions.addCandidate(db.tracks().get(trackId)!!, tagged, tr(R.string.flac_candidate_note, service.displayName))
+                set(trackId) { it.copy(state = DownloadState.DONE, progress = 1f, message = tr(R.string.flac_candidate_ready)) }
+                return@withContext
+            }
+            when (versions.installNewAudio(db.tracks().get(trackId)!!, tagged, target, note, keepOld)) {
                 VersionRepository.ReplaceResult.Identical ->
                     set(trackId) { it.copy(state = DownloadState.SKIPPED, progress = 1f, message = tr(R.string.dl_unchanged)) }
                 is VersionRepository.ReplaceResult.Replaced ->
@@ -283,7 +334,10 @@ class DownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
     override suspend fun doWork(): Result {
         val graph = (applicationContext as PalimpsestApp).graph
         val ids = inputData.getLongArray(KEY_IDS) ?: return Result.success()
-        val upgrade = inputData.getBoolean(KEY_UPGRADE, false)
+        val mode = inputData.getString(KEY_MODE)?.let { runCatching { DownloadMode.valueOf(it) }.getOrNull() } ?: DownloadMode.NORMAL
+        val remoteIds = inputData.getStringArray(KEY_REMOTE_IDS)
+        val quality = inputData.getString(KEY_QUALITY)?.let { runCatching { dev.xvin.palimpsest.core.model.Quality.valueOf(it) }.getOrNull() }
+        val keepOld = inputData.getString(KEY_KEEP_OLD)?.toBooleanStrictOrNull()
         var index = 0
         runCatching { setForeground(ForegroundInfo(NOTIFICATION_ID, notification(null, 0, ids.size), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)) }
         val nm = applicationContext.getSystemService(NotificationManager::class.java)
@@ -299,7 +353,7 @@ class DownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
             }
             ids.forEachIndexed { i, id ->
                 index = i
-                graph.downloads.runOne(id, upgrade)
+                graph.downloads.runOne(id, mode, remoteIds?.getOrNull(i)?.ifEmpty { null }, quality, keepOld)
             }
             ticker.cancel()
         }
@@ -335,7 +389,10 @@ class DownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
 
     companion object {
         const val KEY_IDS = "ids"
-        const val KEY_UPGRADE = "upgrade"
+        const val KEY_MODE = "mode"
+        const val KEY_REMOTE_IDS = "remote_ids"
+        const val KEY_QUALITY = "quality"
+        const val KEY_KEEP_OLD = "keep_old"
         private const val CHANNEL = "downloads"
         private const val NOTIFICATION_ID = 42
     }

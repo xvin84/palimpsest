@@ -313,4 +313,15 @@ class TranslatorTest {
         assertEquals(listOf("Посмотри на звезды", ""), texts)
         assertEquals(listOf("en"), langs)
     }
+
+    /** FLAC-in-MP4 samples made with ffmpeg (set FLAC_MP4_DIR); the extracted .flac must decode to the same PCM. */
+    @Test fun flacFromMp4() {
+        val dir = System.getenv("FLAC_MP4_DIR")?.let { java.io.File(it) } ?: return
+        for (name in listOf("plain.mp4", "frag.mp4")) {
+            val src = java.io.File(dir, name)
+            check(dev.xvin.palimpsest.core.audio.FlacMp4.isFlacInMp4(src)) { "$name not detected" }
+            dev.xvin.palimpsest.core.audio.FlacMp4.extract(src, java.io.File(dir, name.replace(".mp4", ".out.flac")))
+        }
+        check(!dev.xvin.palimpsest.core.audio.FlacMp4.isFlacInMp4(java.io.File(dir, "src.flac")))
+    }
 }

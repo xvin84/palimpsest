@@ -262,8 +262,15 @@ interface PlayEventDao {
 @Dao
 interface VersionDao {
     /** Old versions kept in the archive (not the file currently in the library). */
-    @Query("SELECT * FROM track_versions WHERE isCurrent = 0 ORDER BY createdAt")
+    @Query("SELECT * FROM track_versions WHERE isCurrent = 0 AND pending = 0 ORDER BY createdAt")
     suspend fun archived(): List<TrackVersionEntity>
+
+    /** FLAC copies waiting for «same song?», newest first. */
+    @Query("SELECT * FROM track_versions WHERE pending = 1 ORDER BY createdAt DESC")
+    fun observePending(): Flow<List<TrackVersionEntity>>
+
+    @Query("SELECT * FROM track_versions WHERE pending = 1")
+    suspend fun pending(): List<TrackVersionEntity>
 
     @Query("SELECT * FROM track_versions WHERE trackId = :trackId ORDER BY createdAt DESC")
     fun observeFor(trackId: Long): Flow<List<TrackVersionEntity>>

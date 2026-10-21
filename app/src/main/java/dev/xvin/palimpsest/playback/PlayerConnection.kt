@@ -265,6 +265,18 @@ class PlayerConnection(
 
     fun stopAb() { _ab.value = null }
 
+    /** Back from a version to the track's library file, at the same second (after «same song?»). */
+    fun backToTrack(trackId: Long) = scope.launch {
+        _ab.value = null
+        val c = ctrl()
+        val idx = c.currentMediaItemIndex
+        if (c.currentMediaItem?.mediaId == trackId.toString()) return@launch
+        val pos = c.currentPosition
+        c.replaceMediaItem(idx, bare(trackId.toString()))
+        c.seekTo(idx, pos)
+        c.play()
+    }
+
     private fun insertAndPlay(item: MediaItem) = scope.launch {
         val c = ctrl()
         val at = if (c.mediaItemCount == 0) 0 else c.currentMediaItemIndex + 1

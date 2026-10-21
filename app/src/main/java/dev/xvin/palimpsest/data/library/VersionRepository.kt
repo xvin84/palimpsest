@@ -46,9 +46,9 @@ class VersionRepository(
      * Puts freshly downloaded audio [incoming] at the track's place. If the track already has a
      * file with different audio, the old one is archived instead of being overwritten.
      */
-    suspend fun installNewAudio(track: TrackEntity, incoming: File, target: File, note: String): ReplaceResult = withContext(Dispatchers.IO) {
+    suspend fun installNewAudio(track: TrackEntity, incoming: File, target: File, note: String, keepOld: Boolean? = null): ReplaceResult = withContext(Dispatchers.IO) {
         val existing = track.path?.let(::File)?.takeIf { it.isFile }
-        val keep = settings.state.filterNotNull().first().keepVersions
+        val keep = keepOld ?: settings.state.filterNotNull().first().keepVersions
         if (existing == null) {
             moveFile(incoming, target)
             attach(track, target)
@@ -69,6 +69,51 @@ class VersionRepository(
         recordCurrent(track.id, dest, note)
         ReplaceResult.Replaced(archived)
     }
+
+    /**
+     * Keeps [incoming] (a FLAC found for the track) next to its history as a version awaiting the
+     * user's «same song?» — the library file stays as it is until then.
+     */
+    suspend fun addCandidate(track: TrackEntity, incoming: File, note: String): TrackVersionEntity = withContext(Dispatchers.IO) {
+        // One candidate per track: a newer find replaces an older one.
+        db.versions().forTrack(track.id).filter { it.pending }.forEach { File(it.path).delete(); db.versions().delete(it.id) }
+        val dst = File(versionsDir(track.id), "${stamp()}_candidate.${incoming.extension}")
+        moveFile(incoming, dst)
+        val v = insertVersion(track, dst, Versions.audioFingerprint(dst), note, current = false).copy(pending = true)
+        db.versions().update(v)
+        v
+    }
+
+    /**
+     * «Yes, it's the same song»: the candidate becomes the library file (same name, new extension);
+     * the old file goes into history or away, as the settings say.
+     */
+    suspend fun acceptCandidate(track: TrackEntity, candidate: TrackVersionEntity, keepOld: Boolean? = null) = withContext(Dispatchers.IO) {
+        val incoming = File(candidate.path).takeIf { it.isFile } ?: run { db.versions().delete(candidate.id); return@withContext }
+        val current = track.path?.let(::File)
+        val target = if (current != null) File(current.parentFile, current.nameWithoutExtension + "." + incoming.extension)
+        else File(settings.state.filterNotNull().first().downloadDir, incoming.name)
+        db.versions().delete(candidate.id)
+        // The old file goes into history, or is deleted, as installNewAudio decides.
+        installNewAudio(track, incoming, target, tr(R.string.flac_accepted_note, humanDate()), keepOld)
+    }
+
+    /** «No, that's another song»: the candidate goes; [rememberReject] keeps it from being offered again. */
+    suspend fun rejectCandidate(candidate: TrackVersionEntity) = withContext(Dispatchers.IO) {
+        val f = File(candidate.path)
+        runCatching { TagIO.read(f).url }.getOrNull()?.let { url -> rememberReject(candidate.trackId, url) }
+        f.delete()
+        db.versions().delete(candidate.id)
+    }
+
+    private val rejectFile get() = File(settings.state.value?.let { File(it.musicRoots.first(), ".palimpsest") } ?: File("/"), "flac_rejected.txt")
+
+    private fun rememberReject(trackId: Long, url: String) = runCatching { rejectFile.appendText("$trackId\t$url\n") }
+
+    /** Service links the user said aren't [trackId]'s song. */
+    fun rejectedLinks(trackId: Long): Set<String> = runCatching {
+        rejectFile.readLines().mapNotNull { l -> l.split('\t').takeIf { it.size == 2 && it[0] == trackId.toString() }?.get(1) }.toSet()
+    }.getOrDefault(emptySet())
 
     /** Points the track row at [file] and refreshes its tags/tech info from disk. */
     private suspend fun attach(track: TrackEntity, file: File) {

@@ -487,6 +487,9 @@ private fun settingItems(settings: AppSettings): List<SettingItem> {
     add(SettingsCategory.LIBRARY, tr(R.string.settings_find_duplicates), tr(R.string.settings_duplicates_hint), "duplicates дубли копии") {
         ActionRow(tr(R.string.settings_find_duplicates), tr(R.string.settings_duplicates_hint)) { nav.openDuplicates() }
     }
+    add(SettingsCategory.LIBRARY, tr(R.string.flac_title), tr(R.string.flac_settings_hint), "flac lossless качество quality upgrade") {
+        ActionRow(tr(R.string.flac_title), tr(R.string.flac_settings_hint)) { nav.openFlacReview() }
+    }
     add(SettingsCategory.LIBRARY, tr(R.string.settings_find_covers), tr(R.string.settings_covers_hint), "covers art обложки") {
         val cov by graph.covers.progress.collectAsStateWithLifecycle()
         ActionRow(

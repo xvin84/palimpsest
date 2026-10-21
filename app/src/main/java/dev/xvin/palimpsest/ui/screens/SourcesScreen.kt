@@ -103,18 +103,9 @@ fun SourcesScreen() {
                         TextButton(onClick = { scope.launch { graph.remote.logoutYandex() } }) { Text(tr(R.string.sign_out), color = Ink.Muted) }
                     }
                 }
-                val lossy by graph.db.tracks().observeLossyYandex().collectAsStateWithLifecycle(emptyList())
-                if (lossy.isNotEmpty()) {
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        tr(R.string.flac_upgrade_hint, lossy.size),
-                        style = MaterialTheme.typography.bodySmall, color = Ink.Muted,
-                    )
-                    TextButton(onClick = {
-                        scope.launch { graph.downloads.enqueue(lossy.map { it.id }, upgrade = true) }
-                        nav.toast(tr(R.string.flac_upgrade_searching, lossy.size))
-                    }) { Text(tr(R.string.flac_upgrade), color = LocalAccent.current) }
-                }
+                // FLAC for files stored lossy: found, downloaded as candidates, replaced after «same song?».
+                Spacer(Modifier.height(8.dp))
+                TextButton(onClick = nav::openFlacReview) { Text(tr(R.string.flac_title) + " →", color = LocalAccent.current) }
                 if (updates.isNotEmpty()) {
                     Spacer(Modifier.height(8.dp))
                     TextButton(onClick = { nav.openList(TrackListKind.UPDATES, "updates") }) {

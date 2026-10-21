@@ -88,6 +88,8 @@ data class TrackVersionEntity(
     val bitrateKbps: Int?,
     val note: String?,
     val isCurrent: Boolean,
+    /** A better copy found for the track (a FLAC), waiting for the user to confirm it's the same song. */
+    @ColumnInfo(defaultValue = "0") val pending: Boolean = false,
 )
 
 @Entity(tableName = "playlists")

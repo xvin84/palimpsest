@@ -294,6 +294,7 @@ fun GlassNowPlaying(onClose: () -> Unit) {
                     }
                     LikeButton(bits.track, fg)
                 }
+                FlacCandidatePrompt(bits.track, np.mediaId)
                 StyledSeekBar(bits.positionMs, np.durationMs, SolidColor(fg), fg.copy(alpha = 0.25f), null, 6.dp) { graph.player.seekTo(it) }
                 Row(Modifier.fillMaxWidth()) {
                     Text(formatDuration(bits.positionMs), style = MaterialTheme.typography.labelSmall, color = fg.copy(alpha = 0.6f))
@@ -383,6 +384,7 @@ fun VinylNowPlaying(onClose: () -> Unit) {
             }
             Text(np.title, style = MaterialTheme.typography.headlineMedium.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic), color = fg, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(listOfNotNull(np.artist, np.album).joinToString(" — "), style = MaterialTheme.typography.bodyMedium, color = Ink.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            FlacCandidatePrompt(bits.track, np.mediaId)
             Spacer(Modifier.height(10.dp))
             StyledSeekBar(bits.positionMs, np.durationMs, SolidColor(accent), Ink.Line, accent, 3.dp) { graph.player.seekTo(it) }
             Row(Modifier.fillMaxWidth()) {
@@ -446,6 +448,7 @@ fun MonoNowPlaying(onClose: () -> Unit) {
             }
             Text(np.title.uppercase(), style = MaterialTheme.typography.headlineSmall, color = fg, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text("> " + np.artist, style = MaterialTheme.typography.bodyMedium, color = Ink.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            FlacCandidatePrompt(bits.track, np.mediaId)
             Spacer(Modifier.height(12.dp))
             // [█████░░░░░░░] 01:12 / 03:45 — tap anywhere on the blocks to jump there.
             val cells = 18

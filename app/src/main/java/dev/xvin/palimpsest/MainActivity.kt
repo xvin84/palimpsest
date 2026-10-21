@@ -79,6 +79,18 @@ class MainActivity : ComponentActivity() {
     fun requestReadOnlyAccess() = audioPermission.launch(Manifest.permission.READ_MEDIA_AUDIO)
 
     private fun handleIntent(intent: Intent?) {
+        // Debug builds only: pretend the FLAC search found [debug_flac_source] for the track at
+        // [debug_flac_track], to try the «same song?» flow without a Yandex account.
+        if (BuildConfig.DEBUG && intent?.getStringExtra("debug_flac_track") != null) {
+            val g = (application as PalimpsestApp).graph
+            val trackPath = intent.getStringExtra("debug_flac_track")!!
+            val source = java.io.File(intent.getStringExtra("debug_flac_source")!!)
+            g.appScope.launch {
+                val t = g.db.tracks().byPath(trackPath) ?: return@launch
+                val copy = java.io.File(cacheDir, "debug-candidate.flac").also { source.copyTo(it, overwrite = true) }
+                g.versions.addCandidate(t, copy, "FLAC (debug)")
+            }
+        }
         intent ?: return
         intent.getStringExtra(EXTRA_OPEN_ALBUM)?.let { openAlbumRequest.value = it; return }
         if (intent.getBooleanExtra(EXTRA_OPEN_SETTINGS, false)) { openSettingsRequest.value = true; return }
