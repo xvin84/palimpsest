@@ -1,4 +1,4 @@
-package dev.xvin.palimpsest.desktop
+package dev.xvin.palimpsest.desktop.playback
 
 import dev.xvin.palimpsest.core.dsp.Equalizer
 import dev.xvin.palimpsest.core.dsp.SpectrumAnalyzer
@@ -17,7 +17,14 @@ import kotlin.concurrent.thread
  * javax.sound plays it.
  */
 class AudioEngine {
-    data class State(val file: File? = null, val playing: Boolean = false, val positionMs: Long = 0, val ended: Boolean = false)
+    data class State(val file: File? = null, val playing: Boolean = false, val positionMs: Long = 0, val ended: Boolean = false, val error: String? = null)
+
+    /** 0..1, applied after the EQ and ReplayGain. */
+    @Volatile var volume: Float = 1f
+
+    /** Bumped on every natural end, so listeners see each end even when two in a row look alike. */
+    @Volatile var endCount = 0
+        private set
 
     val equalizer = Equalizer().apply { configure(RATE, CHANNELS) }
     val spectrum = SpectrumAnalyzer(2048, 48).apply { sampleRate = RATE }
@@ -42,10 +49,16 @@ class AudioEngine {
         val fmt = AudioFormat(RATE.toFloat(), 16, CHANNELS, true, false)
         val l = AudioSystem.getSourceDataLine(fmt).apply { open(fmt, RATE * 4 / 5); start() } // ~200 ms buffer
         line = l
-        val p = ProcessBuilder(
-            "ffmpeg", "-v", "quiet", "-ss", "%.3f".format(java.util.Locale.ROOT, fromMs / 1000.0),
+        val p = try {
+            ProcessBuilder(
+            ffmpeg, "-v", "quiet", "-ss", "%.3f".format(java.util.Locale.ROOT, fromMs / 1000.0),
             "-i", file.absolutePath, "-vn", "-f", "s16le", "-ac", "$CHANNELS", "-ar", "$RATE", "-",
-        ).redirectErrorStream(false).start()
+            ).redirectErrorStream(false).start()
+        } catch (e: java.io.IOException) {
+            l.close(); line = null
+            _state.value = State(file, error = "ffmpeg not found")
+            return
+        }
         process = p
         _state.value = State(file, playing = true, positionMs = fromMs)
         worker = thread(name = "palimpsest-audio", isDaemon = true) { pump(gen, p.inputStream, l) }
@@ -71,6 +84,8 @@ class AudioEngine {
                 val frames = samples / CHANNELS
                 if (!equalizer.isTransparent) equalizer.process(floats, frames)
                 spectrum.push(floats, frames, CHANNELS)
+                val v = volume
+                if (v < 0.999f) for (i in 0 until samples) floats[i] *= v * v
                 for (i in 0 until samples) {
                     val v = (floats[i] * 32767f).toInt().coerceIn(-32768, 32767)
                     bytes[2 * i] = v.toByte(); bytes[2 * i + 1] = (v shr 8).toByte()
@@ -82,6 +97,7 @@ class AudioEngine {
             }
             if (gen == generation) {
                 l.drain()
+                endCount++
                 _state.value = _state.value.copy(playing = false, ended = true)
             }
         } catch (_: Exception) {
@@ -122,6 +138,15 @@ class AudioEngine {
     }
 
     companion object {
+        /** A bundled ffmpeg (packaged builds put it in the app's resources), else the one on PATH. */
+        val ffmpeg: String by lazy {
+            val dir = System.getProperty("compose.application.resources.dir")?.let(::File)
+            val exe = if (System.getProperty("os.name").lowercase().contains("win")) "ffmpeg.exe" else "ffmpeg"
+            dir?.let { File(it, exe) }?.takeIf { it.isFile }?.also { it.setExecutable(true) }?.absolutePath ?: "ffmpeg"
+        }
+
+        fun ffmpegAvailable(): Boolean = runCatching { ProcessBuilder(ffmpeg, "-version").start().waitFor() == 0 }.getOrDefault(false)
+
         const val RATE = 44_100
         const val CHANNELS = 2
     }
