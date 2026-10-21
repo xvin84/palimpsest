@@ -21,6 +21,9 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
     implementation(libs.newpipe.extractor)
+    // MPRIS: media keys and the desktop's player controls on Linux.
+    implementation(libs.dbus.java.core)
+    implementation(libs.dbus.java.unixsocket)
 }
 
 val appVersion = providers.provider {

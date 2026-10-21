@@ -1,5 +1,6 @@
 package dev.xvin.palimpsest.desktop.ui
 
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.fadeIn
@@ -170,6 +171,16 @@ fun main() = application {
         },
     ) {
         LaunchedEffect(Unit) { window.minimumSize = java.awt.Dimension(560, 480) }
+        // Media keys and the system's player controls (Linux).
+        DisposableEffect(Unit) {
+            val mpris = dev.xvin.palimpsest.desktop.playback.Mpris(
+                graph,
+                raise = { java.awt.EventQueue.invokeLater { window.toFront(); window.requestFocus() } },
+                quit = { graph.player.engine.stop(); exitApplication() },
+            )
+            graph.scope.launch { mpris.start() }
+            onDispose { mpris.stop() }
+        }
         setSingletonImageLoaderFactory { ctx ->
             ImageLoader.Builder(ctx)
                 .components { add(OkHttpNetworkFetcherFactory(callFactory = { graph.http })) }
