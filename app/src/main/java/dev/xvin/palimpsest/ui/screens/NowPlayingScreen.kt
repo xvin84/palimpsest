@@ -1,5 +1,11 @@
 package dev.xvin.palimpsest.ui.screens
 
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.withStyle
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import androidx.compose.runtime.withFrameMillis
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.scrollBy
 
@@ -526,8 +532,11 @@ internal fun LyricsPane(track: TrackEntity?, positionMs: Long, onSeek: (Long) ->
                     )
                     val scale by animateFloatAsState(if (active) 1.08f else 1f, tween(350), label = "lyric-scale")
                     val shown = if (only) translation?.getOrNull(i)?.takeIf { it.isNotBlank() && l.text.isNotBlank() } ?: l.text else l.text
+                    // Word timings: the sung line fills word by word, like karaoke.
+                    val karaoke = active && !only && l.words != null
                     Text(
-                        shown.ifBlank { "♪" },
+                        if (karaoke) karaokeText(l, parsed.lines.getOrNull(i + 1)?.timeMs ?: (l.timeMs + 10_000), positionMs, accent, Ink.Text.copy(alpha = 0.45f))
+                        else androidx.compose.ui.text.AnnotatedString(shown.ifBlank { "♪" }),
                         style = MaterialTheme.typography.headlineSmall.copy(fontSize = 22.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold),
                         color = color,
                         modifier = Modifier.fillMaxWidth(0.92f).clickable { onSeek(l.timeMs) }.padding(top = 6.dp, bottom = if (translateOn && !only) 0.dp else 6.dp)
@@ -550,6 +559,41 @@ internal fun LyricsPane(track: TrackEntity?, positionMs: Long, onSeek: (Long) ->
                     sourceChip()
                 }
             }
+            }
+        }
+    }
+}
+
+/**
+ * The active line with word timings: sung words in [sung], the current one filling letter by
+ * letter, the rest in [ahead]. The position is carried forward frame by frame between the
+ * player's updates so the fill moves smoothly.
+ */
+@Composable
+private fun karaokeText(line: dev.xvin.palimpsest.core.lyrics.LrcLine, lineEndMs: Long, positionMs: Long, sung: Color, ahead: Color): androidx.compose.ui.text.AnnotatedString {
+    val graph = LocalGraph.current
+    val playing by remember { graph.player.state.map { it.isPlaying }.distinctUntilChanged() }.collectAsStateWithLifecycle(false)
+    var smooth by remember { mutableLongStateOf(positionMs) }
+    LaunchedEffect(positionMs, playing) {
+        smooth = positionMs
+        if (!playing) return@LaunchedEffect
+        val t0 = withFrameMillis { it }
+        while (true) withFrameMillis { now -> smooth = positionMs + (now - t0) }
+    }
+    val words = line.words.orEmpty()
+    val progress = line.wordProgress(smooth, lineEndMs)
+    return androidx.compose.ui.text.buildAnnotatedString {
+        words.forEachIndexed { i, w ->
+            val p = progress[i]
+            when {
+                p >= 1f -> withStyle(androidx.compose.ui.text.SpanStyle(color = sung)) { append(w.text) }
+                p <= 0f -> withStyle(androidx.compose.ui.text.SpanStyle(color = ahead)) { append(w.text) }
+                else -> {
+                    // Split the word where the fill has reached.
+                    val cut = (w.text.trimEnd().length * p).toInt().coerceIn(0, w.text.length)
+                    withStyle(androidx.compose.ui.text.SpanStyle(color = sung)) { append(w.text.substring(0, cut)) }
+                    withStyle(androidx.compose.ui.text.SpanStyle(color = androidx.compose.ui.graphics.lerp(ahead, sung, 0.5f))) { append(w.text.substring(cut)) }
+                }
             }
         }
     }

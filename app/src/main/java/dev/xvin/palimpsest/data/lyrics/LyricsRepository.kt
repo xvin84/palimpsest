@@ -79,7 +79,8 @@ class LyricsRepository(
      */
     private fun embed(track: TrackEntity, lyrics: Lyrics) {
         val path = track.path ?: return
-        val text = (lyrics.synced ?: lyrics.plain)?.takeIf { it.isNotBlank() } ?: return
+        // Word timings stay in the app: other players would show «<00:12.34>» tags as text.
+        val text = (lyrics.synced?.let(dev.xvin.palimpsest.core.lyrics.Lrc::stripWords) ?: lyrics.plain)?.takeIf { it.isNotBlank() } ?: return
         if (!embedEnabled()) return
         scope.launch(Dispatchers.IO) {
             writeLock.withLock {
@@ -106,10 +107,15 @@ class LyricsRepository(
         if (lrc.isFile) add(fromText(lrc.readText(), tr(R.string.lyrics_src_lrc)))
     }
 
-    /** The lyrics to show: a hand-picked choice as is, otherwise synced ones win over plain. */
+    /**
+     * The lyrics to show: a hand-picked choice as is, otherwise word-timed (karaoke) ones, then
+     * synced, then plain. The file's tag gets them without word timings, so it never outranks them.
+     */
     suspend fun local(track: TrackEntity): Lyrics? = withContext(Dispatchers.IO) {
         val all = localAll(track)
-        val best = if (isPinned(track.id)) all.firstOrNull() else all.firstOrNull { it.synced != null } ?: all.firstOrNull()
+        val best = if (isPinned(track.id)) all.firstOrNull() else
+            all.firstOrNull { it.synced?.let(dev.xvin.palimpsest.core.lyrics.Lrc::hasWords) == true }
+                ?: all.firstOrNull { it.synced != null } ?: all.firstOrNull()
         // Lyrics found or picked before this was automatic still make it into the file.
         best?.let { embed(track, it) }
         best
@@ -188,7 +194,7 @@ class LyricsRepository(
         if (text.isBlank()) db.lyrics().delete(track.id)
         else db.lyrics().put(LyricsEntity(track.id, l.synced, l.plain, l.source))
         if (embed && track.path != null && TagIO.canEdit(File(track.path))) {
-            writeLock.withLock { TagIO.write(File(track.path), TagEdit(lyrics = text)) }
+            writeLock.withLock { TagIO.write(File(track.path), TagEdit(lyrics = dev.xvin.palimpsest.core.lyrics.Lrc.stripWords(text))) }
             runCatching { rescan(track.path) }
         }
     }

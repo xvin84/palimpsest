@@ -1,6 +1,27 @@
 package dev.xvin.palimpsest.core.lyrics
 
-data class LrcLine(val timeMs: Long, val text: String)
+/** One sung word (with its trailing space) from enhanced LRC; an empty [text] marks where the line ends. */
+data class LrcWord(val timeMs: Long, val text: String)
+
+/** A lyric line; [words] is set when the lyrics carry word timings (karaoke). */
+data class LrcLine(val timeMs: Long, val text: String, val words: List<LrcWord>? = null) {
+    /**
+     * How much of the line is sung at [positionMs], word by word: for every word in [words], 0..1.
+     * A word fills over its own length (to the next word's start, or the line's end marker).
+     */
+    fun wordProgress(positionMs: Long, lineEndMs: Long): FloatArray {
+        val w = words ?: return FloatArray(0)
+        return FloatArray(w.size) { i ->
+            val start = w[i].timeMs
+            val end = w.getOrNull(i + 1)?.timeMs ?: lineEndMs
+            when {
+                positionMs <= start -> 0f
+                positionMs >= end || end <= start -> 1f
+                else -> (positionMs - start).toFloat() / (end - start)
+            }
+        }
+    }
+}
 
 /** Parsed lyrics: either time-synced lines or plain text. */
 data class ParsedLyrics(val lines: List<LrcLine>, val isSynced: Boolean) {
@@ -17,8 +38,13 @@ data class ParsedLyrics(val lines: List<LrcLine>, val isSynced: Boolean) {
         return ans
     }
 
+    /** Whether any line has word timings. */
+    val hasWords: Boolean get() = lines.any { it.words != null }
+
     fun toLrc(): String = if (!isSynced) lines.joinToString("\n") { it.text } else
-        lines.joinToString("\n") { "[${Lrc.formatTime(it.timeMs)}]${it.text}" }
+        lines.joinToString("\n") { l ->
+            "[${Lrc.formatTime(l.timeMs)}]" + (l.words?.joinToString("") { "<${Lrc.formatTime(it.timeMs)}>${it.text}" } ?: l.text)
+        }
 
     companion object {
         val EMPTY = ParsedLyrics(emptyList(), false)
@@ -61,13 +87,69 @@ object Lrc {
                 rest = rest.substring(m.range.last + 1)
             }
             if (times.isEmpty()) continue
-            // Strip word-level "<00:12.34>" timings from enhanced LRC.
-            val textPart = rest.replace(Regex("""<\d{1,3}:\d{1,2}(?:[.:]\d{1,3})?>"""), "").trim()
-            for (t in times) out += LrcLine((t - offset).coerceAtLeast(0), textPart)
+            // Enhanced LRC: "<00:12.34>" before each word gives its start.
+            val textPart = rest.replace(wordTag, "").trim()
+            val words = if (times.size == 1 && wordTag.containsMatchIn(rest)) words(rest, times[0], offset) else null
+            for (t in times) out += LrcLine((t - offset).coerceAtLeast(0), textPart, words)
         }
         out.sortBy { it.timeMs }
         return ParsedLyrics(out, isSynced = true)
     }
+
+    private val wordTag = Regex("""<(\d{1,3}):(\d{1,2})(?:[.:](\d{1,3}))?>""")
+
+    private fun fracMs(f: String) = when (f.length) {
+        0 -> 0L
+        1 -> f.toLong() * 100
+        2 -> f.toLong() * 10
+        else -> f.take(3).toLong()
+    }
+
+    /** "Hello <00:12.50>world <00:13.10>" → words; text before the first tag starts with the line. */
+    private fun words(rest: String, lineMs: Long, offset: Long): List<LrcWord>? {
+        val out = ArrayList<LrcWord>()
+        var pos = 0
+        var start = lineMs
+        for (m in wordTag.findAll(rest)) {
+            val text = rest.substring(pos, m.range.first)
+            if (text.isNotEmpty()) out += LrcWord((start - offset).coerceAtLeast(0), text)
+            start = m.groupValues[1].toLong() * 60_000 + m.groupValues[2].toLong() * 1_000 + fracMs(m.groupValues[3])
+            pos = m.range.last + 1
+        }
+        val tail = rest.substring(pos)
+        out += LrcWord((start - offset).coerceAtLeast(0), tail.trimEnd())
+        val fixed = out.mapIndexed { i, w -> if (i == 0) w.copy(text = w.text.trimStart()) else w }
+        return fixed.takeIf { it.count { w -> w.text.isNotBlank() } >= 1 }
+    }
+
+    /**
+     * NetEase «yrc» word timings — `[lineStart,lineDur](wordStart,wordDur,0)word…` in ms — as
+     * enhanced LRC. Credit lines (JSON) are skipped. Null when there are no timed lines.
+     */
+    fun fromYrc(yrc: String): String? {
+        val lineHead = Regex("""^\[(\d+),(\d+)]""")
+        // A word runs up to the next timing, so «(oh)» in the text survives.
+        val word = Regex("""\((\d+),(\d+),\d+\)(.*?)(?=\(\d+,\d+,\d+\)|$)""")
+        val out = StringBuilder()
+        for (raw in yrc.lineSequence()) {
+            val head = lineHead.find(raw) ?: continue
+            val body = raw.substring(head.range.last + 1)
+            val ws = word.findAll(body).toList()
+            if (ws.isEmpty()) continue
+            out.append('[').append(formatTime(head.groupValues[1].toLong())).append(']')
+            for (w in ws) out.append('<').append(formatTime(w.groupValues[1].toLong())).append('>').append(w.groupValues[3])
+            val last = ws.last()
+            out.append('<').append(formatTime(last.groupValues[1].toLong() + last.groupValues[2].toLong())).append('>')
+            out.append('\n')
+        }
+        return out.toString().trim().takeIf { it.isNotEmpty() }
+    }
+
+    /** Whether [lrc] has word timings (enhanced LRC). */
+    fun hasWords(lrc: String): Boolean = wordTag.containsMatchIn(lrc)
+
+    /** Lyrics without word timings, for players that don't understand them. */
+    fun stripWords(lrc: String): String = lrc.replace(wordTag, "")
 
     fun formatTime(ms: Long): String {
         val m = ms / 60_000

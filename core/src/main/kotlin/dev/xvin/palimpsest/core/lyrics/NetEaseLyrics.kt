@@ -19,7 +19,7 @@ class NetEaseLyrics(private val http: OkHttpClient = Http.client) {
     @Serializable private data class SearchResult(val songs: List<Song> = emptyList())
     @Serializable private data class Song(val id: Long, val name: String = "", val ar: List<Artist> = emptyList(), val dt: Long = 0)
     @Serializable private data class Artist(val name: String = "")
-    @Serializable private data class LyricResp(val lrc: LrcBody? = null, val nolyric: Boolean = false, val uncollected: Boolean = false)
+    @Serializable private data class LyricResp(val lrc: LrcBody? = null, val yrc: LrcBody? = null, val nolyric: Boolean = false, val uncollected: Boolean = false)
     @Serializable private data class LrcBody(val lyric: String? = null)
 
     suspend fun find(artist: String, title: String, durationMs: Long): Lyrics? {
@@ -35,10 +35,13 @@ class NetEaseLyrics(private val http: OkHttpClient = Http.client) {
             .map { it to TrackMatcher.score(title, artist, durationMs, it.name, it.ar.joinToString(", ") { a -> a.name }, it.dt) }
             .filter { it.second >= MIN_SCORE }
             .maxByOrNull { it.second }?.first ?: return null
-        val lr = http.newCall(request("$BASE/api/song/lyric?id=${best.id}&lv=1&tv=-1")).fetch()
+        // v1 also brings «yrc»: word timings, shown as karaoke.
+        val lr = http.newCall(request("$BASE/api/song/lyric/v1?id=${best.id}&lv=-1&yv=-1&tv=-1&cp=false")).fetch()
         if (!lr.isSuccessful) return null
         val resp = Http.json.decodeFromString<LyricResp>(lr.body)
-        val text = resp.lrc?.lyric?.let(::clean)?.takeIf { it.isNotBlank() } ?: return null
+        val lineLrc = resp.lrc?.lyric?.let(::clean)?.takeIf { it.isNotBlank() }
+        val wordLrc = resp.yrc?.lyric?.let(Lrc::fromYrc)?.let(::clean)?.takeIf { it.isNotBlank() }
+        val text = wordLrc ?: lineLrc ?: return null
         if (INSTRUMENTAL in text) return null
         return if (Lrc.looksSynced(text)) Lyrics(plain = null, synced = text, source = "NetEase") else Lyrics(plain = text, synced = null, source = "NetEase")
     }

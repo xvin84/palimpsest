@@ -365,3 +365,24 @@ class MusicLinkTest {
         check(p("https://example.com/x") == null)
     }
 }
+
+class KaraokeTest {
+    @org.junit.Test fun enhancedLrc() {
+        val p = dev.xvin.palimpsest.core.lyrics.Lrc.parse("[00:12.00]<00:12.00>Hello <00:12.50>big <00:13.00>world<00:14.00>\n[00:15.00]plain line")
+        val l = p.lines[0]
+        check(l.text == "Hello big world") { l.text }
+        check(l.words!!.map { it.text } == listOf("Hello ", "big ", "world", "")) { l.words.toString() }
+        val prog = l.wordProgress(12_750, 15_000)
+        check(prog[0] == 1f && prog[1] == 0.5f && prog[2] == 0f) { prog.toList().toString() }
+        check(p.lines[1].words == null)
+        check(dev.xvin.palimpsest.core.lyrics.Lrc.parse(p.toLrc()) == p)
+    }
+
+    @org.junit.Test fun yrc() {
+        val y = "{\"t\":0,\"c\":[{\"tx\":\"作词: \"}]}\n[12550,6320](12550,400,0)Every (12950,470,0)night (13420,500,0)(oh)"
+        val lrc = dev.xvin.palimpsest.core.lyrics.Lrc.fromYrc(y)!!
+        check(lrc == "[00:12.55]<00:12.55>Every <00:12.95>night <00:13.42>(oh)<00:13.92>") { lrc }
+        val l = dev.xvin.palimpsest.core.lyrics.Lrc.parse(lrc).lines.single()
+        check(l.text == "Every night (oh)") { l.text }
+    }
+}
