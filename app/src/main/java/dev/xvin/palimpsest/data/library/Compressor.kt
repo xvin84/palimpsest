@@ -39,6 +39,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -57,6 +58,20 @@ enum class CompressTarget(val ext: String, val bitrate: Int, val labelRes: Int, 
 }
 
 data class CompressPlan(val target: CompressTarget, val tracks: List<TrackEntity>, val bytesBefore: Long, val bytesAfter: Long)
+
+/**
+ * Fitting the library into a size: [tracks] (least loved first) become AAC; [protectedCount]
+ * favourites and often or recently played tracks are never touched. [fits] is false when even
+ * converting everything else isn't enough.
+ */
+data class BudgetPlan(
+    val budgetBytes: Long,
+    val libraryBytes: Long,
+    val tracks: List<TrackEntity>,
+    val bytesAfter: Long,
+    val protectedCount: Int,
+    val fits: Boolean,
+)
 
 data class CompressState(
     val running: Boolean = false,
@@ -105,6 +120,45 @@ class Compressor(
         CompressPlan(target, tracks, tracks.sumOf { it.sizeBytes }, tracks.sumOf { estimate(it, target) })
     }
 
+    /**
+     * What to convert to [target] so the library fits into [budgetBytes]. Favourites, tracks played
+     * 5+ times or more than once in the last 30 days, and the most played quarter stay as they are; of the rest,
+     * the least played (and longest unheard) go first.
+     */
+    suspend fun budgetPlan(budgetBytes: Long, target: CompressTarget = CompressTarget.AAC256): BudgetPlan = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis()
+        val local = db.tracks().all().filter { it.path != null && File(it.path).isFile }
+        val libraryBytes = local.sumOf { it.sizeBytes }
+        val stats = db.plays().trackStats().associateBy { it.trackId }
+        val topPlays = stats.values.map { it.plays }.sortedDescending().let { it.getOrNull(it.size / 4) ?: Int.MAX_VALUE }.coerceAtLeast(2)
+        fun protected(t: TrackEntity): Boolean {
+            val st = stats[t.id]
+            return t.liked || (st != null && (st.plays >= 5 || st.plays >= topPlays || (st.plays >= 2 && now - st.lastPlayed < 30 * 86_400_000L)))
+        }
+        val (keep, candidates) = local.partition { protected(it) }
+        val order = candidates.filter { applies(it, target) }.sortedWith(
+            compareBy<TrackEntity> { stats[it.id]?.plays ?: 0 }
+                .thenBy { stats[it.id]?.lastPlayed ?: 0L }
+                .thenByDescending { it.sizeBytes - estimate(it, target) },
+        )
+        var total = libraryBytes
+        val chosen = ArrayList<TrackEntity>()
+        for (t in order) {
+            if (total <= budgetBytes) break
+            chosen += t
+            total -= (t.sizeBytes - estimate(t, target)).coerceAtLeast(0)
+        }
+        BudgetPlan(budgetBytes, libraryBytes, chosen, total, keep.size, total <= budgetBytes)
+    }
+
+    /** Converts what [budgetPlan] picks for the budget in the settings (AAC 256, originals not kept). */
+    fun startBudget() {
+        val req = OneTimeWorkRequestBuilder<CompressWorker>()
+            .setInputData(workDataOf(CompressWorker.KEY_TARGET to CompressTarget.AAC256.name, CompressWorker.KEY_KEEP to false, CompressWorker.KEY_BUDGET to true))
+            .build()
+        WorkManager.getInstance(context).enqueueUniqueWork(UNIQUE, ExistingWorkPolicy.KEEP, req)
+    }
+
     /** [limit]: convert only the first few (a trial run to listen to before doing the rest). */
     fun start(target: CompressTarget, keepOld: Boolean, limit: Int = 0) {
         val req = OneTimeWorkRequestBuilder<CompressWorker>()
@@ -115,8 +169,8 @@ class Compressor(
 
     fun cancel() = WorkManager.getInstance(context).cancelUniqueWork(UNIQUE)
 
-    suspend fun run(target: CompressTarget, keepOld: Boolean, limit: Int = 0) {
-        val full = plan(target)
+    suspend fun run(target: CompressTarget, keepOld: Boolean, limit: Int = 0, budgetBytes: Long = 0) {
+        val full = if (budgetBytes > 0) budgetPlan(budgetBytes, target).let { CompressPlan(target, it.tracks, 0, 0) } else plan(target)
         val plan = if (limit > 0) full.copy(tracks = full.tracks.take(limit)) else full
         _state.value = CompressState(running = true, total = plan.tracks.size)
         try {
@@ -369,13 +423,18 @@ class CompressWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
         val target = runCatching { CompressTarget.valueOf(inputData.getString(KEY_TARGET)!!) }.getOrNull() ?: return Result.failure()
         val keep = inputData.getBoolean(KEY_KEEP, false)
         val limit = inputData.getInt(KEY_LIMIT, 0)
+        val budget = if (inputData.getBoolean(KEY_BUDGET, false)) {
+            val gb = graph.settings.state.value?.budgetGb ?: graph.settings.flow.first().budgetGb
+            if (gb <= 0) return Result.success()
+            gb * 1_000_000_000L
+        } else 0L
         runCatching { setForeground(getForegroundInfo()) }
         val nm = applicationContext.getSystemService(NotificationManager::class.java)
         kotlinx.coroutines.coroutineScope {
             val ticker = launch {
                 graph.compressor.state.collect { s -> nm.notify(NOTIFICATION_ID, notification(s)) }
             }
-            graph.compressor.run(target, keep, limit)
+            graph.compressor.run(target, keep, limit, budget)
             ticker.cancel()
         }
         nm.cancel(NOTIFICATION_ID)
@@ -401,6 +460,7 @@ class CompressWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
         const val KEY_TARGET = "target"
         const val KEY_KEEP = "keep"
         const val KEY_LIMIT = "limit"
+        const val KEY_BUDGET = "budget"
         private const val CHANNEL = "compress"
         private const val NOTIFICATION_ID = 4711
     }

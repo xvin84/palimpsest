@@ -796,4 +796,14 @@
     <string name="mood_sad">Sad</string>
     <string name="track_bpm">%1$d BPM</string>
     <string name="track_energy">energy %1$d %%</string>
+    <string name="budget_title">Storage budget</string>
+    <string name="budget_explain">Keep the library within a size: favourites, tracks played 5+ times or repeatedly in the last month stay as they are; the least played become AAC 256 (indistinguishable for nearly everyone). Originals are not kept.</string>
+    <string name="budget_value">Up to %1$d GB · now %2$s</string>
+    <string name="budget_off">Off · the library takes %1$s</string>
+    <string name="budget_fits">The library fits — nothing to convert.</string>
+    <string name="budget_plan">%1$d rarely played tracks become AAC 256, saving about %2$s. %3$d favourite and often played ones stay as they are.</string>
+    <string name="budget_not_enough">Even then it takes about %1$s — more than the budget: the rest is your favourites.</string>
+    <string name="budget_auto">Keep to it by itself</string>
+    <string name="budget_auto_hint">Once a week while charging</string>
+    <string name="budget_now">Fit now (%1$d tracks)</string>
 </resources>

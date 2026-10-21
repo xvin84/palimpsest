@@ -1,5 +1,10 @@
 package dev.xvin.palimpsest.ui.screens
 
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Slider
 import android.text.format.Formatter
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -134,6 +139,66 @@ fun CompressScreen() {
                 Button(onClick = { graph.compressor.start(target, keepOld) }, enabled = n > 0, modifier = Modifier.padding(16.dp).fillMaxWidth()) {
                     Text(if (n > 0) tr(R.string.compress_start, n) else tr(R.string.compress_nothing))
                 }
+            }
+            item { BudgetCard() }
+        }
+    }
+}
+
+/**
+ * «Бюджет места»: the library is kept within N GB — favourites and often played tracks stay as
+ * they are, the least played become AAC 256 (now, or by itself once a week while charging).
+ */
+@Composable
+private fun BudgetCard() {
+    val graph = LocalGraph.current
+    val context = LocalContext.current
+    val settings by graph.settings.state.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    val s = settings ?: return
+    var gb by remember(s.budgetGb) { mutableIntStateOf(s.budgetGb) }
+    val libraryBytes by produceState(0L) { value = graph.compressor.budgetPlan(Long.MAX_VALUE).libraryBytes }
+    val maxGb = (libraryBytes / 1_000_000_000L + 1).toInt().coerceAtLeast(2)
+    val plan by produceState<dev.xvin.palimpsest.data.library.BudgetPlan?>(null, s.budgetGb) {
+        value = if (s.budgetGb > 0) graph.compressor.budgetPlan(s.budgetGb * 1_000_000_000L) else null
+    }
+    fun size(b: Long) = Formatter.formatShortFileSize(context, b)
+    fun save(newGb: Int, auto: Boolean) {
+        scope.launch { graph.settings.setBudget(newGb, auto) }
+        dev.xvin.palimpsest.data.library.BudgetWorker.schedule(context, newGb > 0 && auto)
+    }
+
+    Column(Modifier.padding(16.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Ink.Paper2).padding(16.dp)) {
+        Text(tr(R.string.budget_title), style = MaterialTheme.typography.titleMedium)
+        Text(tr(R.string.budget_explain), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            if (gb > 0) tr(R.string.budget_value, gb, size(libraryBytes)) else tr(R.string.budget_off, size(libraryBytes)),
+            style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary,
+        )
+        Slider(
+            value = gb.toFloat(), onValueChange = { gb = it.toInt() }, valueRange = 0f..maxGb.toFloat(), steps = (maxGb - 1).coerceIn(0, 200),
+            onValueChangeFinished = { save(gb, s.budgetAuto) },
+        )
+        val p = plan
+        if (s.budgetGb > 0 && p != null) {
+            Text(
+                when {
+                    p.tracks.isEmpty() -> tr(R.string.budget_fits)
+                    else -> tr(R.string.budget_plan, p.tracks.size, size(p.libraryBytes - p.bytesAfter), p.protectedCount) +
+                        if (!p.fits) "\n" + tr(R.string.budget_not_enough, size(p.bytesAfter)) else ""
+                },
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(tr(R.string.budget_auto), style = MaterialTheme.typography.bodyMedium)
+                    Text(tr(R.string.budget_auto_hint), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
+                }
+                Switch(checked = s.budgetAuto, onCheckedChange = { save(s.budgetGb, it) })
+            }
+            if (p.tracks.isNotEmpty()) Button(onClick = { graph.compressor.startBudget() }, modifier = Modifier.padding(top = 8.dp).fillMaxWidth()) {
+                Text(tr(R.string.budget_now, p.tracks.size))
             }
         }
     }

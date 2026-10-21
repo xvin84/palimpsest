@@ -113,6 +113,10 @@ data class AppSettings(
     val trashDays: Int,
     /** Trash size limit, MB: the oldest files go first when it's exceeded (0 = no limit). */
     val trashMaxMb: Int,
+    /** Storage budget for the library, GB (0 = off): beyond it, rarely played tracks become AAC. */
+    val budgetGb: Int,
+    /** Keep to the budget by itself, once a week while charging. */
+    val budgetAuto: Boolean,
     /** Last search queries, newest first. */
     val recentSearches: List<String>,
     val uiStyle: UiStyle,
@@ -165,6 +169,8 @@ class Settings(private val context: Context, scope: CoroutineScope) {
         val uiStyle = stringPreferencesKey("ui_style")
         val trashDays = androidx.datastore.preferences.core.intPreferencesKey("trash_days")
         val trashMaxMb = androidx.datastore.preferences.core.intPreferencesKey("trash_max_mb")
+        val budgetGb = androidx.datastore.preferences.core.intPreferencesKey("budget_gb")
+        val budgetAuto = booleanPreferencesKey("budget_auto")
         val libSort = stringPreferencesKey("library_sort")
         val libSource = stringPreferencesKey("library_source")
         val libLiked = booleanPreferencesKey("library_only_liked")
@@ -212,6 +218,8 @@ class Settings(private val context: Context, scope: CoroutineScope) {
             trashEnabled = p[K.trashEnabled] ?: true,
             trashDays = p[K.trashDays] ?: 30,
             trashMaxMb = p[K.trashMaxMb] ?: 2048,
+            budgetGb = p[K.budgetGb] ?: 0,
+            budgetAuto = p[K.budgetAuto] ?: false,
             uiStyle = p[K.uiStyle]?.let { runCatching { UiStyle.valueOf(it) }.getOrNull() } ?: UiStyle.PALIMPSEST,
             recentSearches = p[K.recentSearches]?.let { runCatching { json.decodeFromString<List<String>>(it) }.getOrNull() } ?: emptyList(),
             libraryView = LibraryView(p[K.libSort], p[K.libSource], p[K.libLiked] ?: false, p[K.libOffline] ?: false),
@@ -254,6 +262,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
     suspend fun setTrash(enabled: Boolean, days: Int, maxMb: Int) = edit {
         it[K.trashEnabled] = enabled; it[K.trashDays] = days; it[K.trashMaxMb] = maxMb
     }
+    suspend fun setBudget(gb: Int, auto: Boolean) = edit { it[K.budgetGb] = gb; it[K.budgetAuto] = auto }
     suspend fun setEmbedLyrics(on: Boolean) = edit { it[K.embedLyrics] = on }
     suspend fun setLibraryView(v: LibraryView) = edit {
         if (v.sort == null) it.remove(K.libSort) else it[K.libSort] = v.sort

@@ -91,6 +91,18 @@ class MainActivity : ComponentActivity() {
                 g.versions.addCandidate(t, copy, "FLAC (debug)")
             }
         }
+        // Debug builds only: plan the storage budget at [debug_budget_mb] (the UI works in GB) and
+        // convert what it picks, keeping the originals as versions.
+        if (BuildConfig.DEBUG && intent?.hasExtra("debug_budget_mb") == true) {
+            val g = (application as PalimpsestApp).graph
+            val bytes = intent.getIntExtra("debug_budget_mb", 0) * 1_000_000L
+            g.appScope.launch {
+                val plan = g.compressor.budgetPlan(bytes)
+                android.util.Log.i("Budget", "library ${plan.libraryBytes} → ${plan.bytesAfter}, protected ${plan.protectedCount}, fits ${plan.fits}: " + plan.tracks.joinToString { it.title })
+                g.compressor.run(dev.xvin.palimpsest.data.library.CompressTarget.AAC256, keepOld = true, budgetBytes = bytes)
+                android.util.Log.i("Budget", "done: ${g.compressor.state.value}")
+            }
+        }
         intent ?: return
         intent.getStringExtra(EXTRA_OPEN_ALBUM)?.let { openAlbumRequest.value = it; return }
         if (intent.getBooleanExtra(EXTRA_OPEN_SETTINGS, false)) { openSettingsRequest.value = true; return }

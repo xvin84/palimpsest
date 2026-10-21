@@ -805,4 +805,14 @@
     <string name="mood_sad">Грустно</string>
     <string name="track_bpm">%1$d BPM</string>
     <string name="track_energy">энергия %1$d %%</string>
+    <string name="budget_title">Бюджет места</string>
+    <string name="budget_explain">Медиатека держится в заданном размере: избранное, треки, прослушанные 5+ раз или не раз за последний месяц, остаются как есть; реже всего слушаемые становятся AAC 256 (на слух почти никто не отличит). Оригиналы не сохраняются.</string>
+    <string name="budget_value">До %1$d ГБ · сейчас %2$s</string>
+    <string name="budget_off">Выключен · медиатека занимает %1$s</string>
+    <string name="budget_fits">Медиатека укладывается — конвертировать нечего.</string>
+    <string name="budget_plan">%1$d редко слушаемых треков станут AAC 256, это около %2$s. %3$d любимых и частых останутся как есть.</string>
+    <string name="budget_not_enough">Даже так выйдет около %1$s — больше бюджета: остальное — ваше любимое.</string>
+    <string name="budget_auto">Следить самому</string>
+    <string name="budget_auto_hint">Раз в неделю, на зарядке</string>
+    <string name="budget_now">Уложиться сейчас (%1$d)</string>
 </resources>
