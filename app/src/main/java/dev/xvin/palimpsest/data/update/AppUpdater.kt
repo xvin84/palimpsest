@@ -70,7 +70,8 @@ class AppUpdater(private val context: Context, private val http: OkHttpClient) {
             _available.value = null
             return@withContext null
         }
-        val release = AppRelease(version, gh.body.orEmpty().trim(), apk.url, apk.size, gh.htmlUrl)
+        val notes = changelogNotes(gh.tag, version) ?: gh.body.orEmpty().trim()
+        val release = AppRelease(version, notes, apk.url, apk.size, gh.htmlUrl)
         _available.value = release
         if (notify && prefs.getString(KEY_NOTIFIED, null) != version) {
             notify(release)
@@ -146,12 +147,22 @@ class AppUpdater(private val context: Context, private val http: OkHttpClient) {
         )
     }
 
+    /**
+     * This version's part of the changelog in the app's language (the release text on GitHub is
+     * in one language only). Null when it can't be fetched — then the release text is shown.
+     */
+    private suspend fun changelogNotes(tag: String, version: String): String? = runCatching {
+        val file = if (context.resources.configuration.locales[0].language == "ru") "CHANGELOG.ru.md" else "CHANGELOG.md"
+        val r = http.newCall(
+            Request.Builder().url("${BuildConfig.UPDATE_API}/repos/${BuildConfig.GITHUB_REPO}/contents/$file?ref=$tag")
+                .header("Accept", "application/vnd.github.raw").build(),
+        ).fetch()
+        if (r.isSuccessful) dev.xvin.palimpsest.core.text.ReleaseNotes.section(r.body, version) else null
+    }.getOrNull()
+
     companion object {
-        /** Release notes are Markdown; shown as plain text: no heading marks, bullets as •. */
-        fun plainNotes(md: String): String = md.lineSequence()
-            .map { it.trimEnd() }
-            .map { it.replace(Regex("^#{1,6}\\s*"), "").replace(Regex("^\\s*[-*]\\s+"), "• ").replace("**", "").replace("`", "") }
-            .joinToString("\n").replace(Regex("\n{3,}"), "\n\n").trim()
+        /** Release notes are Markdown; shown as plain text (see [dev.xvin.palimpsest.core.text.ReleaseNotes]). */
+        fun plainNotes(md: String): String = dev.xvin.palimpsest.core.text.ReleaseNotes.plain(md)
 
         private const val CHANNEL = "updates"
         private const val NOTIFICATION_ID = 77
