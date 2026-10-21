@@ -157,6 +157,9 @@ fun TrackTable(tracks: List<Track>, liked: Set<String>, numbered: Boolean = fals
             modifier = modifier.clickable { if (sort == s) desc = !desc else { sort = s; desc = false } },
         )
     }
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+    // Narrow windows drop the album column.
+    val showAlbum = maxWidth >= 720.dp
     LazyColumn(Modifier.fillMaxSize()) {
         header?.let { h -> item { h() } }
         item {
@@ -176,7 +179,7 @@ fun TrackTable(tracks: List<Track>, liked: Set<String>, numbered: Boolean = fals
                     H(t("Исполнитель", "Artist"), Sort.ARTIST, Modifier)
                     H(t("Добавлены", "Added"), Sort.ADDED, Modifier)
                 }
-                H(t("Альбом", "Album"), Sort.ALBUM, Modifier.weight(1f).padding(horizontal = 8.dp))
+                if (showAlbum) H(t("Альбом", "Album"), Sort.ALBUM, Modifier.weight(1f).padding(horizontal = 8.dp))
                 Spacer(Modifier.width(42.dp))
                 H(t("Время", "Time"), Sort.DURATION, Modifier.width(52.dp))
             }
@@ -185,11 +188,12 @@ fun TrackTable(tracks: List<Track>, liked: Set<String>, numbered: Boolean = fals
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) {
                     TrackLine(t, if (numbered) (t.trackNumber ?: (i + 1)) else i + 1, st.current?.id == t.id, t.id in liked,
-                        onPlay = { graph.player.play(sorted, i) }, onMenu = { nav.menuFor = t })
+                        onPlay = { graph.player.play(sorted, i) }, onMenu = { nav.menuFor = t }, showAlbum = showAlbum)
                 }
                 if (onRemove != null) TextButton(onClick = { onRemove(tracks.indexOf(t)) }) { Text("✕", color = pal.faint) }
             }
         }
+    }
     }
 }
 

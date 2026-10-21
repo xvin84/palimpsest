@@ -121,7 +121,6 @@ fun NowPlayingScreen(onClose: () -> Unit) {
         dev.xvin.palimpsest.data.settings.UiStyle.GLASS -> { GlassNowPlaying(onClose); return }
         dev.xvin.palimpsest.data.settings.UiStyle.VINYL -> { VinylNowPlaying(onClose); return }
         dev.xvin.palimpsest.data.settings.UiStyle.MONO -> { MonoNowPlaying(onClose); return }
-        dev.xvin.palimpsest.data.settings.UiStyle.NEON -> { NeonNowPlaying(onClose); return }
         dev.xvin.palimpsest.data.settings.UiStyle.PALIMPSEST -> Unit
     }
     val graph = LocalGraph.current

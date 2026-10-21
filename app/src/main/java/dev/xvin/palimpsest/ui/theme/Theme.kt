@@ -113,12 +113,6 @@ data class Palette(
             Color(0xFFFFFFFF), Color(0xFFFFFFFF), Color(0xFF9A9A9A), Color(0xFF5E5E5E),
         )
 
-        /** Neon: synthwave night — violet ink, pink and cyan light. Always dark. */
-        val Neon = Palette(
-            Color(0xFF0D0221), Color(0xFF160536), Color(0xFF200A4A), Color(0xFF2B115E),
-            Color(0xFF3A1A73), Color(0xFFF8F0FF), Color(0xFFB7A6D9), Color(0xFF7A68A6),
-        )
-
         /** Old paper: warm off-white with brown-black ink. */
         val Light = Palette(
             Color(0xFFF7F2E8), Color(0xFFEFE8DA), Color(0xFFE5DCCB), Color(0xFFDBD1BE),
@@ -197,14 +191,6 @@ private val monoTypography = Typography().let { t ->
     )
 }
 
-private val neonTypography = laneTypography.let { t ->
-    t.copy(
-        displayMedium = t.displayMedium.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, letterSpacing = 0.sp),
-        headlineLarge = t.headlineLarge.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
-        headlineMedium = t.headlineMedium.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
-    )
-}
-
 /** The accent currently in effect (default vermilion, or one picked from the cover). */
 val LocalAccent = staticCompositionLocalOf { Ink.Vermilion }
 
@@ -232,7 +218,6 @@ fun PalimpsestTheme(
         UiStyle.GLASS -> Palette.glass(animatedTint, wantLight)
         UiStyle.VINYL -> Palette.vinyl(wantLight)
         UiStyle.MONO -> Palette.mono(wantLight)
-        UiStyle.NEON -> Palette.Neon
         UiStyle.PALIMPSEST -> when (theme) {
             ThemeMode.SYSTEM -> if (systemDark) Palette.Dark else Palette.Light
             ThemeMode.DARK -> Palette.Dark
@@ -246,7 +231,6 @@ fun PalimpsestTheme(
     val styleAccent = when (style) {
         UiStyle.VINYL -> if (palette.isLight) Color(0xFFB4561B) else Color(0xFFE39B3A)
         UiStyle.MONO -> palette.text
-        UiStyle.NEON -> Color(0xFFFF3CD8)
         else -> readableAccent(accent, palette.isLight)
     }
     val a by animateColorAsState(styleAccent, tween(600), label = "accent")
@@ -287,7 +271,6 @@ fun PalimpsestTheme(
             UiStyle.LANE -> laneTypography
             UiStyle.GLASS -> glassTypography
             UiStyle.MONO -> monoTypography
-            UiStyle.NEON -> neonTypography
             UiStyle.VINYL, UiStyle.PALIMPSEST -> typography
         }
         MaterialTheme(colorScheme = scheme, typography = type) {

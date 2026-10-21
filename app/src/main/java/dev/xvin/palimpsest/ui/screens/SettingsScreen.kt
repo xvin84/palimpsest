@@ -368,14 +368,6 @@ private fun StylePreview(style: UiStyle, modifier: Modifier) {
                 for (k in 0 until 12) drawRect(if (k < 5) Color.White else Color(0xFF444444), Offset(w * 0.17f + k * w * 0.055f, h * 0.71f), Size(w * 0.045f, h * 0.03f))
                 drawRect(Color.White, Offset(w * 0.38f, h * 0.8f), Size(w * 0.24f, h * 0.09f), style = androidx.compose.ui.graphics.drawscope.Stroke(2f))
             }
-            UiStyle.NEON -> {
-                drawRect(Brush.verticalGradient(listOf(Color(0xFF0D0221), Color(0xFF2B115E))))
-                drawCircle(Brush.verticalGradient(listOf(Color(0xFFFFD319), Color(0xFFFF2975)), startY = h * 0.1f, endY = h * 0.45f), w * 0.26f, Offset(w / 2, h * 0.3f))
-                for (k in 0 until 6) drawLine(Color(0xFFFF3CD8).copy(alpha = 0.7f), Offset(0f, h * (0.5f + k * k * 0.012f)), Offset(w, h * (0.5f + k * k * 0.012f)), 1.5f)
-                for (k in -4..4) drawLine(Color(0xFFFF3CD8).copy(alpha = 0.6f), Offset(w / 2 + k * w * 0.05f, h * 0.5f), Offset(w / 2 + k * w * 0.3f, h * 0.8f), 1.5f)
-                drawRect(Color(0xFFF8F0FF), Offset(w * 0.15f, h * 0.83f), Size(w * 0.5f, h * 0.035f))
-                drawRect(Brush.horizontalGradient(listOf(Color(0xFFFF3CD8), Color(0xFF2CE5FF))), Offset(w * 0.15f, h * 0.9f), Size(w * 0.7f, h * 0.012f))
-            }
         }
     }
 }

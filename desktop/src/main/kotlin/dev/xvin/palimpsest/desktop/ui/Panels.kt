@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -105,7 +106,7 @@ private fun QueueList() {
 
 /** Synced lyrics that follow the music (click a line to jump there); plain text just scrolls. */
 @Composable
-fun LyricsView(modifier: Modifier, big: Boolean) {
+fun LyricsView(modifier: Modifier, big: Boolean, scale: Float = 1f) {
     val graph = LocalGraph.current
     val pal = LocalPal.current
     val accent = LocalAccent.current
@@ -151,9 +152,9 @@ fun LyricsView(modifier: Modifier, big: Boolean) {
                             .graphicsLayer { scaleX = scale; scaleY = scale; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0.5f) }
                             .padding(vertical = if (big) 8.dp else 5.dp),
                     ) {
-                        Text(line.text.ifBlank { "♪" }, color = color, fontSize = if (big) 30.sp else 18.sp, fontWeight = if (i == active) FontWeight.Bold else FontWeight.SemiBold, lineHeight = if (big) 36.sp else 24.sp)
+                        Text(line.text.ifBlank { "♪" }, color = color, fontSize = if (big) (30 * scale).sp else 18.sp, fontWeight = if (i == active) FontWeight.Bold else FontWeight.SemiBold, lineHeight = if (big) (36 * scale).sp else 24.sp)
                         translated?.getOrNull(i)?.takeIf { it.isNotBlank() && it != line.text }?.let {
-                            Text(it, color = accent.copy(alpha = 0.8f), fontSize = if (big) 18.sp else 13.sp)
+                            Text(it, color = accent.copy(alpha = 0.8f), fontSize = if (big) (18 * scale).sp else 13.sp)
                         }
                     }
                 }
@@ -162,7 +163,11 @@ fun LyricsView(modifier: Modifier, big: Boolean) {
     }
 }
 
-/** The full-window player: Palimpsest — blurred cover, cover and lyrics side by side; Lane — the cover fills the left half. */
+/**
+ * The full-window player, laid out for the window it's in: wide — cover and lyrics side by side,
+ * narrow or tall — one above the other; with lyrics off, just a big cover. Text scales with width.
+ * Palimpsest: blurred cover behind; Lane: the cover itself, edge to edge, melting into its colour.
+ */
 @Composable
 fun NowPlayingView() {
     val graph = LocalGraph.current
@@ -173,36 +178,67 @@ fun NowPlayingView() {
     val model by produceState<Any?>(t.coverUrl, t.id) { value = graph.covers.model(t) }
     val lane = LocalStyle.current == DesktopStyle.LANE
     val tint = LocalTint.current
-    Box(Modifier.fillMaxSize().background(pal.paper)) {
+    val deep = androidx.compose.ui.graphics.lerp(Color.Black, tint, 0.5f)
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize().background(pal.paper)) {
+        val w = maxWidth
+        val h = maxHeight
+        val wide = w > h * 1.15f && w >= 820.dp
+        val lyrics = nav.bigLyrics
+        val scale = (w.value / 1400f).coerceIn(0.7f, 1.3f)
+        val titleStyle = MaterialTheme.typography.displayMedium.copy(fontSize = (34 * scale).coerceAtLeast(24f).sp, lineHeight = (40 * scale).coerceAtLeast(28f).sp)
+        // Backdrop.
         if (lane) {
-            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(androidx.compose.ui.graphics.lerp(Color.Black, tint, 0.5f), pal.paper))))
-            Row(Modifier.fillMaxSize()) {
-                Box(Modifier.fillMaxHeight().aspectRatio(1f, matchHeightConstraintsFirst = true)) {
-                    if (model != null) AsyncImage(model, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                    Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0.55f to Color.Transparent, 1f to androidx.compose.ui.graphics.lerp(Color.Black, tint, 0.5f))))
-                    Column(Modifier.align(Alignment.BottomStart).padding(32.dp)) {
-                        Text(t.title, style = MaterialTheme.typography.displayMedium, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Text(t.artist, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Normal), color = Color.White.copy(alpha = 0.8f))
-                    }
-                }
-                LyricsView(Modifier.weight(1f).fillMaxHeight().padding(40.dp), big = true)
-            }
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(deep, pal.paper))))
         } else {
             if (model != null) AsyncImage(model, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().blur(90.dp).graphicsLayer { alpha = 0.5f })
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(pal.paper.copy(alpha = 0.4f), pal.paper))))
-            Row(Modifier.fillMaxSize().padding(48.dp), horizontalArrangement = Arrangement.spacedBy(48.dp)) {
+        }
+        @Composable
+        fun Titles(color: Color = pal.text) {
+            Text(t.title, style = titleStyle, color = color, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(listOfNotNull(t.artist, t.album).joinToString(" · "), color = color.copy(alpha = 0.75f), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        when {
+            // Wide, Lane: the cover fills the left part edge to edge.
+            wide && lane && lyrics -> Row(Modifier.fillMaxSize()) {
+                Box(Modifier.fillMaxHeight().widthIn(max = w * 0.55f).aspectRatio(1f, matchHeightConstraintsFirst = true)) {
+                    if (model != null) AsyncImage(model, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                    Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0.55f to Color.Transparent, 1f to deep)))
+                    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.6f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.6f))))
+                    Column(Modifier.align(Alignment.BottomStart).padding(32.dp)) { Titles(Color.White) }
+                }
+                LyricsView(Modifier.weight(1f).fillMaxHeight().padding(40.dp), big = true, scale = scale)
+            }
+            wide && lyrics -> Row(Modifier.fillMaxSize().padding(48.dp), horizontalArrangement = Arrangement.spacedBy(48.dp)) {
                 Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.Center) {
                     Artwork(model, t.album ?: t.title, Modifier.fillMaxWidth().aspectRatio(1f), 18.dp)
                     Spacer(Modifier.height(20.dp))
-                    Text(t.title, style = MaterialTheme.typography.displayMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text(listOfNotNull(t.artist, t.album).joinToString(" · "), color = pal.muted, style = MaterialTheme.typography.titleMedium)
+                    Titles()
                     Spacer(Modifier.height(12.dp))
                     Spectrum(Modifier.fillMaxWidth().height(60.dp))
                 }
-                LyricsView(Modifier.weight(1.2f).fillMaxHeight(), big = true)
+                LyricsView(Modifier.weight(1.2f).fillMaxHeight(), big = true, scale = scale)
+            }
+            // Narrow or tall with lyrics: a compact header, the lyrics below it.
+            lyrics -> Column(Modifier.fillMaxSize().padding(horizontal = 28.dp, vertical = 20.dp)) {
+                Row(Modifier.padding(start = 40.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Artwork(model, t.album ?: t.title, Modifier.size(minOf(w * 0.22f, 120.dp)), 12.dp)
+                    Spacer(Modifier.width(18.dp))
+                    Column { Titles() }
+                }
+                Spacer(Modifier.height(16.dp))
+                LyricsView(Modifier.weight(1f).fillMaxWidth(), big = true, scale = scale)
+            }
+            // Lyrics off: the cover as big as the window allows.
+            else -> Column(Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                val side = minOf(w * 0.8f, h * 0.68f)
+                Artwork(model, t.album ?: t.title, Modifier.size(side), if (lane) 6.dp else 18.dp)
+                Spacer(Modifier.height(20.dp))
+                Column(Modifier.widthIn(max = side), horizontalAlignment = Alignment.CenterHorizontally) { Titles() }
+                if (!lane) { Spacer(Modifier.height(12.dp)); Spectrum(Modifier.widthIn(max = side).fillMaxWidth().height(48.dp)) }
             }
         }
-        IconButton(onClick = { nav.nowPlaying = false }, modifier = Modifier.padding(12.dp)) { Icon(Icons.Rounded.KeyboardArrowDown, null, Modifier.size(32.dp), tint = Color.White) }
+        IconButton(onClick = { nav.nowPlaying = false }, modifier = Modifier.padding(8.dp)) { Icon(Icons.Rounded.KeyboardArrowDown, null, Modifier.size(32.dp), tint = if (lane || !pal.light) Color.White else pal.text) }
     }
 }
 

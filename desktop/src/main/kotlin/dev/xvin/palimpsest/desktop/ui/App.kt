@@ -130,6 +130,8 @@ class Nav {
     val current get() = stack.last()
     var menuFor by mutableStateOf<Track?>(null)
     var nowPlaying by mutableStateOf(false)
+    /** Lyrics on the full-window player (its own switch, separate from the side panel). */
+    var bigLyrics by mutableStateOf(true)
     var rightPanel by mutableStateOf<String?>(null)
     var message by mutableStateOf<String?>(null)
     var searchFocus by mutableStateOf(0)
@@ -167,6 +169,7 @@ fun main() = application {
             }
         },
     ) {
+        LaunchedEffect(Unit) { window.minimumSize = java.awt.Dimension(560, 480) }
         setSingletonImageLoaderFactory { ctx ->
             ImageLoader.Builder(ctx)
                 .components { add(OkHttpNetworkFetcherFactory(callFactory = { graph.http })) }
@@ -190,6 +193,7 @@ fun main() = application {
                         val all = graph.library.tracks.value
                         all.indexOfFirst { "${it.artist} ${it.title}".lowercase().contains(q) }.takeIf { it >= 0 }?.let { graph.player.play(all, it) }
                         if (demo.endsWith("|now")) nav.nowPlaying = true
+                        if (demo.endsWith("|cover")) { nav.nowPlaying = true; nav.bigLyrics = false }
                         if (demo.endsWith("|lyrics")) nav.rightPanel = "lyrics"
                     }
                 }
@@ -369,7 +373,12 @@ private fun PlayerBar(compact: Boolean) {
             st.error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         }
         Row(Modifier.weight(if (compact) 0.7f else 1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End) {
-            IconButton(onClick = { nav.rightPanel = if (nav.rightPanel == "lyrics") null else "lyrics" }) { Icon(Icons.Rounded.Lyrics, null, tint = if (nav.rightPanel == "lyrics") accent else pal.muted) }
+            // On the full-window player the button shows or hides its lyrics; elsewhere the side panel.
+            val lyricsOn = if (nav.nowPlaying) nav.bigLyrics else nav.rightPanel == "lyrics"
+            IconButton(onClick = {
+                if (nav.nowPlaying) nav.bigLyrics = !nav.bigLyrics
+                else nav.rightPanel = if (nav.rightPanel == "lyrics") null else "lyrics"
+            }) { Icon(Icons.Rounded.Lyrics, null, tint = if (lyricsOn) accent else pal.muted) }
             IconButton(onClick = { nav.rightPanel = if (nav.rightPanel == "queue") null else "queue" }) { Icon(Icons.AutoMirrored.Rounded.QueueMusic, null, tint = if (nav.rightPanel == "queue") accent else pal.muted) }
             IconButton(onClick = { if (t != null) nav.nowPlaying = !nav.nowPlaying }) { Icon(Icons.Rounded.OpenInFull, null, tint = if (nav.nowPlaying) accent else pal.muted) }
             if (!compact) {

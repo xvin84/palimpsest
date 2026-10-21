@@ -721,6 +721,4 @@
     <string name="style_vinyl_desc">A spinning record with a tonearm, espresso and cream, a seventies sleeve</string>
     <string name="style_mono">Mono</string>
     <string name="style_mono_desc">Black and white, a monospace font, square edges, an ASCII progress bar</string>
-    <string name="style_neon">Neon</string>
-    <string name="style_neon_desc">Synthwave night: violet, pink and cyan glow, a grid running to the horizon</string>
 </resources>

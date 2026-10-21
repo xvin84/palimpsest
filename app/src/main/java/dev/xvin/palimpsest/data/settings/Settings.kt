@@ -54,7 +54,6 @@ enum class UiStyle(@androidx.annotation.StringRes val labelRes: Int, @androidx.a
     GLASS(R.string.style_glass, R.string.style_glass_desc),
     VINYL(R.string.style_vinyl, R.string.style_vinyl_desc),
     MONO(R.string.style_mono, R.string.style_mono_desc),
-    NEON(R.string.style_neon, R.string.style_neon_desc),
 }
 
 /** Synced lyrics: the original, the original with a translation under each line, or only the translation. */
