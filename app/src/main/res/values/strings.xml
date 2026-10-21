@@ -769,4 +769,25 @@
     <string name="compress_note">Converted to %1$s</string>
     <string name="compress_trial">First try it on 3 tracks</string>
     <string name="compress_trial_hint">The originals of those three stay as versions — listen, then convert the rest.</string>
+    <string name="health_title">Library health</string>
+    <string name="health_checking">Checking lyrics in files: %1$d of %2$d</string>
+    <string name="health_no_cover">No cover</string>
+    <string name="health_no_cover_hint">Found on Yandex Music or Cover Art Archive and written into the file</string>
+    <string name="health_fix_covers">Find covers</string>
+    <string name="health_no_lyrics">No lyrics</string>
+    <string name="health_no_lyrics_hint">Neither in the tags nor next to the file</string>
+    <string name="health_lyrics_progress">Searching: %1$d of %2$d, found %3$d</string>
+    <string name="health_fix_lyrics">Find lyrics</string>
+    <string name="health_untagged">Untagged</string>
+    <string name="health_untagged_hint">No artist — fix them by hand or with «Fill in from the service»</string>
+    <string name="health_lossy">Lossy files</string>
+    <string name="health_lossy_hint">MP3/AAC that may exist in FLAC. To review: %1$d</string>
+    <string name="health_hires">Hi-res FLAC</string>
+    <string name="health_hires_hint">16-bit FLAC would save about %1$s with the same sound</string>
+    <string name="health_not_analysed">Not analysed</string>
+    <string name="health_not_analysed_hint">Tempo, key and energy — for the offline wave and smooth transitions</string>
+    <string name="health_analysis_progress">Analysing: %1$d of %2$d</string>
+    <string name="health_fix_analyse">Analyse audio</string>
+    <string name="settings_health">Library health</string>
+    <string name="settings_health_hint">Covers, lyrics, tags, duplicates, quality — in one place</string>
 </resources>

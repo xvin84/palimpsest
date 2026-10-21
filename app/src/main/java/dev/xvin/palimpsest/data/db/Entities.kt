@@ -54,6 +54,12 @@ data class TrackEntity(
     /** Set by the update check when the service now serves different audio under this id. */
     val remoteDurationMs: Long? = null,
     val updateAvailable: Boolean = false,
+    /** Lyrics in the file's tag or a sidecar .lrc; null = not checked yet. */
+    @ColumnInfo(defaultValue = "NULL") val hasLyrics: Boolean? = null,
+    /** From the audio analysis (tempo, key like «8A»/«A minor», loudness-based energy 0..1); null = not analysed. */
+    @ColumnInfo(defaultValue = "NULL") val bpm: Float? = null,
+    @ColumnInfo(defaultValue = "NULL") val musicalKey: String? = null,
+    @ColumnInfo(defaultValue = "NULL") val energy: Float? = null,
 ) {
     val isLocal: Boolean get() = path != null
     val albumKey: String get() = "${albumArtist ?: artist}\u0000${album.orEmpty()}"

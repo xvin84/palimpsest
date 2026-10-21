@@ -325,3 +325,26 @@ class TranslatorTest {
         check(!dev.xvin.palimpsest.core.audio.FlacMp4.isFlacInMp4(java.io.File(dir, "src.flac")))
     }
 }
+
+class AudioFeaturesTest {
+    /** A 128 BPM kick over an A-minor chord (A, C, E) must read as ~128 BPM and A minor. */
+    @org.junit.Test fun tempoAndKey() {
+        val rate = 11025
+        val n = rate * 30
+        val pcm = FloatArray(n)
+        val beat = rate * 60.0 / 128
+        val tones = doubleArrayOf(220.0, 261.63, 329.63, 110.0)
+        for (i in 0 until n) {
+            var v = 0.0
+            for (f in tones) v += 0.12 * kotlin.math.sin(2 * Math.PI * f * i / rate)
+            val sinceBeat = (i % beat) / rate
+            v += 0.8 * kotlin.math.exp(-sinceBeat * 40) * kotlin.math.sin(2 * Math.PI * 60 * sinceBeat)
+            pcm[i] = v.toFloat()
+        }
+        val f = dev.xvin.palimpsest.core.analysis.AudioFeatures.analyze(pcm, rate)!!
+        println("features: $f")
+        check(kotlin.math.abs(f.bpm - 128) < 2) { "bpm ${f.bpm}" }
+        check(f.key == "A minor") { "key ${f.key}" }
+        check(f.camelot == "8A")
+    }
+}

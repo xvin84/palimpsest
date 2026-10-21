@@ -56,7 +56,7 @@ import dev.xvin.palimpsest.i18n.plural
 import dev.xvin.palimpsest.i18n.label
 
 @Serializable
-enum class TrackListKind { ALBUM, ARTIST, FOLDER, PLAYLIST, LIKED, UPDATES, MOST_PLAYED, RECENT, FORGOTTEN }
+enum class TrackListKind { ALBUM, ARTIST, FOLDER, PLAYLIST, LIKED, UPDATES, MOST_PLAYED, RECENT, FORGOTTEN, NO_COVER, NO_LYRICS, UNTAGGED }
 
 @Composable
 fun TrackListScreen(kind: TrackListKind, key: String, extra: String?) {
@@ -75,6 +75,9 @@ fun TrackListScreen(kind: TrackListKind, key: String, extra: String?) {
             TrackListKind.MOST_PLAYED -> dao.observeMostPlayed()
             TrackListKind.RECENT -> dao.observeRecentlyAdded()
             TrackListKind.FORGOTTEN -> dao.observeForgotten(System.currentTimeMillis() - 60L * 24 * 3600 * 1000)
+            TrackListKind.NO_COVER -> dao.observeNoCover()
+            TrackListKind.NO_LYRICS -> dao.observeNoLyrics()
+            TrackListKind.UNTAGGED -> dao.observeUntagged(dev.xvin.palimpsest.data.library.LibraryScanner.UNKNOWN_ARTIST)
         }
     }
     val tracks by flow.collectAsStateWithLifecycle(emptyList())
@@ -94,6 +97,9 @@ fun TrackListScreen(kind: TrackListKind, key: String, extra: String?) {
         TrackListKind.MOST_PLAYED -> tr(R.string.smart_most_played)
         TrackListKind.RECENT -> tr(R.string.smart_recently_added)
         TrackListKind.FORGOTTEN -> tr(R.string.smart_forgotten)
+        TrackListKind.NO_COVER -> tr(R.string.health_no_cover)
+        TrackListKind.NO_LYRICS -> tr(R.string.health_no_lyrics)
+        TrackListKind.UNTAGGED -> tr(R.string.health_untagged)
     }
     val subtitle = when (kind) {
         TrackListKind.ALBUM -> extra

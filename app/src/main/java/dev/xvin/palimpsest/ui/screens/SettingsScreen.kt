@@ -484,6 +484,9 @@ private fun settingItems(settings: AppSettings): List<SettingItem> {
     add(SettingsCategory.LIBRARY, tr(R.string.settings_reread_tags), tr(R.string.settings_reread_hint), "tags теги") {
         ActionRow(tr(R.string.settings_reread_tags), tr(R.string.settings_reread_hint)) { launch { graph.scanner.scan(force = true) } }
     }
+    add(SettingsCategory.LIBRARY, tr(R.string.settings_health), tr(R.string.settings_health_hint), "health здоровье обложки тексты теги") {
+        ActionRow(tr(R.string.settings_health), tr(R.string.settings_health_hint)) { nav.openHealth() }
+    }
     add(SettingsCategory.LIBRARY, tr(R.string.settings_find_duplicates), tr(R.string.settings_duplicates_hint), "duplicates дубли копии") {
         ActionRow(tr(R.string.settings_find_duplicates), tr(R.string.settings_duplicates_hint)) { nav.openDuplicates() }
     }

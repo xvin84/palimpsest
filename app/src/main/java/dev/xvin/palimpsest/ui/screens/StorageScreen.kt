@@ -109,6 +109,7 @@ fun StorageScreen() {
             item {
                 Category(slices[0], size(r.libraryBytes), tr(R.string.storage_library_hint, r.libraryFiles)) {
                     TextButton(onClick = nav::openCompress) { Text(tr(R.string.compress_title)) }
+                    TextButton(onClick = nav::openHealth) { Text(tr(R.string.settings_health)) }
                 }
             }
             item {

@@ -778,4 +778,25 @@
     <string name="compress_note">Перекодировано в %1$s</string>
     <string name="compress_trial">Сначала попробовать на 3 треках</string>
     <string name="compress_trial_hint">Оригиналы этих трёх останутся версиями — послушай, потом перекодируй остальное.</string>
+    <string name="health_title">Здоровье медиатеки</string>
+    <string name="health_checking">Проверяю тексты в файлах: %1$d из %2$d</string>
+    <string name="health_no_cover">Без обложки</string>
+    <string name="health_no_cover_hint">Найдутся в Яндекс Музыке или Cover Art Archive и запишутся в файл</string>
+    <string name="health_fix_covers">Найти обложки</string>
+    <string name="health_no_lyrics">Без текста</string>
+    <string name="health_no_lyrics_hint">Нет ни в тегах, ни рядом с файлом</string>
+    <string name="health_lyrics_progress">Ищу: %1$d из %2$d, найдено %3$d</string>
+    <string name="health_fix_lyrics">Найти тексты</string>
+    <string name="health_untagged">Без тегов</string>
+    <string name="health_untagged_hint">Нет исполнителя — поправьте вручную или «Заполнить из сервиса»</string>
+    <string name="health_lossy">С потерями</string>
+    <string name="health_lossy_hint">MP3/AAC, которые могут найтись во FLAC. На проверку: %1$d</string>
+    <string name="health_hires">Hi-res FLAC</string>
+    <string name="health_hires_hint">16-битный FLAC сэкономит около %1$s с тем же звуком</string>
+    <string name="health_not_analysed">Не проанализированы</string>
+    <string name="health_not_analysed_hint">Темп, тональность и энергия — для офлайн-волны и плавных переходов</string>
+    <string name="health_analysis_progress">Анализ: %1$d из %2$d</string>
+    <string name="health_fix_analyse">Проанализировать звук</string>
+    <string name="settings_health">Здоровье медиатеки</string>
+    <string name="settings_health_hint">Обложки, тексты, теги, дубликаты, качество — в одном месте</string>
 </resources>

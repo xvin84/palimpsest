@@ -165,6 +165,8 @@ class AppGraph(val app: Application) {
     val downloads = Downloads(app, db, settings, http, remote, versions) { e, ctx -> errors.report(e, ctx) }
     val flacFinder = dev.xvin.palimpsest.data.library.FlacFinder(db, yandex, downloads, versions)
     val compressor = dev.xvin.palimpsest.data.library.Compressor(app, db, versions)
+    val health = dev.xvin.palimpsest.data.library.LibraryHealth(db, lyrics)
+    val analyzer = dev.xvin.palimpsest.data.library.AudioAnalyzer(app, db)
 
     val player = PlayerConnection(app, mainScope, savedQueue = { settings.loadQueue() }, offlinePlayable = ::offlinePlayable).also { p ->
         p.onError = { e -> errors.report(e, tr(R.string.ctx_playback)) }

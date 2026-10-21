@@ -76,6 +76,30 @@ interface TrackDao {
     @Query("SELECT * FROM tracks WHERE updateAvailable = 1 ORDER BY artist, title")
     fun observeUpdates(): Flow<List<TrackEntity>>
 
+    // --- Library health ---
+    @Query("SELECT * FROM tracks WHERE path IS NOT NULL AND hasEmbeddedCover = 0 ORDER BY artist, title")
+    fun observeNoCover(): Flow<List<TrackEntity>>
+
+    /** No lyrics in the file, a sidecar, or saved in the app. */
+    @Query("SELECT * FROM tracks WHERE path IS NOT NULL AND hasLyrics = 0 AND id NOT IN (SELECT trackId FROM lyrics) ORDER BY artist, title")
+    fun observeNoLyrics(): Flow<List<TrackEntity>>
+
+    @Query("SELECT * FROM tracks WHERE path IS NOT NULL AND hasLyrics IS NULL")
+    suspend fun lyricsUnknown(): List<TrackEntity>
+
+    @Query("UPDATE tracks SET hasLyrics = :has WHERE id = :id")
+    suspend fun setHasLyrics(id: Long, has: Boolean)
+
+    /** Untagged: no artist (the scanner's placeholder) or no album. */
+    @Query("SELECT * FROM tracks WHERE path IS NOT NULL AND (album IS NULL OR album = '' OR artist = :unknown) ORDER BY folder, title")
+    fun observeUntagged(unknown: String): Flow<List<TrackEntity>>
+
+    @Query("UPDATE tracks SET bpm = :bpm, musicalKey = :key, energy = :energy WHERE id = :id")
+    suspend fun setAnalysis(id: Long, bpm: Float?, key: String?, energy: Float?)
+
+    @Query("SELECT * FROM tracks WHERE path IS NOT NULL AND bpm IS NULL")
+    suspend fun notAnalysed(): List<TrackEntity>
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(track: TrackEntity): Long
 

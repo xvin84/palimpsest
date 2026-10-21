@@ -158,6 +158,7 @@ class LibraryScanner(private val db: AppDatabase, private val settings: Settings
             bitsPerSample = tags.bitsPerSample,
             sizeBytes = f.length(),
             modifiedAt = f.lastModified(),
+            hasLyrics = !tags.lyrics.isNullOrBlank() || File(f.parentFile, f.nameWithoutExtension + ".lrc").isFile,
         )
     }
 
@@ -182,6 +183,10 @@ class LibraryScanner(private val db: AppDatabase, private val settings: Settings
                 updateAvailable = existing.updateAvailable && existing.remoteDurationMs != null &&
                     kotlin.math.abs(existing.remoteDurationMs - e.durationMs) > dev.xvin.palimpsest.core.library.Versions.DURATION_TOLERANCE_MS,
                 remoteDurationMs = existing.remoteDurationMs,
+                // The analysis describes the audio: kept while the length stays the same.
+                bpm = existing.bpm.takeIf { kotlin.math.abs(existing.durationMs - e.durationMs) < 1500 },
+                musicalKey = existing.musicalKey.takeIf { kotlin.math.abs(existing.durationMs - e.durationMs) < 1500 },
+                energy = existing.energy.takeIf { kotlin.math.abs(existing.durationMs - e.durationMs) < 1500 },
             )
         }
         dao.upsert(merged)
