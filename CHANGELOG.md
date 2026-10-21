@@ -2,6 +2,24 @@
 
 **English** | [Русский](CHANGELOG.ru.md)
 
+## Unreleased
+
+### New
+- **Library health** (Settings → Library, Storage): tracks without a cover, lyrics or tags, duplicates, lossy and
+  hi-res files, new versions and audio not analysed — each with its list and a one-tap fix.
+- **Audio analysis**: tempo, key (Camelot) and energy of every track, worked out on the phone; shown on the track page.
+- **Offline wave moods**: calm, energetic, focus, sad; the mix is ordered so tempo, key and energy flow.
+- **Storage budget** (Shrink the library): the library is kept within a size — favourites and often played tracks stay
+  as they are, the least played become AAC 256; now, or by itself once a week while charging.
+- **Links**: Yandex Music, YouTube and Bandcamp links open in the app — tapped or shared.
+- **Karaoke**: lyrics with word timings (enhanced LRC, NetEase) fill the sung line word by word.
+- **Sync with the computer** over the home network: likes, own playlists and history; pairs with a 6-digit code,
+  syncs on demand, on launch and in the background.
+- Desktop: **media keys and the system's player controls** on Linux (MPRIS); «Sync with the phone» setting.
+
+### Fixed
+- Update notes are shown in the app's language, and no longer break mid-sentence.
+
 ## 0.4.2 — 2026-10-21
 
 ### New
