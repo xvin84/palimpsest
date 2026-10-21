@@ -512,6 +512,9 @@ private fun settingItems(settings: AppSettings): List<SettingItem> {
             }
         }
     }
+    add(SettingsCategory.DOWNLOADS, tr(R.string.compress_existing), tr(R.string.compress_settings_hint), "compress quality качество сжать") {
+        ActionRow(tr(R.string.compress_existing), tr(R.string.compress_settings_hint)) { nav.openCompress() }
+    }
     toggle(SettingsCategory.DOWNLOADS, tr(R.string.settings_keep_versions), tr(R.string.settings_keep_versions_hint), settings.keepVersions, "versions версии история") {
         launch { graph.settings.setKeepVersions(it) }
     }
@@ -544,6 +547,9 @@ private fun settingItems(settings: AppSettings): List<SettingItem> {
     add(SettingsCategory.STORAGE, tr(R.string.trash), tr(R.string.trash_enabled_hint), "trash delete корзина удаление") {
         ActionRow(tr(R.string.trash), tr(R.string.storage_trash_hint, graph.trash.entries.collectAsStateWithLifecycle().value.size)) { nav.openTrash() }
         TrashSettings()
+    }
+    add(SettingsCategory.STORAGE, tr(R.string.compress_title), tr(R.string.compress_settings_hint), "compress size space flac aac сжать место размер качество") {
+        ActionRow(tr(R.string.compress_title), tr(R.string.compress_settings_hint)) { nav.openCompress() }
     }
     val cacheTitle = tr(R.string.storage_stream_limit)
     add(SettingsCategory.STORAGE, cacheTitle, tr(R.string.storage_stream_cache_hint), "cache кэш стриминг") {

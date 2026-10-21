@@ -744,4 +744,27 @@
     <string name="flac_candidate_ready">FLAC found, waiting for your review</string>
     <string name="flac_accepted_note">FLAC confirmed by you on %1$s</string>
     <string name="flac_settings_hint">Find FLAC for files stored as MP3/AAC; you confirm each one by ear before it replaces the file</string>
+    <string name="compress_title">Shrink the library</string>
+    <string name="compress_existing">Shrink music you already have</string>
+    <string name="compress_settings_hint">Convert files on the phone to take less space: hi-res FLAC to CD-quality FLAC, or to AAC</string>
+    <string name="compress_explain">FLAC is already compressed without loss — squeezing it harder saves 1–3 %, not more. Real savings come from two places: hi-res files (24-bit) take almost twice as much as CD quality and sound the same; and AAC at 256 kbps is indistinguishable from the original for nearly everyone in blind tests, at a quarter of the size. Conversion runs on the phone, offline.</string>
+    <string name="compress_flac16">FLAC, CD quality (16-bit)</string>
+    <string name="compress_flac16_desc">Only hi-res files change. Still FLAC, still lossless relative to a CD; the extra detail of 24-bit is beyond what people hear.</string>
+    <string name="compress_aac256">AAC 256 kbps</string>
+    <string name="compress_aac256_desc">About 4× smaller than FLAC. Transparent for nearly everyone on any headphones. Lossy: going back means FLAC versions (for tracks on Yandex).</string>
+    <string name="compress_aac128">AAC 128 kbps</string>
+    <string name="compress_aac128_desc">About 8× smaller. Fine for speakers and the commute; an attentive ear on good headphones may notice.</string>
+    <string name="compress_counting">Counting…</string>
+    <string name="compress_nothing">Nothing to convert</string>
+    <string name="compress_estimate">%1$d files: %2$s → about %3$s (frees ~%4$s)</string>
+    <string name="compress_originals">Original files</string>
+    <string name="compress_delete_originals">Delete them</string>
+    <string name="compress_keep_originals">Keep as versions</string>
+    <string name="compress_delete_hint">Frees the space. The originals are gone for good (tracks from Yandex can be fetched in FLAC again later).</string>
+    <string name="compress_keep_hint">The originals move to the version history — nothing is freed until you clear old versions in Storage.</string>
+    <string name="compress_start">Convert %1$d files</string>
+    <string name="compress_progress">Converting %1$d of %2$d · files %3$s smaller</string>
+    <string name="compress_done">Done: %1$d files, %2$s smaller</string>
+    <string name="compress_failed">failed: %1$d</string>
+    <string name="compress_note">Converted to %1$s</string>
 </resources>

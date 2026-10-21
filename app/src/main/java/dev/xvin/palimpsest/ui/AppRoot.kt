@@ -104,6 +104,7 @@ import dev.xvin.palimpsest.i18n.tr
 @Serializable object WrappedRoute
 @Serializable object TrashRoute
 @Serializable object FlacReviewRoute
+@Serializable object CompressRoute
 
 /** Navigation actions any screen may trigger. */
 interface AppNav {
@@ -123,6 +124,7 @@ interface AppNav {
     fun openWrapped()
     fun openTrash()
     fun openFlacReview()
+    fun openCompress()
     fun showActions(track: TrackEntity)
     fun toast(message: String)
     /** A snackbar with a button, e.g. «Undo». */
@@ -248,6 +250,7 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
             override fun openWrapped() { nav.navigate(WrappedRoute) }
             override fun openTrash() { nav.navigate(TrashRoute) }
             override fun openFlacReview() { playerOpen = false; nav.navigate(FlacReviewRoute) }
+            override fun openCompress() { playerOpen = false; nav.navigate(CompressRoute) }
             override fun showActions(track: TrackEntity) { actionsFor = track }
             override fun toast(message: String) { toastAction = null; toastMessage = message }
             override fun toast(message: String, actionLabel: String, onAction: () -> Unit) { toastAction = actionLabel to onAction; toastMessage = message }
@@ -320,6 +323,7 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
                     composable<WrappedRoute> { Screen { dev.xvin.palimpsest.ui.screens.WrappedScreen() } }
                     composable<TrashRoute> { Screen { dev.xvin.palimpsest.ui.screens.TrashScreen() } }
                     composable<FlacReviewRoute> { Screen { dev.xvin.palimpsest.ui.screens.FlacReviewScreen() } }
+                    composable<CompressRoute> { Screen { dev.xvin.palimpsest.ui.screens.CompressScreen() } }
                 }
             }
 

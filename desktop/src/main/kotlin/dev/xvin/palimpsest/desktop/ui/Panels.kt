@@ -1,5 +1,8 @@
 package dev.xvin.palimpsest.desktop.ui
 
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.scrollBy
+
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
@@ -142,7 +145,15 @@ fun LyricsView(modifier: Modifier, big: Boolean, scale: Float = 1f) {
             }
             val active = if (p.isSynced) p.indexAt(st.positionMs) else -1
             val list = rememberLazyListState()
-            LaunchedEffect(active) { if (active >= 0) list.animateScrollToItem((active - 3).coerceAtLeast(0)) }
+            // The sung line rests a little below the top, however tall the lines are (a translation doubles them).
+            LaunchedEffect(active, translated != null) {
+                if (active < 0) return@LaunchedEffect
+                val info = list.layoutInfo
+                val anchor = ((info.viewportEndOffset - info.viewportStartOffset) * 0.18f).toInt()
+                val visible = info.visibleItemsInfo.firstOrNull { it.index == active }
+                if (visible != null) list.animateScrollBy((visible.offset - anchor).toFloat())
+                else { list.scrollToItem(active); list.scrollBy(-anchor.toFloat()) }
+            }
             LazyColumn(state = list, contentPadding = PaddingValues(bottom = 200.dp)) {
                 itemsIndexed(p.lines) { i, line ->
                     val color by animateColorAsState(if (!p.isSynced || i == active) pal.text else if (i < active) pal.faint else pal.muted)

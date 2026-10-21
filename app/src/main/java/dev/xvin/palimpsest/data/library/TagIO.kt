@@ -56,6 +56,8 @@ data class TagEdit(
     /** New cover image bytes; empty array removes the cover. */
     val cover: ByteArray? = null,
     val coverMime: String = "image/jpeg",
+    /** Free-form fields (REPLAYGAIN_TRACK_GAIN…): Vorbis comments, MP4 «----» atoms, ID3 TXXX. */
+    val extra: Map<String, String> = emptyMap(),
 )
 
 object TagIO {
@@ -85,6 +87,7 @@ object TagIO {
         val tag: Tag? = af.tag
         fun f(k: FieldKey) = runCatching { tag?.getFirst(k) }.getOrNull()?.takeIf { it.isNotBlank() }?.trim()
         val url = custom(tag, "URL") ?: custom(tag, "WWWAUDIOFILE") ?: f(FieldKey.URL_OFFICIAL_ARTIST_SITE)
+            ?: f(FieldKey.URL_OFFICIAL_RELEASE_SITE) // where older versions of this app put it
             ?: f(FieldKey.COMMENT)?.takeIf { it.startsWith("http") && ' ' !in it }
         val lyrics = f(FieldKey.LYRICS) ?: custom(tag, "UNSYNCEDLYRICS") ?: custom(tag, "SYNCEDLYRICS")
         val hasCover = runCatching { tag?.firstArtwork != null }.getOrDefault(false)
@@ -218,9 +221,16 @@ object TagIO {
         set(FieldKey.DISC_NO, edit.discNumber)
         set(FieldKey.LYRICS, edit.lyrics)
         if (edit.url != null) writeCustom(tag, "URL", edit.url)
+        edit.extra.forEach { (k, v) -> writeCustom(tag, k, v) }
         edit.cover?.let { bytes ->
             tag.deleteArtworkField()
-            if (bytes.isNotEmpty()) {
+            if (bytes.isNotEmpty() && tag is FlacTag) {
+                // FLAC: a PICTURE block built directly — the generic path asks ImageIO (absent on
+                // Android) for the image size and throws, so covers never made it into FLACs.
+                val o = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, o)
+                tag.setField(tag.createArtworkField(bytes, 3, edit.coverMime, "", o.outWidth.coerceAtLeast(0), o.outHeight.coerceAtLeast(0), 24, 0))
+            } else if (bytes.isNotEmpty()) {
                 val art = AndroidArtwork().apply {
                     binaryData = bytes
                     mimeType = edit.coverMime
@@ -233,11 +243,26 @@ object TagIO {
         af.commit()
     }
 
+    /**
+     * A non-standard field, written where [custom] reads it back: a Vorbis comment, an MP4
+     * `----:com.apple.iTunes:NAME` atom, an ID3 WOAR frame for the link. Links used to go into a field nothing read back, and MP3/M4A downloads lost
+     * their service link on a full rescan.
+     */
     private fun writeCustom(tag: Tag, name: String, value: String) {
         val t = if (tag is FlacTag) tag.vorbisCommentTag else tag
-        when (t) {
-            is VorbisCommentTag -> if (value.isBlank()) t.deleteField(name) else t.setField(name, value)
-            else -> if (value.isNotBlank()) runCatching { tag.setField(FieldKey.URL_OFFICIAL_RELEASE_SITE, value) }
+        runCatching {
+            when (t) {
+                is VorbisCommentTag -> if (value.isBlank()) t.deleteField(name) else t.setField(name, value)
+                is Mp4Tag -> {
+                    val id = "----:com.apple.iTunes:$name"
+                    t.deleteField(id)
+                    if (value.isNotBlank()) t.setField(org.jaudiotagger.tag.mp4.field.Mp4TagReverseDnsField(id, "com.apple.iTunes", name, value))
+                }
+                // ID3: only the link (WOAR). Other free-form fields stay untouched — jaudiotagger keeps
+                // all TXXX frames under one id, and setting one would wipe the others.
+                is AbstractID3v2Tag -> if (name == "URL" && value.isNotBlank()) t.setField(FieldKey.URL_OFFICIAL_ARTIST_SITE, value)
+                else -> if (value.isNotBlank()) tag.setField(FieldKey.URL_OFFICIAL_ARTIST_SITE, value)
+            }
         }
     }
 }

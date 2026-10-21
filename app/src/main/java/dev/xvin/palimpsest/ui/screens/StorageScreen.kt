@@ -107,10 +107,9 @@ fun StorageScreen() {
             )
             item { UsageBar(slices, r, ::size) }
             item {
-                Category(
-                    slices[0], size(r.libraryBytes),
-                    tr(R.string.storage_library_hint, r.libraryFiles),
-                )
+                Category(slices[0], size(r.libraryBytes), tr(R.string.storage_library_hint, r.libraryFiles)) {
+                    TextButton(onClick = nav::openCompress) { Text(tr(R.string.compress_title)) }
+                }
             }
             item {
                 Category(slices[1], size(r.versionsBytes), tr(R.string.storage_versions_hint, r.versionsCount)) {

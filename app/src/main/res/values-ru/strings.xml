@@ -753,4 +753,27 @@
     <string name="flac_candidate_ready">FLAC найден, ждёт проверки</string>
     <string name="flac_accepted_note">FLAC подтверждён тобой %1$s</string>
     <string name="flac_settings_hint">Найти FLAC для файлов в MP3/AAC; каждый ты подтверждаешь на слух, прежде чем он заменит файл</string>
+    <string name="compress_title">Сжать медиатеку</string>
+    <string name="compress_existing">Сжать уже скачанную музыку</string>
+    <string name="compress_settings_hint">Перекодировать файлы на телефоне, чтобы занимали меньше: hi-res FLAC в FLAC качества CD или в AAC</string>
+    <string name="compress_explain">FLAC уже сжат без потерь — если жать его сильнее, выйдет 1–3 %, не больше. Настоящая экономия в двух местах: hi-res файлы (24 бита) весят почти вдвое больше CD-качества и звучат так же; а AAC 256 кбит/с в слепых тестах почти никто не отличает от оригинала — при вчетверо меньшем размере. Перекодирование идёт на телефоне, без интернета.</string>
+    <string name="compress_flac16">FLAC, качество CD (16 бит)</string>
+    <string name="compress_flac16_desc">Меняются только hi-res файлы. Остаётся FLAC, без потерь относительно CD; лишние детали 24 бит человек не слышит.</string>
+    <string name="compress_aac256">AAC 256 кбит/с</string>
+    <string name="compress_aac256_desc">Примерно в 4 раза меньше FLAC. Неотличимо почти для всех в любых наушниках. С потерями: вернуть можно через «FLAC-версии» (для треков с Яндекса).</string>
+    <string name="compress_aac128">AAC 128 кбит/с</string>
+    <string name="compress_aac128_desc">Примерно в 8 раз меньше. Хорошо для колонок и дороги; внимательное ухо в хороших наушниках может заметить.</string>
+    <string name="compress_counting">Считаю…</string>
+    <string name="compress_nothing">Перекодировать нечего</string>
+    <string name="compress_estimate">%1$d файлов: %2$s → примерно %3$s (освободит ~%4$s)</string>
+    <string name="compress_originals">Исходные файлы</string>
+    <string name="compress_delete_originals">Удалить</string>
+    <string name="compress_keep_originals">Оставить как версии</string>
+    <string name="compress_delete_hint">Место освободится. Исходники удалятся насовсем (треки с Яндекса потом можно снова скачать во FLAC).</string>
+    <string name="compress_keep_hint">Исходники уедут в историю версий — место не освободится, пока не очистишь старые версии в «Хранилище».</string>
+    <string name="compress_start">Перекодировать %1$d файлов</string>
+    <string name="compress_progress">Перекодирую %1$d из %2$d · файлы стали меньше на %3$s</string>
+    <string name="compress_done">Готово: %1$d файлов, меньше на %2$s</string>
+    <string name="compress_failed">не вышло: %1$d</string>
+    <string name="compress_note">Перекодировано в %1$s</string>
 </resources>
