@@ -512,6 +512,9 @@ private fun settingItems(settings: AppSettings): List<SettingItem> {
             }
         }
     }
+    add(SettingsCategory.DOWNLOADS, tr(R.string.flac_title), tr(R.string.flac_settings_hint), "flac lossless quality качество") {
+        ActionRow(tr(R.string.flac_title), tr(R.string.flac_settings_hint)) { nav.openFlacReview() }
+    }
     add(SettingsCategory.DOWNLOADS, tr(R.string.compress_existing), tr(R.string.compress_settings_hint), "compress quality качество сжать") {
         ActionRow(tr(R.string.compress_existing), tr(R.string.compress_settings_hint)) { nav.openCompress() }
     }
