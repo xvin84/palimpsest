@@ -24,6 +24,13 @@ class HistoryStore {
     }
 
     fun clear() { _plays.value = emptyList(); file.save(emptyList()) }
+
+    /** Plays from another device, kept in time order. */
+    fun addAll(ps: List<Play>) {
+        if (ps.isEmpty()) return
+        _plays.value = (_plays.value + ps).sortedBy { it.at }.takeLast(50_000)
+        file.save(_plays.value)
+    }
 }
 
 class PlaylistStore {
@@ -36,5 +43,6 @@ class PlaylistStore {
     fun rename(id: Long, name: String) = save(_lists.value.map { if (it.id == id) it.copy(name = name) else it })
     fun delete(id: Long) = save(_lists.value.filterNot { it.id == id })
     fun add(id: Long, trackIds: List<String>) = save(_lists.value.map { if (it.id == id) it.copy(trackIds = it.trackIds + trackIds) else it })
+    fun setTracks(id: Long, trackIds: List<String>) = save(_lists.value.map { if (it.id == id) it.copy(trackIds = trackIds) else it })
     fun removeAt(id: Long, index: Int) = save(_lists.value.map { if (it.id == id) it.copy(trackIds = it.trackIds.filterIndexed { i, _ -> i != index }) else it })
 }

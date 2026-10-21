@@ -35,6 +35,10 @@ data class DesktopSettings(
     val lastPositionMs: Long = 0,
     val recentSearches: List<String> = emptyList(),
     val sidebarWidth: Int = 230,
+    /** Phone sync over the local network (off until turned on). */
+    val lanSync: Boolean = false,
+    /** Paired phones: token → device name. */
+    val lanTokens: Map<String, String> = emptyMap(),
 )
 
 /** Settings as a state flow; every change is saved right away. */

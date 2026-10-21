@@ -62,6 +62,11 @@ class PalimpsestApp : Application(), SingletonImageLoader.Factory {
         CrashReporter.install(this)
         graph = AppGraph(this)
         dev.xvin.palimpsest.data.remote.SyncWorker.schedule(this)
+        // Catch up with the paired computer on launch; quietly, it may well be switched off.
+        graph.appScope.launch {
+            kotlinx.coroutines.delay(8_000)
+            if (graph.lanSync.pairing.value != null) graph.lanSync.sync()
+        }
     }
 
     override fun newImageLoader(context: PlatformContext): ImageLoader =
@@ -167,6 +172,7 @@ class AppGraph(val app: Application) {
     val compressor = dev.xvin.palimpsest.data.library.Compressor(app, db, versions)
     val health = dev.xvin.palimpsest.data.library.LibraryHealth(db, lyrics)
     val analyzer = dev.xvin.palimpsest.data.library.AudioAnalyzer(app, db)
+    val lanSync by lazy { dev.xvin.palimpsest.data.sync.LanSyncRepository(app, db, remote) }
 
     val player = PlayerConnection(app, mainScope, savedQueue = { settings.loadQueue() }, offlinePlayable = ::offlinePlayable).also { p ->
         p.onError = { e -> errors.report(e, tr(R.string.ctx_playback)) }

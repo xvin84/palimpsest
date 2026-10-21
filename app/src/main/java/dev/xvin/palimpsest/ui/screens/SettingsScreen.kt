@@ -601,6 +601,9 @@ private fun settingItems(settings: AppSettings): List<SettingItem> {
     }
 
     // --- Backup ---
+    add(SettingsCategory.BACKUP, tr(R.string.lan_title), tr(R.string.lan_hint), "sync computer desktop синхронизация компьютер") {
+        ActionRow(tr(R.string.lan_title), tr(R.string.lan_hint)) { nav.openLanSync() }
+    }
     add(SettingsCategory.BACKUP, tr(R.string.backup), tr(R.string.backup_hint), "backup restore копия восстановить") {
         var backups by remember { mutableStateOf<List<java.io.File>>(emptyList()) }
         var confirmRestore by remember { mutableStateOf<java.io.File?>(null) }

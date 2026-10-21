@@ -222,6 +222,23 @@ fun SettingsScreen() {
                 }
             }
         }
+        item { SectionHeader(t("Телефон", "Phone")) }
+        item {
+            val lan by graph.lanSync.status.collectAsState()
+            Toggle(
+                t("Синхронизация с телефоном", "Sync with the phone"),
+                t("Лайки, плейлисты и история — по домашней сети. На телефоне: Настройки → Резервная копия → Синхронизация с компьютером.",
+                    "Likes, playlists and history over the home network. On the phone: Settings → Backup → Sync with the computer."),
+                s.lanSync,
+            ) { v -> graph.settings.update { it.copy(lanSync = v) }; graph.lanSync.setEnabled(v) }
+            if (lan.running) Column(Modifier.padding(bottom = 8.dp)) {
+                Text(t("Код для нового телефона: ", "Code for a new phone: ") + lan.code, style = MaterialTheme.typography.titleLarge)
+                Text(t("Компьютер: ", "Computer: ") + graph.lanSync.name + " · " + s.lanTokens.size + t(" телефон(ов) подключено", " phone(s) paired"), color = pal.muted, fontSize = 13.sp)
+                lan.last?.let { Text(it, color = pal.muted, fontSize = 13.sp) }
+                if (s.lanTokens.isNotEmpty()) TextButton(onClick = { graph.settings.update { it.copy(lanTokens = emptyMap()) } }) { Text(t("Отключить все телефоны", "Unpair all phones")) }
+            }
+            lan.error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp) }
+        }
         item { SectionHeader(t("О программе", "About")) }
         item {
             Text(

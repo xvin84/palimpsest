@@ -211,6 +211,12 @@ interface PlayEventDao {
     @Query("UPDATE play_events SET scrobbled = 1 WHERE id IN (:ids)")
     suspend fun markScrobbled(ids: List<Long>)
 
+    @Query("SELECT * FROM play_events ORDER BY startedAt")
+    suspend fun all(): List<PlayEventEntity>
+
+    @Insert
+    suspend fun insertAll(events: List<PlayEventEntity>)
+
     @Query("SELECT * FROM play_events ORDER BY startedAt DESC LIMIT :limit")
     fun observeRecent(limit: Int = 300): Flow<List<PlayEventEntity>>
 
@@ -328,6 +334,13 @@ interface VersionDao {
 interface PlaylistDao {
     @Query("SELECT * FROM playlists ORDER BY name COLLATE NOCASE")
     fun observeAll(): Flow<List<PlaylistEntity>>
+
+    /** The user's own playlists (not ones mirrored from a service). */
+    @Query("SELECT * FROM playlists WHERE service IS NULL ORDER BY name COLLATE NOCASE")
+    suspend fun own(): List<PlaylistEntity>
+
+    @Query("SELECT trackId FROM playlist_entries WHERE playlistId = :id ORDER BY position")
+    suspend fun trackIds(id: Long): List<Long>
 
     @Query("SELECT * FROM playlists WHERE id = :id")
     suspend fun get(id: Long): PlaylistEntity?

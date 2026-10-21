@@ -821,4 +821,22 @@
     <string name="link_playlist">Плейлист</string>
     <string name="link_youtube_proxy">— если YouTube у вас тормозит, укажите прокси в Настройках → Сеть.</string>
     <string name="link_yandex_login">— сначала войдите в Яндекс Музыку во вкладке «Сервисы».</string>
+    <string name="lan_title">Синхронизация с компьютером</string>
+    <string name="lan_hint">Лайки, плейлисты и история с Palimpsest на компьютере, по домашней сети</string>
+    <string name="lan_explain">Включите «Синхронизация с телефоном» в настройках программы на компьютере; оба устройства должны быть в одной Wi-Fi-сети. Песни сопоставляются по исполнителю и названию, так что одна и та же музыка совпадёт, даже если файлы разные.</string>
+    <string name="lan_find">Найти компьютер</string>
+    <string name="lan_searching">Ищу…</string>
+    <string name="lan_none">Никого не слышно. Включена ли синхронизация на компьютере и в одной ли вы сети? Адрес можно ввести ниже.</string>
+    <string name="lan_manual">Адрес компьютера</string>
+    <string name="lan_connect">Подключить</string>
+    <string name="lan_code_title">Код с компьютера</string>
+    <string name="lan_code_hint">Он показан в программе на компьютере: Настройки → Телефон.</string>
+    <string name="lan_paired">Подключено: %1$s</string>
+    <string name="lan_sync_now">Синхронизировать</string>
+    <string name="lan_syncing">Синхронизирую…</string>
+    <string name="lan_unpair">Забыть этот компьютер</string>
+    <string name="lan_never">Ещё не синхронизировались</string>
+    <string name="lan_last">Последняя синхронизация %1$s</string>
+    <string name="lan_done">Готово</string>
+    <string name="lan_report">♥ +%1$d / −%2$d · плейлисты %3$d · прослушивания +%4$d</string>
 </resources>

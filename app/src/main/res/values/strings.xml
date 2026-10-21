@@ -812,4 +812,22 @@
     <string name="link_playlist">Playlist</string>
     <string name="link_youtube_proxy">— if YouTube is slow where you are, set a proxy in Settings → Network.</string>
     <string name="link_yandex_login">— sign in to Yandex Music in Services first.</string>
+    <string name="lan_title">Sync with the computer</string>
+    <string name="lan_hint">Likes, playlists and history with Palimpsest on your computer, over the home network</string>
+    <string name="lan_explain">Turn on «Sync with the phone» in the computer app\'s settings; both must be on the same Wi-Fi. Songs are matched by artist and title, so the same music on both sides lines up even with different files.</string>
+    <string name="lan_find">Find the computer</string>
+    <string name="lan_searching">Looking…</string>
+    <string name="lan_none">Nothing heard. Is sync on in the computer app, and are you on the same network? You can type its address below.</string>
+    <string name="lan_manual">Computer address</string>
+    <string name="lan_connect">Connect</string>
+    <string name="lan_code_title">Code from the computer</string>
+    <string name="lan_code_hint">Shown in the computer app: Settings → Phone.</string>
+    <string name="lan_paired">Paired with %1$s</string>
+    <string name="lan_sync_now">Sync now</string>
+    <string name="lan_syncing">Syncing…</string>
+    <string name="lan_unpair">Forget this computer</string>
+    <string name="lan_never">Not synced yet</string>
+    <string name="lan_last">Last sync %1$s</string>
+    <string name="lan_done">Synced</string>
+    <string name="lan_report">♥ +%1$d / −%2$d · playlists %3$d · plays +%4$d</string>
 </resources>

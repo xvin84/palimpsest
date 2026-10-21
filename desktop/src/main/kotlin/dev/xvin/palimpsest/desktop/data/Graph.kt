@@ -75,4 +75,5 @@ class Graph {
     val lyrics = LyricsService(this)
     val downloads = Downloads(this)
     val player = Player(this)
+    val lanSync = LanSyncServer(this).also { if (settings.value.lanSync) it.setEnabled(true) }
 }

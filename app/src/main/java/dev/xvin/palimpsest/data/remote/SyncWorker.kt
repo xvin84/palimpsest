@@ -31,6 +31,8 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
             val last = graph.backups.list().firstOrNull()?.lastModified() ?: 0
             if (System.currentTimeMillis() - last > 7L * 86_400_000) graph.backups.create()
         }
+        // With the computer, when it's paired and on the same network (a quiet no-op otherwise).
+        if (graph.lanSync.pairing.value != null) graph.lanSync.sync()
         if (graph.yandex.isReady) {
             graph.syncYandex() // also downloads new likes when that's on
             graph.remote.checkForUpdates()

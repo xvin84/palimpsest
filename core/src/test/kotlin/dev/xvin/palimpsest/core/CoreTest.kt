@@ -386,3 +386,56 @@ class KaraokeTest {
         check(l.text == "Every night (oh)") { l.text }
     }
 }
+
+class LanSyncTest {
+    @org.junit.Test fun merge() {
+        fun pl(n: String, vararg k: String) = dev.xvin.palimpsest.core.sync.SyncPlaylist(n, k.toList())
+        fun play(k: String, at: Long) = dev.xvin.palimpsest.core.sync.SyncPlay(k, k, k, at, 60_000)
+        val base = dev.xvin.palimpsest.core.sync.SyncState(likes = setOf("a", "b", "c"), playlists = listOf(pl("Road", "a", "b"), pl("Old", "x")))
+        val phone = dev.xvin.palimpsest.core.sync.SyncState(
+            likes = setOf("a", "b", "d"), // removed c, added d
+            playlists = listOf(pl("Road", "a", "b", "e"), pl("Old", "x")),
+            plays = listOf(play("a", 1_000), play("b", 5_000)),
+        )
+        val desktop = dev.xvin.palimpsest.core.sync.SyncState(
+            likes = setOf("b", "c", "f"), // removed a, added f
+            playlists = listOf(pl("road", "a", "b"), pl("New", "q")), // deleted Old
+            plays = listOf(play("a", 1_400), play("z", 9_000)),
+        )
+        val m = dev.xvin.palimpsest.core.sync.LanSync.merge(base, phone, desktop)
+        check(m.likes == setOf("b", "d", "f")) { m.likes.toString() }
+        check(m.playlists.map { it.name to it.keys } == listOf("Road" to listOf("a", "b", "e"), "New" to listOf("q"))) { m.playlists.toString() }
+        check(m.plays.map { it.identity } == listOf("a", "b", "z")) { m.plays.toString() }
+        check(dev.xvin.palimpsest.core.sync.LanSync.identity("КИНО, Цой", "Перемен (feat. Цой)") == dev.xvin.palimpsest.core.sync.LanSync.identity("кино", "Перемен"))
+    }
+}
+
+class LanTransportTest {
+    /** A sync request round-trips through a real socket. */
+    @org.junit.Test fun roundTrip() {
+        val server = java.net.ServerSocket(0)
+        val t = Thread {
+            server.accept().use { s ->
+                val msg = dev.xvin.palimpsest.core.sync.LanTransport.read(java.io.DataInputStream(s.getInputStream()), dev.xvin.palimpsest.core.sync.LanMessage.serializer())
+                val reply = dev.xvin.palimpsest.core.sync.LanReply(sync = dev.xvin.palimpsest.core.sync.SyncResponse(msg.sync!!.state, dev.xvin.palimpsest.core.sync.SyncReport(likesAdded = msg.sync!!.state.likes.size)))
+                dev.xvin.palimpsest.core.sync.LanTransport.write(java.io.DataOutputStream(s.getOutputStream()), reply, dev.xvin.palimpsest.core.sync.LanReply.serializer())
+            }
+        }.apply { start() }
+        val state = dev.xvin.palimpsest.core.sync.SyncState(likes = setOf("a|b", "c|d"))
+        val r = dev.xvin.palimpsest.core.sync.LanTransport.call("127.0.0.1", server.localPort, dev.xvin.palimpsest.core.sync.LanMessage(token = "t", sync = dev.xvin.palimpsest.core.sync.SyncRequest("phone", state)))
+        t.join(); server.close()
+        check(r.sync!!.state == state && r.sync!!.desktopReport.likesAdded == 2)
+        check(dev.xvin.palimpsest.core.sync.LanTransport.parseBeacon("PALIMPSEST 47823 my-pc", "10.0.0.5") == dev.xvin.palimpsest.core.sync.LanPeer("10.0.0.5", 47823, "my-pc"))
+    }
+}
+
+class ReleaseNotesTest {
+    @org.junit.Test fun unwraps() {
+        val md = "### New\n- FLAC versions: for every file\n  the app looks it up\n  and downloads it.\n- Shrink.\n\nPlain paragraph\nwrapped here.\n## [0.4.1]\n- old"
+        val p = dev.xvin.palimpsest.core.text.ReleaseNotes.plain(md)
+        check(p == "New\n• FLAC versions: for every file the app looks it up and downloads it.\n• Shrink.\n\nPlain paragraph wrapped here.\n[0.4.1]\n• old") { p }
+        val cl = "# Changelog\n\n## [0.4.2] — 2026-10-21\n### New\n- a\n\n## [0.4.1]\n- b"
+        check(dev.xvin.palimpsest.core.text.ReleaseNotes.section(cl, "0.4.2") == "### New\n- a")
+        check(dev.xvin.palimpsest.core.text.ReleaseNotes.section(cl, "0.4.1") == "- b")
+    }
+}
