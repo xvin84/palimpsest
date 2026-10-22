@@ -86,7 +86,13 @@ New versions show up in Settings → Updates and install over the current one.
 `Palimpsest-linux-x64.tar.gz` from the same release. They include their own Java and ffmpeg. The library, Yandex Music,
 YouTube Music, Bandcamp, lyrics and downloads work as on the phone; the window adapts from half a screen to full screen.
 Keys: Space — pause, ←/→ — seek, Ctrl+←/→ — previous/next, Ctrl+F — search; double-click plays, right-click opens a track's menu.
-On Arch Linux it's in the AUR: `yay -S palimpsest-bin` (uses the system ffmpeg, updates with `yay -Syu`).
+On Arch Linux, add the repository from the releases to `/etc/pacman.conf`, then `sudo pacman -Sy palimpsest-bin`
+(or `yay -S palimpsest-bin`); it uses the system ffmpeg and updates with `yay -Syu`:
+```ini
+[palimpsest]
+SigLevel = Optional TrustAll
+Server = https://github.com/xvin84/palimpsest/releases/latest/download
+```
 
 **If the phone refuses to install it:**
 - *«Blocked by Play Protect» / «unsafe app»*: tap «More details» → «Install anyway». Builds before 0.4.1 were signed

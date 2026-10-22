@@ -85,7 +85,13 @@
 `Palimpsest-linux-x64.tar.gz` из того же релиза — внутри уже есть Java и ffmpeg. Медиатека, Яндекс Музыка, YouTube Music,
 Bandcamp, тексты и загрузки — как на телефоне; окно подстраивается от половины экрана до полного. Клавиши: пробел — пауза,
 ←/→ — перемотка, Ctrl+←/→ — трек назад/вперёд, Ctrl+F — поиск; двойной клик — играть, правый клик — меню трека.
-На Arch Linux программа есть в AUR: `yay -S palimpsest-bin` (играет через системный ffmpeg, обновляется вместе с `yay -Syu`).
+На Arch Linux добавь репозиторий из релизов в `/etc/pacman.conf` и поставь `sudo pacman -Sy palimpsest-bin`
+(или `yay -S palimpsest-bin`); играет через системный ffmpeg и обновляется вместе с `yay -Syu`:
+```ini
+[palimpsest]
+SigLevel = Optional TrustAll
+Server = https://github.com/xvin84/palimpsest/releases/latest/download
+```
 
 **Если телефон не даёт установить:**
 - *«Заблокировано Play Защитой» / «небезопасное приложение»*: «Подробнее» → «Всё равно установить». Сборки до 0.4.1

@@ -1,5 +1,6 @@
-# Desktop packages for every release: Linux (.deb, .rpm, portable .tar.gz, the AUR package), Windows (.msi, .exe)
-# and macOS (.dmg), each with a bundled ffmpeg so playback works out of the box.
+# Desktop packages for every release: Linux (.deb, .rpm, portable .tar.gz), Windows (.msi, .exe)
+# and macOS (.dmg), each with a bundled ffmpeg so playback works out of the box; for Arch Linux
+# a pacman repository in the release and the AUR package (both use the system ffmpeg).
 # Runs when a release is published (scripts/release.sh publishes the Android APK first).
 name: Desktop packages
 
@@ -84,6 +85,42 @@ jobs:
             files="$files Palimpsest-linux-x64.tar.gz"
           fi
           gh release upload "$TAG" $files --clobber
+
+  # A pacman repository in every release: palimpsest-bin built from packaging/aur/PKGBUILD plus the repo database.
+  # With [palimpsest] Server = https://github.com/xvin84/palimpsest/releases/latest/download in pacman.conf,
+  # `yay -Syu` updates it like any package.
+  pacman-repo:
+    needs: package
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Tools
+        run: pacman -Syu --noconfirm --needed git github-cli pacman-contrib
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - name: Build the package and the repo
+        run: |
+          # makepkg refuses to run as root.
+          useradd -m builder
+          cp -r packaging/aur /home/builder/pkg && chown -R builder /home/builder/pkg
+          cd /home/builder/pkg
+          sed -i -e "s/^pkgver=.*/pkgver=${TAG#v}/" -e "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
+          # --nodeps: it only repackages the release's files, nothing here needs ffmpeg or X.
+          su builder -c "updpkgsums && makepkg --nodeps --noconfirm"
+          repo-add palimpsest.db.tar.gz *.pkg.tar.zst
+          # GitHub assets can't be symlinks: pacman fetches palimpsest.db, so it's a copy.
+          for f in db files; do rm palimpsest.$f && cp palimpsest.$f.tar.gz palimpsest.$f; done
+      - name: Attach to the release
+        working-directory: /home/builder/pkg
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          gh release upload "$TAG" -R "$GITHUB_REPOSITORY" *.pkg.tar.zst palimpsest.db palimpsest.db.tar.gz \
+            palimpsest.files palimpsest.files.tar.gz --clobber
 
   # The Arch package (palimpsest-bin): the Linux tarball above, repackaged by packaging/aur/PKGBUILD.
   # Needs the AUR_SSH_KEY secret (a private key whose public half is on the AUR account); skipped without it.
