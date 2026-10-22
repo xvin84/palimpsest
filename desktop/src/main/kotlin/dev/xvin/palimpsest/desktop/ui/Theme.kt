@@ -9,6 +9,8 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
@@ -22,8 +24,11 @@ import dev.xvin.palimpsest.desktop.data.DesktopStyle
 import dev.xvin.palimpsest.desktop.data.DesktopTheme
 import java.util.Locale
 
-/** Russian or English, from the system language. */
-val ru = Locale.getDefault().language == "ru"
+/** The chosen language: "ru", "en", or "" for the system's. Compose state, so switching it redraws every screen. */
+var language by mutableStateOf("")
+private val systemRu = Locale.getDefault().language == "ru"
+/** Russian or English: the chosen language, else the system's. */
+val ru: Boolean get() = when (language) { "ru" -> true; "en" -> false; else -> systemRu }
 fun t(ruText: String, enText: String) = if (ru) ruText else enText
 
 /** Background layers, rules and three strengths of text — the same roles as on Android. */

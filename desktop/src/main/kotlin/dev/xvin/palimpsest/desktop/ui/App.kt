@@ -144,7 +144,7 @@ class Nav {
 }
 
 fun main() = application {
-    val graph = remember { Graph() }
+    val graph = remember { Graph().also { language = it.settings.value.language } }
     val nav = remember { Nav() }
     val settings by graph.settings.state.collectAsState()
     val state = rememberWindowState(size = DpSize(1280.dp, 820.dp))

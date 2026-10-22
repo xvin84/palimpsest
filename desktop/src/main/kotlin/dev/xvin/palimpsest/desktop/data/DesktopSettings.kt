@@ -20,6 +20,8 @@ data class DesktopSettings(
     val yandexLogin: String? = null,
     /** host:port, http:// or socks://; used for YouTube, Spotify, Bandcamp and cover databases only. */
     val proxy: String? = null,
+    /** "ru", "en", or "" to follow the system. */
+    val language: String = "",
     val style: DesktopStyle = DesktopStyle.PALIMPSEST,
     val theme: DesktopTheme = DesktopTheme.DARK,
     val dynamicColor: Boolean = true,
