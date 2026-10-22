@@ -2,6 +2,17 @@
 
 **English** | [Русский](CHANGELOG.ru.md)
 
+## 0.4.5 — 2026-10-22
+
+### New
+- Computer: **an icon in the tray** (the notification area or the menu bar) on Windows, macOS and Linux. Click it to
+  show or hide the window, middle-click to pause, scroll over it for volume; right-click for the menu: the track,
+  pause, next, previous, like, quit.
+- **Closing the window keeps the music playing** in the tray. To quit, use «Quit» in the icon's menu or Ctrl+Q.
+- **Four looks for the icon** (Settings → Window and tray): a letter with a dot that breathes, bars that dance to
+  the music, a spinning record, or a plain one. It moves only while music plays.
+- Launching Palimpsest again brings up the one that's already running instead of starting a second.
+
 ## 0.4.4 — 2026-10-22
 
 ### New
