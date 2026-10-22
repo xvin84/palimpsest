@@ -15,3 +15,16 @@ fun Modifier.onRightClick(action: () -> Unit): Modifier = pointerInput(Unit) {
         }
     }
 }
+
+/** Mouse wheel or touchpad over it: [onScroll] gets the vertical delta (a wheel notch is 1, a touchpad sends fractions). */
+fun Modifier.onScroll(onScroll: (Float) -> Unit): Modifier = pointerInput(Unit) {
+    awaitPointerEventScope {
+        while (true) {
+            val e = awaitPointerEvent()
+            if (e.type != PointerEventType.Scroll) continue
+            val dy = e.changes.sumOf { it.scrollDelta.y.toDouble() }.toFloat()
+            e.changes.forEach { it.consume() }
+            if (dy != 0f) onScroll(dy)
+        }
+    }
+}

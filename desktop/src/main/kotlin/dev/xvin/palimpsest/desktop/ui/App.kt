@@ -238,6 +238,10 @@ private fun Shell() {
                 }
                 // The big player covers the content, never the player bar.
                 BigPlayer(nav.nowPlaying)
+                // The queue floats over it (its lyrics are its own, so only the queue).
+                if (nav.nowPlaying && nav.rightPanel == "queue") {
+                    RightPanel("queue", Modifier.align(Alignment.CenterEnd).width(360.dp).fillMaxHeight().androidxShadow())
+                }
             }
             PlayerBar(compact)
         }
@@ -392,9 +396,13 @@ private fun PlayerBar(compact: Boolean) {
             }) { Icon(Icons.Rounded.Lyrics, null, tint = if (lyricsOn) accent else pal.muted) }
             IconButton(onClick = { nav.rightPanel = if (nav.rightPanel == "queue") null else "queue" }) { Icon(Icons.AutoMirrored.Rounded.QueueMusic, null, tint = if (nav.rightPanel == "queue") accent else pal.muted) }
             IconButton(onClick = { if (t != null) nav.nowPlaying = !nav.nowPlaying }) { Icon(Icons.Rounded.OpenInFull, null, tint = if (nav.nowPlaying) accent else pal.muted) }
-            if (!compact) {
+            // Wheel or touchpad over the volume changes it, 5 % a notch; in a narrow window only the icon is left for that.
+            Row(
+                Modifier.onScroll { dy -> graph.player.setVolume(graph.settings.value.volume - dy * 0.05f) },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Icon(Icons.AutoMirrored.Rounded.VolumeUp, null, tint = pal.muted, modifier = Modifier.padding(start = 8.dp))
-                Slider(settings.volume, { graph.player.setVolume(it) }, Modifier.width(120.dp))
+                if (!compact) Slider(settings.volume, { graph.player.setVolume(it) }, Modifier.width(120.dp))
             }
         }
     }
