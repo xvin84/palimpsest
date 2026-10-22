@@ -9,6 +9,8 @@ import kotlinx.serialization.Serializable
 enum class DesktopStyle { PALIMPSEST, LANE }
 enum class DesktopTheme { DARK, AMOLED, LIGHT }
 enum class Rg { OFF, TRACK, ALBUM }
+/** How the tray icon looks: the letter with a dot, live bars, a spinning record, or one plain colour. */
+enum class TrayStyle { LETTER, BARS, VINYL, MONO }
 
 @Serializable
 data class DesktopSettings(
@@ -37,6 +39,11 @@ data class DesktopSettings(
     val lastPositionMs: Long = 0,
     val recentSearches: List<String> = emptyList(),
     val sidebarWidth: Int = 230,
+    /** An icon in the tray (the system's notification area or menu bar) while the app runs. */
+    val trayIcon: Boolean = true,
+    val trayStyle: TrayStyle = TrayStyle.LETTER,
+    /** Closing the window keeps the music playing in the tray (when there's a tray to come back from). */
+    val closeToTray: Boolean = true,
     /** Phone sync over the local network (off until turned on). */
     val lanSync: Boolean = false,
     /** Paired phones: token → device name. */

@@ -30,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DesktopWindows
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Hub
@@ -72,19 +73,26 @@ import dev.xvin.palimpsest.desktop.data.DesktopSettings
 import dev.xvin.palimpsest.desktop.data.DesktopStyle
 import dev.xvin.palimpsest.desktop.data.DesktopTheme
 import dev.xvin.palimpsest.desktop.data.Rg
+import dev.xvin.palimpsest.desktop.data.TrayStyle
+import dev.xvin.palimpsest.desktop.tray.TrayArt
+import dev.xvin.palimpsest.desktop.tray.TrayController
+import androidx.compose.ui.graphics.toComposeImageBitmap
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.foundation.Image
 import dev.xvin.palimpsest.desktop.playback.AudioEngine
 import kotlinx.coroutines.launch
 
 /** Settings are grouped as on the phone; each group has an icon and a line on what's inside. */
 private enum class Category(val icon: ImageVector) {
     APPEARANCE(Icons.Rounded.Palette), SOUND(Icons.Rounded.GraphicEq), LIBRARY(Icons.Rounded.LibraryMusic),
-    DOWNLOADS(Icons.Rounded.Download), NETWORK(Icons.Rounded.Hub), PHONE(Icons.Rounded.Smartphone), ABOUT(Icons.Rounded.Info);
+    DOWNLOADS(Icons.Rounded.Download), WINDOW(Icons.Rounded.DesktopWindows), NETWORK(Icons.Rounded.Hub), PHONE(Icons.Rounded.Smartphone), ABOUT(Icons.Rounded.Info);
 
     val title: String get() = when (this) {
         APPEARANCE -> t("Оформление", "Appearance")
         SOUND -> t("Звук", "Sound")
         LIBRARY -> t("Медиатека", "Library")
         DOWNLOADS -> t("Загрузки", "Downloads")
+        WINDOW -> t("Окно и трей", "Window and tray")
         NETWORK -> t("Сеть", "Network")
         PHONE -> t("Телефон", "Phone")
         ABOUT -> t("О программе", "About")
@@ -95,6 +103,7 @@ private enum class Category(val icon: ImageVector) {
         SOUND -> t("Выравнивание громкости, эквалайзер", "Volume levelling, equalizer")
         LIBRARY -> t("Папки с музыкой, теги и тексты", "Music folders, tags and lyrics")
         DOWNLOADS -> t("Куда и в каком качестве", "Where to and in what quality")
+        WINDOW -> t("Иконка в трее и что делает крестик", "The tray icon and what closing the window does")
         NETWORK -> t("Прокси для YouTube и Bandcamp", "A proxy for YouTube and Bandcamp")
         PHONE -> t("Лайки, плейлисты и история с телефона", "Likes, playlists and history with the phone")
         ABOUT -> t("Версия, горячие клавиши, лицензия", "Version, keys, licence")
@@ -256,6 +265,43 @@ private fun StylePicker(current: DesktopStyle, onPick: (DesktopStyle) -> Unit) {
                     else t("Чернила и бумага, засечки, акцент из обложки", "Ink and paper, a serif, the accent from the cover"),
                     color = pal.muted, fontSize = 12.sp,
                 )
+            }
+        }
+    }
+}
+
+/** The tray icon's looks, each drawn by the code that draws the real icon, as it looks while playing. */
+@Composable
+private fun TrayStylePicker(current: TrayStyle, onPick: (TrayStyle) -> Unit) {
+    val pal = LocalPal.current
+    val primary = MaterialTheme.colorScheme.primary
+    val accent = LocalAccent.current.toArgb()
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        TrayStyle.entries.forEach { style ->
+            val selected = style == current
+            val (name, desc) = when (style) {
+                TrayStyle.LETTER -> t("Буква", "Letter") to t("P с точкой, которая дышит в цвете обложки", "A P with a dot that breathes in the cover’s colour")
+                TrayStyle.BARS -> t("Эквалайзер", "Bars") to t("Столбики пляшут под музыку", "Bars that dance to the music")
+                TrayStyle.VINYL -> t("Пластинка", "Record") to t("Крутится; наклейка в цвете обложки", "Spins; the label takes the cover’s colour")
+                TrayStyle.MONO -> t("Простая", "Plain") to t("Одноцветная, под любую панель", "One colour, fits any panel")
+            }
+            val image = remember(style, accent) {
+                TrayArt.draw(TrayArt.Look(style, playing = true, accent = accent, cover = accent, levels = listOf(0.5f, 0.95f, 0.7f, 0.35f), phase = 0.15f), 96).toComposeImageBitmap()
+            }
+            Column(
+                Modifier.width(150.dp).clip(RoundedCornerShape(16.dp))
+                    .background(if (selected) primary.copy(alpha = 0.14f) else pal.paper2)
+                    .border(2.dp, if (selected) primary else Color.Transparent, RoundedCornerShape(16.dp))
+                    .clickable { onPick(style) }
+                    .padding(10.dp),
+            ) {
+                // On a panel-like strip, so it reads the way the tray shows it.
+                Box(Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xFF1C1C1F)), contentAlignment = Alignment.Center) {
+                    Image(image, null, Modifier.size(40.dp))
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(name, style = MaterialTheme.typography.titleSmall)
+                Text(desc, color = pal.muted, fontSize = 12.sp, lineHeight = 16.sp)
             }
         }
     }
@@ -425,6 +471,27 @@ private fun settingItems(s: DesktopSettings): List<Item> {
                     .forEach { (q, l) -> Pill(l, s.quality == q, { graph.settings.update { it.copy(quality = q) } }) }
             }
         }
+    }
+
+    // --- Window and tray ---
+    val tray = LocalTray.current
+    val trayKind by (tray?.kind ?: kotlinx.coroutines.flow.MutableStateFlow(TrayController.Kind.NONE)).collectAsState()
+    val noTray = s.trayIcon && trayKind == TrayController.Kind.NONE
+    val trayTitle = t("Иконка в трее", "Tray icon")
+    val trayHint = if (noTray) t("На этом рабочем столе нет трея — иконке некуда встать.", "This desktop has no tray for the icon to sit in.")
+        else t("Клик — показать или спрятать окно, средняя кнопка — пауза, колёсико — громкость, правый клик — меню.",
+            "Click to show or hide the window, middle-click to pause, wheel for volume, right-click for the menu.")
+    toggle(Category.WINDOW, trayTitle, trayHint, s.trayIcon, "tray icon трей иконка панель menu bar") { v -> graph.settings.update { it.copy(trayIcon = v) } }
+    val trayStyleTitle = t("Как выглядит иконка", "How the icon looks")
+    val trayStyleHint = t("Пока играет музыка, иконка живёт; на паузе замирает.", "It moves while music plays and holds still when paused.")
+    add(Category.WINDOW, trayStyleTitle, trayStyleHint, "tray icon style стиль иконки трей эквалайзер пластинка") {
+        Setting(trayStyleTitle, trayStyleHint) { TrayStylePicker(s.trayStyle) { st -> graph.settings.update { it.copy(trayStyle = st) } } }
+    }
+    val closeTitle = t("Закрывать в трей", "Close to the tray")
+    val closeHint = t("Крестик прячет окно, а музыка играет дальше. Выйти совсем — «Выйти» в меню иконки.",
+        "Closing hides the window and the music plays on. To quit, use «Quit» in the icon's menu.")
+    toggle(Category.WINDOW, closeTitle, closeHint, s.closeToTray && s.trayIcon, "close tray закрыть трей крестик выход background фон") { v ->
+        graph.settings.update { it.copy(closeToTray = v, trayIcon = it.trayIcon || v) }
     }
 
     // --- Network ---

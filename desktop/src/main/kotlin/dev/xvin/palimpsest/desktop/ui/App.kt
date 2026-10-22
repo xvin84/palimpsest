@@ -89,6 +89,13 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.ApplicationScope
+import dev.xvin.palimpsest.desktop.data.SingleInstance
+import dev.xvin.palimpsest.desktop.tray.AwtTray
+import dev.xvin.palimpsest.desktop.tray.TrayController
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import coil3.ImageLoader
@@ -108,6 +115,7 @@ import okio.Path.Companion.toOkioPath
 
 val LocalGraph = staticCompositionLocalOf<Graph> { error("no graph") }
 val LocalNav = staticCompositionLocalOf<Nav> { error("no nav") }
+val LocalTray = staticCompositionLocalOf<TrayController?> { null }
 
 /** Where the main pane is. */
 sealed interface Screen {
@@ -143,13 +151,38 @@ class Nav {
     fun toast(m: String) { message = m }
 }
 
-fun main() = application {
+fun main() {
+    // One Palimpsest at a time: launching it again shows the running one (maybe hidden in the tray).
+    val showRequests = MutableStateFlow(0)
+    if (!SingleInstance.claim { showRequests.update { it + 1 } }) return
+    application { App(showRequests) }
+}
+
+@Composable
+private fun ApplicationScope.App(showRequests: StateFlow<Int>) {
     val graph = remember { Graph().also { language = it.settings.value.language } }
     val nav = remember { Nav() }
     val settings by graph.settings.state.collectAsState()
     val state = rememberWindowState(size = DpSize(1280.dp, 820.dp))
+    var visible by remember { mutableStateOf(true) }
+    val win = remember { WindowRef() }
+    fun quit() { graph.player.engine.stop(); exitApplication() }
+    fun show() {
+        visible = true
+        java.awt.EventQueue.invokeLater { win.window?.apply { if (state.isMinimized) state.isMinimized = false; toFront(); requestFocus() } }
+    }
+    val tray = remember {
+        // A click on the tray icon hides the window if it was in front (clicking the tray takes focus a moment
+        // before we hear of it, hence the grace), otherwise brings it up.
+        TrayController(graph, showOrHide = { if (visible && win.wasFocusedJustNow()) visible = false else show() }, quit = { quit() })
+    }
+    LaunchedEffect(Unit) { tray.start() }
+    LaunchedEffect(Unit) { showRequests.collect { if (it > 0) show() } }
+    AwtTray(tray, graph)
     Window(
-        onCloseRequest = { graph.player.engine.stop(); exitApplication() },
+        // With a tray to come back from, closing only hides the window and the music plays on.
+        onCloseRequest = { if (settings.closeToTray && settings.trayIcon && tray.kind.value != TrayController.Kind.NONE) visible = false else quit() },
+        visible = visible,
         title = "Palimpsest",
         icon = painterResource("icon.png"),
         state = state,
@@ -170,14 +203,15 @@ fun main() = application {
             }
         },
     ) {
-        LaunchedEffect(Unit) { window.minimumSize = java.awt.Dimension(560, 480) }
+        LaunchedEffect(Unit) {
+            window.minimumSize = java.awt.Dimension(560, 480)
+            win.attach(window)
+            // macOS: a click on the Dock icon brings the hidden window back.
+            if (Paths.isMac) runCatching { java.awt.Desktop.getDesktop().addAppEventListener(java.awt.desktop.AppReopenedListener { show() }) }
+        }
         // Media keys and the system's player controls (Linux).
         DisposableEffect(Unit) {
-            val mpris = dev.xvin.palimpsest.desktop.playback.Mpris(
-                graph,
-                raise = { java.awt.EventQueue.invokeLater { window.toFront(); window.requestFocus() } },
-                quit = { graph.player.engine.stop(); exitApplication() },
-            )
+            val mpris = dev.xvin.palimpsest.desktop.playback.Mpris(graph, raise = { java.awt.EventQueue.invokeLater { show() } }, quit = { tray.stop(); quit() })
             graph.scope.launch { mpris.start() }
             onDispose { mpris.stop() }
         }
@@ -195,7 +229,7 @@ fun main() = application {
             else withContext(Dispatchers.IO) { CoverColors.of(graph, current) } ?: (Vermilion to Color(0xFF2A2A30))
         }
         PalimpsestDesktopTheme(settings.style, settings.theme, colors.first, colors.second) {
-            CompositionLocalProvider(LocalGraph provides graph, LocalNav provides nav) {
+            CompositionLocalProvider(LocalGraph provides graph, LocalNav provides nav, LocalTray provides tray) {
                 LaunchedEffect(Unit) {
                     graph.library.scan()
                     // Development aid: PALIMPSEST_DEMO="query[|now]" plays the first match (and opens the big player).
@@ -491,4 +525,20 @@ private fun TrackMenu(t: Track, onDismiss: () -> Unit) {
 @Composable
 private fun MenuLine(text: String, onClick: () -> Unit) {
     Text(text, Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp)).clickable(onClick = onClick).padding(horizontal = 8.dp, vertical = 9.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+}
+
+/** The window, and when it last had focus — to tell «in front» from «somewhere behind». */
+private class WindowRef {
+    var window: java.awt.Window? = null
+    @Volatile private var lostFocusAt = 0L
+
+    fun attach(w: java.awt.Window) {
+        window = w
+        w.addWindowFocusListener(object : java.awt.event.WindowFocusListener {
+            override fun windowGainedFocus(e: java.awt.event.WindowEvent) = Unit
+            override fun windowLostFocus(e: java.awt.event.WindowEvent) { lostFocusAt = System.currentTimeMillis() }
+        })
+    }
+
+    fun wasFocusedJustNow(): Boolean = window?.isFocused == true || System.currentTimeMillis() - lostFocusAt < 600
 }
