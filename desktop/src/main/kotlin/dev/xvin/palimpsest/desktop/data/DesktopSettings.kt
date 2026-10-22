@@ -42,6 +42,8 @@ data class DesktopSettings(
     /** An icon in the tray (the system's notification area or menu bar) while the app runs. */
     val trayIcon: Boolean = true,
     val trayStyle: TrayStyle = TrayStyle.LETTER,
+    /** The icon moves while music plays; off, it only changes with play/pause and the track. */
+    val trayAnimate: Boolean = true,
     /** Closing the window keeps the music playing in the tray (when there's a tray to come back from). */
     val closeToTray: Boolean = true,
     /** Phone sync over the local network (off until turned on). */

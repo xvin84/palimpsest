@@ -49,6 +49,13 @@ class TrayController(private val graph: Graph, val showOrHide: () -> Unit, val q
     private val _icon = MutableStateFlow(render(look(TrayArt.REST, 0f)))
     val icon: StateFlow<Icon> = _icon
     private var sni: SniTray? = null
+    /** Until when the icon holds still: a panel redrawing the icon under an open menu may close it or lose the click. */
+    @Volatile private var holdUntil = 0L
+
+    /** The menu is being opened or used: keep the icon still for a while. */
+    fun hold() { holdUntil = System.currentTimeMillis() + 20_000 }
+    /** The menu has closed (or an item was picked): the icon may move again. */
+    fun release() { holdUntil = 0 }
 
     fun start() {
         graph.scope.launch { graph.settings.state.map { it.trayIcon }.distinctUntilChanged().collect { on -> if (on) up() else down() } }
@@ -96,14 +103,19 @@ class TrayController(private val graph: Graph, val showOrHide: () -> Unit, val q
 
     private fun render(look: TrayArt.Look) = Icon(look, TrayArt.draw(look, 32), TrayArt.draw(look, 64))
 
-    /** Redraws the icon when what it shows changes: ten times a second while it plays, rarely otherwise. */
+    /**
+     * Redraws the icon when what it shows changes: while it plays, 4 times a second for a panel over D-Bus
+     * (each frame makes it reload the icon) and 10 for the AWT tray; rarely otherwise. Never under an open menu.
+     */
     private suspend fun animate() {
         var levels = TrayArt.REST
         var phase = 0f
         while (true) {
-            val live = _kind.value != Kind.NONE && player.state.value.playing
+            val frameMs = if (_kind.value == Kind.SNI) 250L else 100L
+            if (System.currentTimeMillis() < holdUntil) { delay(frameMs); continue }
+            val live = _kind.value != Kind.NONE && player.state.value.playing && graph.settings.value.trayAnimate
             if (live) {
-                phase = (phase + 0.025f) % 1f
+                phase = (phase + 0.025f * frameMs / 100f) % 1f
                 if (graph.settings.value.trayStyle == TrayStyle.BARS) {
                     val spectrum = player.engine.spectrum
                     val raw = synchronized(spectrum) { spectrum.compute().copyOf() }
@@ -115,12 +127,12 @@ class TrayController(private val graph: Graph, val showOrHide: () -> Unit, val q
                     }
                 }
             } else levels = TrayArt.REST
-            val look = look(levels.map { (it * 50).toInt() / 50f }, (phase * 100).toInt() / 100f)
+            val look = look(levels.map { (it * 50).toInt() / 50f }, if (live) (phase * 100).toInt() / 100f else 0f)
             if (look != _icon.value.look) {
                 _icon.value = render(look)
                 sni?.iconChanged()
             }
-            delay(if (live) 100 else 300)
+            delay(if (live) frameMs else 300)
         }
     }
 

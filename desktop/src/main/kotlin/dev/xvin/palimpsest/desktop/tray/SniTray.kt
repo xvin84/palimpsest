@@ -89,7 +89,7 @@ class SniTray(private val c: TrayController) {
     private val item = object : StatusNotifierItem, Properties {
         override fun getObjectPath() = ITEM_PATH
         override fun ContextMenu(x: Int, y: Int) = Unit
-        override fun Activate(x: Int, y: Int) = onUi { c.showOrHide() }
+        override fun Activate(x: Int, y: Int) { c.release(); onUi { c.showOrHide() } }
         override fun SecondaryActivate(x: Int, y: Int) = onUi { c.playPause() }
         override fun Scroll(delta: Int, orientation: String) {
             if (orientation.equals("horizontal", ignoreCase = true)) return
@@ -131,6 +131,7 @@ class SniTray(private val c: TrayController) {
             else mapOf("label" to Variant(line.label.replace("_", "__")), "enabled" to Variant(line.enabled))
 
         override fun GetLayout(parentId: Int, recursionDepth: Int, propertyNames: List<String>): Two<UInt32, MenuNode> {
+            c.hold()
             val children = c.menu().map { Variant(MenuNode(it.id, props(it), emptyList()), NODE) }
             val root = MenuNode(0, mapOf("children-display" to Variant("submenu")), if (parentId == 0) children else emptyList())
             return Two(UInt32(revision.get().toLong()), root)
@@ -143,7 +144,11 @@ class SniTray(private val c: TrayController) {
             c.menu().firstOrNull { it.id == id }?.let { props(it)[name] } ?: Variant("")
 
         override fun Event(id: Int, eventId: String, data: Variant<*>, timestamp: UInt32) {
-            if (eventId == "clicked") c.menu().firstOrNull { it.id == id }?.action?.let { onUi(it) }
+            when (eventId) {
+                "opened" -> c.hold()
+                "closed" -> c.release()
+                "clicked" -> { c.release(); c.menu().firstOrNull { it.id == id }?.action?.let { onUi(it) } }
+            }
         }
 
         override fun EventGroup(events: List<MenuEvent>): List<Int> {
@@ -151,8 +156,8 @@ class SniTray(private val c: TrayController) {
             return emptyList()
         }
 
-        override fun AboutToShow(id: Int) = false
-        override fun AboutToShowGroup(ids: List<Int>) = Two(emptyList<Int>(), emptyList<Int>())
+        override fun AboutToShow(id: Int): Boolean { c.hold(); return false }
+        override fun AboutToShowGroup(ids: List<Int>): Two<List<Int>, List<Int>> { c.hold(); return Two(emptyList(), emptyList()) }
 
         @Suppress("UNCHECKED_CAST")
         override fun <A : Any?> Get(interfaceName: String, propertyName: String): A = GetAll(interfaceName)[propertyName] as A

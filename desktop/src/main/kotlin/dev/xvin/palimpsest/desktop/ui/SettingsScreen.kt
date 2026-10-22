@@ -487,6 +487,10 @@ private fun settingItems(s: DesktopSettings): List<Item> {
     add(Category.WINDOW, trayStyleTitle, trayStyleHint, "tray icon style стиль иконки трей эквалайзер пластинка") {
         Setting(trayStyleTitle, trayStyleHint) { TrayStylePicker(s.trayStyle) { st -> graph.settings.update { it.copy(trayStyle = st) } } }
     }
+    toggle(Category.WINDOW, t("Анимировать иконку", "Animate the icon"),
+        t("Если панель плохо переносит живую иконку, выключи: она будет меняться только на паузе и со сменой трека.",
+            "If your panel struggles with a moving icon, turn this off: it will change only on pause and with the track."),
+        s.trayAnimate, "animate animation анимация движение") { v -> graph.settings.update { it.copy(trayAnimate = v) } }
     val closeTitle = t("Закрывать в трей", "Close to the tray")
     val closeHint = t("Крестик прячет окно, а музыка играет дальше. Выйти совсем — «Выйти» в меню иконки.",
         "Closing hides the window and the music plays on. To quit, use «Quit» in the icon's menu.")
