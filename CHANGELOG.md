@@ -2,6 +2,18 @@
 
 **English** | [Русский](CHANGELOG.ru.md)
 
+## 0.4.4 — 2026-10-22
+
+### New
+- **Arch Linux**: Palimpsest installs and updates with yay or pacman like any other program — add the repository
+  from the README once, then `yay -S palimpsest-bin`. It uses the system's ffmpeg.
+- Computer: **settings laid out like on the phone** — sections with a short note on what's inside, a search over every
+  option, and pictures of the styles.
+- Computer: **choose the language** — as in the system, Russian or English; it changes at once, no restart.
+
+### Fixed
+- Computer, .deb and .rpm: music didn't play, because the ffmpeg that comes with the app wasn't allowed to start.
+
 ## 0.4.3 — 2026-10-21
 
 ### New
