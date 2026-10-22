@@ -492,8 +492,8 @@ private fun settingItems(s: DesktopSettings): List<Item> {
             "If your panel struggles with a moving icon, turn this off: it will change only on pause and with the track."),
         s.trayAnimate, "animate animation анимация движение") { v -> graph.settings.update { it.copy(trayAnimate = v) } }
     val closeTitle = t("Закрывать в трей", "Close to the tray")
-    val closeHint = t("Крестик прячет окно, а музыка играет дальше. Выйти совсем — «Выйти» в меню иконки.",
-        "Closing hides the window and the music plays on. To quit, use «Quit» in the icon's menu.")
+    val closeHint = t("Крестик прячет окно, а музыка играет дальше. Выйти совсем — «Выйти» в меню иконки или Ctrl+Q.",
+        "Closing hides the window and the music plays on. To quit, use «Quit» in the icon's menu or Ctrl+Q.")
     toggle(Category.WINDOW, closeTitle, closeHint, s.closeToTray && s.trayIcon, "close tray закрыть трей крестик выход background фон") { v ->
         graph.settings.update { it.copy(closeToTray = v, trayIcon = it.trayIcon || v) }
     }
@@ -533,8 +533,8 @@ private fun settingItems(s: DesktopSettings): List<Item> {
     val aboutHint = t("Palimpsest для компьютера. Свободная программа под GPL-3.0.", "Palimpsest for the desktop. Free software under GPL-3.0.")
     add(Category.ABOUT, aboutTitle, aboutHint, "version версия gpl license лицензия") { Setting(aboutTitle, aboutHint) }
     val keysTitle = t("Горячие клавиши", "Keys")
-    val keysHint = t("Пробел — пауза, ←/→ — перемотка на 5 с, Ctrl+←/→ — трек назад/вперёд, Ctrl+F — поиск, Esc — назад. Двойной клик по треку — играть, правый клик — меню.",
-        "Space — pause, ←/→ — seek 5 s, Ctrl+←/→ — previous/next track, Ctrl+F — search, Esc — back. Double-click a track to play it, right-click for its menu.")
+    val keysHint = t("Пробел — пауза, ←/→ — перемотка на 5 с, Ctrl+←/→ — трек назад/вперёд, Ctrl+F — поиск, Esc — назад, Ctrl+Q — выйти. Двойной клик по треку — играть, правый клик — меню.",
+        "Space — pause, ←/→ — seek 5 s, Ctrl+←/→ — previous/next track, Ctrl+F — search, Esc — back, Ctrl+Q — quit. Double-click a track to play it, right-click for its menu.")
     add(Category.ABOUT, keysTitle, keysHint, "keys shortcuts hotkeys клавиши горячие") { Setting(keysTitle, keysHint) }
     return list
 }

@@ -191,6 +191,8 @@ private fun ApplicationScope.App(showRequests: StateFlow<Int>) {
             when {
                 e.key == Key.Spacebar -> { graph.player.toggle(); true }
                 e.isCtrlPressed && e.key == Key.F -> { nav.root(Screen.Search); nav.searchFocus++; true }
+                // Quits for real, whatever closing the window does.
+                e.isCtrlPressed && e.key == Key.Q -> { tray.stop(); quit(); true }
                 e.isCtrlPressed && e.key == Key.DirectionRight -> { graph.player.next(); true }
                 e.isCtrlPressed && e.key == Key.DirectionLeft -> { graph.player.previous(); true }
                 e.key == Key.DirectionRight -> { graph.player.seek(graph.player.state.value.positionMs + 5000); true }
