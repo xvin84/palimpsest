@@ -2,6 +2,7 @@ package dev.xvin.palimpsest.desktop.playback
 
 import dev.xvin.palimpsest.core.dsp.Equalizer
 import dev.xvin.palimpsest.core.dsp.SpectrumAnalyzer
+import dev.xvin.palimpsest.desktop.data.Paths
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.io.File
@@ -141,8 +142,25 @@ class AudioEngine {
         /** A bundled ffmpeg (packaged builds put it in the app's resources), else the one on PATH. */
         val ffmpeg: String by lazy {
             val dir = System.getProperty("compose.application.resources.dir")?.let(::File)
-            val exe = if (System.getProperty("os.name").lowercase().contains("win")) "ffmpeg.exe" else "ffmpeg"
-            dir?.let { File(it, exe) }?.takeIf { it.isFile }?.also { it.setExecutable(true) }?.absolutePath ?: "ffmpeg"
+            val exe = if (Paths.isWindows) "ffmpeg.exe" else "ffmpeg"
+            dir?.let { File(it, exe) }?.takeIf { it.isFile }?.let(::runnable)?.absolutePath ?: "ffmpeg"
+        }
+
+        /**
+         * jpackage drops the executable bit, and the .deb/.rpm install it as root's file under /opt,
+         * so the user can't chmod it there: such a copy runs from the cache instead.
+         */
+        private fun runnable(bundled: File): File? {
+            if (bundled.canExecute() || bundled.setExecutable(true)) return bundled
+            val copy = File(Paths.cache, bundled.name)
+            return runCatching {
+                if (copy.length() != bundled.length()) {
+                    val tmp = File(Paths.cache, "${bundled.name}.tmp")
+                    bundled.copyTo(tmp, overwrite = true)
+                    tmp.renameTo(copy)
+                }
+                copy.takeIf { it.canExecute() || it.setExecutable(true) }
+            }.getOrNull()
         }
 
         fun ffmpegAvailable(): Boolean = runCatching { ProcessBuilder(ffmpeg, "-version").start().waitFor() == 0 }.getOrDefault(false)

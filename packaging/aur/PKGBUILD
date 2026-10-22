@@ -1,0 +1,33 @@
+# Maintainer: xvin84 <ivansonofden@gmail.com>
+#
+# The prebuilt desktop app from the GitHub release (with its own Java runtime), using the system ffmpeg.
+# CI (.github/workflows/desktop.yml) sets pkgver and the checksums and pushes this to the AUR on every release.
+
+pkgname=palimpsest-bin
+_pkgname=palimpsest
+pkgver=0.4.3
+pkgrel=1
+pkgdesc='Music player: local files first, Yandex Music, YouTube Music and Bandcamp'
+arch=('x86_64')
+url='https://github.com/xvin84/palimpsest'
+license=('GPL-3.0-only')
+depends=('alsa-lib' 'ffmpeg' 'fontconfig' 'freetype2' 'gcc-libs' 'glibc' 'hicolor-icon-theme'
+         'libglvnd' 'libx11' 'libxext' 'libxi' 'libxrender' 'libxtst' 'zlib')
+provides=("$_pkgname")
+conflicts=("$_pkgname")
+options=('!strip' '!debug')
+source=("$_pkgname-$pkgver.tar.gz::$url/releases/download/v$pkgver/Palimpsest-linux-x64.tar.gz"
+        "$_pkgname.desktop")
+sha256sums=('5ecbeae75585b31af33bd84751304fb83842904214cdd98056e95b2711ff88e9'
+            '17b395a5408f66384f566b0d2b1b4b4a5c986d3014f58d0e131d7ab3e932492d')
+
+package() {
+    install -d "$pkgdir/opt/$_pkgname" "$pkgdir/usr/bin"
+    cp -a Palimpsest/. "$pkgdir/opt/$_pkgname/"
+    # The release bundles a static ffmpeg for other distros; here the ffmpeg package plays instead.
+    rm -f "$pkgdir/opt/$_pkgname/lib/app/resources/ffmpeg"
+    ln -s "/opt/$_pkgname/bin/Palimpsest" "$pkgdir/usr/bin/$_pkgname"
+
+    install -Dm644 Palimpsest/lib/Palimpsest.png "$pkgdir/usr/share/icons/hicolor/512x512/apps/$_pkgname.png"
+    install -Dm644 "$_pkgname.desktop" "$pkgdir/usr/share/applications/$_pkgname.desktop"
+}

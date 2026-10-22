@@ -1,4 +1,4 @@
-# Desktop packages for every release: Linux (.deb, .rpm, portable .tar.gz), Windows (.msi, .exe)
+# Desktop packages for every release: Linux (.deb, .rpm, portable .tar.gz, the AUR package), Windows (.msi, .exe)
 # and macOS (.dmg), each with a bundled ffmpeg so playback works out of the box.
 # Runs when a release is published (scripts/release.sh publishes the Android APK first).
 name: Desktop packages
@@ -84,3 +84,34 @@ jobs:
             files="$files Palimpsest-linux-x64.tar.gz"
           fi
           gh release upload "$TAG" $files --clobber
+
+  # The Arch package (palimpsest-bin): the Linux tarball above, repackaged by packaging/aur/PKGBUILD.
+  # Needs the AUR_SSH_KEY secret (a private key whose public half is on the AUR account); skipped without it.
+  aur:
+    needs: package
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        if: env.AUR_SSH_KEY != ''
+        with:
+          ref: ${{ env.TAG }}
+      - name: Set the version
+        if: env.AUR_SSH_KEY != ''
+        run: sed -i -e "s/^pkgver=.*/pkgver=${TAG#v}/" -e "s/^pkgrel=.*/pkgrel=1/" packaging/aur/PKGBUILD
+      - name: Publish to the AUR
+        if: env.AUR_SSH_KEY != ''
+        uses: KSXGitHub/github-actions-deploy-aur@v4.2.0
+        with:
+          pkgname: palimpsest-bin
+          pkgbuild: packaging/aur/PKGBUILD
+          assets: packaging/aur/palimpsest.desktop
+          updpkgsums: true
+          commit_username: xvin84
+          commit_email: ivansonofden@gmail.com
+          ssh_private_key: ${{ secrets.AUR_SSH_KEY }}
+          commit_message: Palimpsest ${{ env.TAG }}
+          ssh_keyscan_types: rsa,ecdsa,ed25519

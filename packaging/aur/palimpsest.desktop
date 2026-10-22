@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Palimpsest
+GenericName=Music Player
+GenericName[ru]=Музыкальный плеер
+Comment=Local files first, Yandex Music, YouTube Music and Bandcamp
+Comment[ru]=Сначала свои файлы, а ещё Яндекс Музыка, YouTube Music и Bandcamp
+Exec=palimpsest
+Icon=palimpsest
+Terminal=false
+Categories=AudioVideo;Audio;Player;
+Keywords=music;player;audio;flac;yandex;youtube;bandcamp;
+StartupWMClass=dev-xvin-palimpsest-desktop-ui-AppKt
