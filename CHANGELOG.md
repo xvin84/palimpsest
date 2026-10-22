@@ -13,6 +13,8 @@
 
 ### Fixed
 - Computer, .deb and .rpm: music didn't play, because the ffmpeg that comes with the app wasn't allowed to start.
+- Computer: the mouse wheel and touchpad change the volume when over it.
+- Computer: the queue shows on the full-window player too (it opened behind it).
 
 ## 0.4.3 — 2026-10-21
 
