@@ -25,7 +25,16 @@ import java.util.concurrent.atomic.AtomicInteger
 import dev.xvin.palimpsest.R
 import dev.xvin.palimpsest.i18n.tr
 
-data class ScanProgress(val running: Boolean = false, val done: Int = 0, val total: Int = 0, val changed: Int = 0, val error: String? = null)
+/** [files]: audio files found; [done] of [total] re-read; [removed]: tracks whose file is gone. */
+data class ScanProgress(
+    val running: Boolean = false,
+    val done: Int = 0,
+    val total: Int = 0,
+    val changed: Int = 0,
+    val error: String? = null,
+    val files: Int = 0,
+    val removed: Int = 0,
+)
 
 /**
  * Walks the music folders and keeps the `tracks` table in sync with the files.
@@ -49,7 +58,7 @@ class LibraryScanner(private val db: AppDatabase, private val settings: Settings
                     val st = stamps[f.absolutePath]
                     force || st == null || st.sizeBytes != f.length() || st.modifiedAt != f.lastModified()
                 }
-                _progress.value = ScanProgress(running = true, total = todo.size)
+                _progress.value = ScanProgress(running = true, total = todo.size, files = files.size)
                 val done = AtomicInteger()
                 val io = Dispatchers.IO.limitedParallelism(4)
                 coroutineScope {
@@ -76,7 +85,10 @@ class LibraryScanner(private val db: AppDatabase, private val settings: Settings
                 artists.syncAll()
                 settings.setLastScan(System.currentTimeMillis())
                 Log.i("Scanner", "scan: ${files.size} files, ${todo.size} read, ${gone.size} gone in ${System.currentTimeMillis() - startedAt} ms")
-                _progress.value = ScanProgress(running = false, done = todo.size, total = todo.size, changed = todo.size + gone.size)
+                _progress.value = ScanProgress(running = false, done = todo.size, total = todo.size, changed = todo.size + gone.size, files = files.size, removed = gone.size)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                _progress.value = ScanProgress(running = false)
+                throw e
             } catch (e: Exception) {
                 Log.e("Scanner", "scan failed", e)
                 _progress.value = ScanProgress(running = false, error = e.message ?: e.toString())

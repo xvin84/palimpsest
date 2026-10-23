@@ -95,7 +95,7 @@ fun LibraryScreen() {
                 Text(tr(R.string.tab_library), style = MaterialTheme.typography.displayMedium)
                 Text(plural(R.plurals.tracks, count), style = MaterialTheme.typography.labelMedium, color = Ink.Muted)
             }
-            IconButton(onClick = { scope.launch { graph.scanner.scan() } }, enabled = !scan.running) {
+            IconButton(onClick = { rescan(graph, nav, force = false) }, enabled = !scan.running) {
                 Icon(Icons.Rounded.Refresh, tr(R.string.rescan), tint = Ink.Muted)
             }
             IconButton(onClick = nav::openSettings) { Icon(Icons.Rounded.Settings, tr(R.string.settings), tint = Ink.Muted) }

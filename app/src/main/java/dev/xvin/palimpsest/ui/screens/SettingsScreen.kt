@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -232,6 +233,45 @@ private fun ActionRow(title: String, hint: String?, enabled: Boolean = true, onC
             hint?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Ink.Muted) }
         }
         Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Ink.Faint)
+    }
+}
+
+/** «Обновить медиатеку» / «Перечитать все теги»: the progress in place of the hint while it runs. */
+@Composable
+private fun ScanRow(title: String, hint: String, force: Boolean) {
+    val graph = LocalGraph.current
+    val nav = LocalNav.current
+    val scan by graph.scanner.progress.collectAsStateWithLifecycle()
+    val progress = when {
+        !scan.running -> null
+        scan.total > 0 -> tr(R.string.scan_reading_tags, scan.done, scan.total)
+        else -> tr(R.string.scan_looking)
+    }
+    Column {
+        ActionRow(title, progress ?: hint, enabled = !scan.running) { rescan(graph, nav, force) }
+        if (scan.running) {
+            if (scan.total > 0) LinearProgressIndicator(progress = { scan.done.toFloat() / scan.total }, Modifier.fillMaxWidth().padding(horizontal = 16.dp))
+            else LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 16.dp))
+        }
+    }
+}
+
+/**
+ * Rescans in the app's scope — leaving the screen doesn't stop it — and says what came of it,
+ * even when nothing changed.
+ */
+internal fun rescan(graph: dev.xvin.palimpsest.AppGraph, nav: dev.xvin.palimpsest.ui.AppNav, force: Boolean) {
+    if (graph.scanner.progress.value.running) { nav.toast(tr(R.string.scan_already)); return }
+    graph.appScope.launch {
+        graph.scanner.scan(force)
+        val p = graph.scanner.progress.value
+        nav.toast(
+            when {
+                p.error != null -> tr(R.string.scan_error, p.error)
+                p.changed == 0 -> tr(R.string.scan_no_changes, p.files)
+                else -> tr(R.string.scan_done, p.files, p.total, p.removed)
+            },
+        )
     }
 }
 
@@ -464,7 +504,7 @@ private fun settingItems(settings: AppSettings): List<SettingItem> {
                 Row(Modifier.fillMaxWidth().padding(start = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(root, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                     if (settings.musicRoots.size > 1) IconButton(onClick = {
-                        launch { graph.settings.setMusicRoots(settings.musicRoots - root); graph.scanner.scan() }
+                        launch { graph.settings.setMusicRoots(settings.musicRoots - root); rescan(graph, nav, force = false) }
                     }) { Icon(Icons.Rounded.Close, tr(R.string.remove), tint = Ink.Muted) }
                 }
             }
@@ -472,17 +512,17 @@ private fun settingItems(settings: AppSettings): List<SettingItem> {
                 OutlinedTextField(newRoot, { newRoot = it }, Modifier.weight(1f), singleLine = true, label = { Text("/storage/emulated/0/…") })
                 TextButton(onClick = {
                     val r = newRoot.trim().trimEnd('/')
-                    if (r.isNotEmpty()) launch { graph.settings.setMusicRoots((settings.musicRoots + r).distinct()); graph.scanner.scan() }
+                    if (r.isNotEmpty()) launch { graph.settings.setMusicRoots((settings.musicRoots + r).distinct()); rescan(graph, nav, force = false) }
                     newRoot = ""
                 }) { Text(tr(R.string.add)) }
             }
         }
     }
     add(SettingsCategory.LIBRARY, tr(R.string.settings_refresh_library), tr(R.string.settings_refresh_hint), "scan rescan сканировать") {
-        ActionRow(tr(R.string.settings_refresh_library), tr(R.string.settings_refresh_hint)) { launch { graph.scanner.scan() } }
+        ScanRow(tr(R.string.settings_refresh_library), tr(R.string.settings_refresh_hint), force = false)
     }
     add(SettingsCategory.LIBRARY, tr(R.string.settings_reread_tags), tr(R.string.settings_reread_hint), "tags теги") {
-        ActionRow(tr(R.string.settings_reread_tags), tr(R.string.settings_reread_hint)) { launch { graph.scanner.scan(force = true) } }
+        ScanRow(tr(R.string.settings_reread_tags), tr(R.string.settings_reread_hint), force = true)
     }
     add(SettingsCategory.LIBRARY, tr(R.string.settings_health), tr(R.string.settings_health_hint), "health здоровье обложки тексты теги") {
         ActionRow(tr(R.string.settings_health), tr(R.string.settings_health_hint)) { nav.openHealth() }

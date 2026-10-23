@@ -832,4 +832,8 @@
     <string name="lan_report">♥ +%1$d / −%2$d · playlists %3$d · plays +%4$d</string>
     <string name="compress_lossy192">MP3 → AAC 192 kbps</string>
     <string name="compress_lossy192_desc">Only for MP3 and other lossy files of 256–320 kbps: about 40 % smaller. Re-encoding lossy audio loses a little more — hard to hear, but it can\'t be undone (tracks from Yandex can be fetched again).</string>
+    <string name="scan_done">Library refreshed: %1$s files, %2$s read again, %3$s removed</string>
+    <string name="scan_no_changes">Library is up to date: %1$s files, nothing changed</string>
+    <string name="scan_started">Refreshing the library…</string>
+    <string name="scan_already">The library is already being refreshed</string>
 </resources>
