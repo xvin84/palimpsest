@@ -16,8 +16,8 @@ android {
         applicationId = "dev.xvin.palimpsest"
         minSdk = 33
         targetSdk = 36
-        versionCode = 12
-        versionName = "0.4.5"
+        versionCode = 13
+        versionName = "0.4.6"
         // Where self-update looks for releases; forks can point it at their own repository.
         buildConfigField("String", "GITHUB_REPO", "\"xvin84/palimpsest\"")
         // GitHub API base; a debug build can be pointed at a local stand-in to test updating end to end.

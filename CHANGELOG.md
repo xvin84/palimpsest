@@ -2,7 +2,7 @@
 
 **English** | [Русский](CHANGELOG.ru.md)
 
-## Unreleased
+## 0.4.6 — 2026-10-24
 
 ### New
 - Computer: **«Upgrade to FLAC»** (Settings → Library) — pick folders, and the app finds the same songs in FLAC on
