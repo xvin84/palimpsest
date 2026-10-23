@@ -2,6 +2,30 @@
 
 **English** | [Русский](CHANGELOG.ru.md)
 
+## Unreleased
+
+### New
+- Computer: **«Upgrade to FLAC»** (Settings → Library) — pick folders, and the app finds the same songs in FLAC on
+  Yandex Music for the MP3 and other lossy files there and downloads them with the file's tags and cover. Listen to
+  each FLAC against the old file from the same second and accept it («It's the one») or not; the old file goes to
+  `.palimpsest/replaced` next to it.
+- Library health: **«Fill in tags»** for untagged tracks — the artist, title, album, year, genre, number, cover and
+  Yandex link come from Yandex Music, Deezer and iTunes (even by the file name); what the file already says stays.
+
+### Fixed
+- **Covers for old downloads**: Deezer and iTunes are searched too, not only Yandex and MusicBrainz (which doesn't
+  answer from Russia without a proxy). Junk tags fall back to the file name, the length no longer has to match for a
+  cover, a cover.jpg next to the file goes inside it, and WebM and other files that can't hold a picture keep the
+  cover as a link.
+- **Shrinking the library, the audio analysis and downloads go on in the background**, with the app closed and the
+  screen off. The first time, the phone asks whether the app may run in the background — say yes.
+- **FLAC versions**: the found counter no longer drops to zero; «found» means Yandex really gives it in FLAC (other
+  releases of the song are tried too), the rest are told apart as «only MP3/AAC» and «not found». Without Yandex Plus
+  the search says so up front — before, it found songs and then quietly downloaded nothing.
+- «Refresh library» and «Re-read all tags» no longer stop when you leave Settings, show their progress and say what
+  changed (on the phone and the computer).
+- Tapping «Library» from deep in Settings opens the library at once — no closing the pages one by one.
+
 ## 0.4.5 — 2026-10-22
 
 ### New
