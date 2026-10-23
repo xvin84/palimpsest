@@ -164,9 +164,10 @@ class Compressor(
 
     /** [limit]: convert only the first few (a trial run to listen to before doing the rest). */
     fun start(target: CompressTarget, keepOld: Boolean, limit: Int = 0) {
-        val req = OneTimeWorkRequestBuilder<CompressWorker>()
-            .setInputData(workDataOf(CompressWorker.KEY_TARGET to target.name, CompressWorker.KEY_KEEP to keepOld, CompressWorker.KEY_LIMIT to limit))
-            .build()
+        LongWork.askUnrestricted(context)
+        val req = LongWork.request<CompressWorker> {
+            setInputData(workDataOf(CompressWorker.KEY_TARGET to target.name, CompressWorker.KEY_KEEP to keepOld, CompressWorker.KEY_LIMIT to limit))
+        }
         WorkManager.getInstance(context).enqueueUniqueWork(UNIQUE, ExistingWorkPolicy.KEEP, req)
     }
 
@@ -431,21 +432,23 @@ class CompressWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
             if (gb <= 0) return Result.success()
             gb * 1_000_000_000L
         } else 0L
-        runCatching { setForeground(getForegroundInfo()) }
+        LongWork.foreground(this, getForegroundInfo())
         val nm = applicationContext.getSystemService(NotificationManager::class.java)
-        kotlinx.coroutines.coroutineScope {
-            val ticker = launch {
-                graph.compressor.state.collect { s -> nm.notify(NOTIFICATION_ID, notification(s)) }
+        LongWork.awake(applicationContext, "compress") {
+            kotlinx.coroutines.coroutineScope {
+                val ticker = launch {
+                    graph.compressor.state.collect { s -> nm.notify(NOTIFICATION_ID, notification(s)) }
+                }
+                graph.compressor.run(target, keep, limit, budget)
+                ticker.cancel()
             }
-            graph.compressor.run(target, keep, limit, budget)
-            ticker.cancel()
         }
         nm.cancel(NOTIFICATION_ID)
         return Result.success()
     }
 
     override suspend fun getForegroundInfo(): ForegroundInfo =
-        ForegroundInfo(NOTIFICATION_ID, notification(CompressState(running = true)), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        ForegroundInfo(NOTIFICATION_ID, notification(CompressState(running = true)), LongWork.foregroundType)
 
     private fun notification(s: CompressState): android.app.Notification {
         val nm = applicationContext.getSystemService(NotificationManager::class.java)
@@ -456,6 +459,8 @@ class CompressWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
             .setContentText(s.current ?: tr(R.string.dl_preparing))
             .setProgress(s.total.coerceAtLeast(1), s.done, s.total == 0)
             .setOngoing(true)
+            .setSilent(true)
+            .setOnlyAlertOnce(true)
             .build()
     }
 

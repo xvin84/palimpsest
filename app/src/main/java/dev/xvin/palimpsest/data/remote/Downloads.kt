@@ -341,7 +341,7 @@ class DownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
         var index = 0
         runCatching { setForeground(ForegroundInfo(NOTIFICATION_ID, notification(null, 0, ids.size), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)) }
         val nm = applicationContext.getSystemService(NotificationManager::class.java)
-        coroutineScope {
+        dev.xvin.palimpsest.data.library.LongWork.awake(applicationContext, "downloads") { coroutineScope {
             // Track title and progress, refreshed a couple of times a second (Android drops faster updates anyway).
             val ticker = launch {
                 graph.downloads.items.sample(500).collect { items ->
@@ -356,7 +356,7 @@ class DownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
                 graph.downloads.runOne(id, mode, remoteIds?.getOrNull(i)?.ifEmpty { null }, quality, keepOld)
             }
             ticker.cancel()
-        }
+        } }
         return Result.success()
     }
 

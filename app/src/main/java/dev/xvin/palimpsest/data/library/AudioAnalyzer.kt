@@ -42,8 +42,8 @@ class AudioAnalyzer(private val context: Context, private val db: AppDatabase) {
     val state: StateFlow<AnalysisState> = _state
 
     fun start() {
-        val req = OneTimeWorkRequestBuilder<AnalysisWorker>().build()
-        WorkManager.getInstance(context).enqueueUniqueWork(UNIQUE, ExistingWorkPolicy.KEEP, req)
+        LongWork.askUnrestricted(context)
+        WorkManager.getInstance(context).enqueueUniqueWork(UNIQUE, ExistingWorkPolicy.KEEP, LongWork.request<AnalysisWorker>())
     }
 
     fun cancel() = WorkManager.getInstance(context).cancelUniqueWork(UNIQUE)
@@ -146,19 +146,21 @@ class AudioAnalyzer(private val context: Context, private val db: AppDatabase) {
 class AnalysisWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
     override suspend fun doWork(): Result {
         val graph = (applicationContext as PalimpsestApp).graph
-        runCatching { setForeground(getForegroundInfo()) }
+        LongWork.foreground(this, getForegroundInfo())
         val nm = applicationContext.getSystemService(NotificationManager::class.java)
-        kotlinx.coroutines.coroutineScope {
-            val ticker = launch { graph.analyzer.state.collect { s -> nm.notify(NOTIFICATION_ID, notification(s)) } }
-            graph.analyzer.run()
-            ticker.cancel()
+        LongWork.awake(applicationContext, "analysis") {
+            kotlinx.coroutines.coroutineScope {
+                val ticker = launch { graph.analyzer.state.collect { s -> nm.notify(NOTIFICATION_ID, notification(s)) } }
+                graph.analyzer.run()
+                ticker.cancel()
+            }
         }
         nm.cancel(NOTIFICATION_ID)
         return Result.success()
     }
 
     override suspend fun getForegroundInfo(): ForegroundInfo =
-        ForegroundInfo(NOTIFICATION_ID, notification(AnalysisState(running = true)), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        ForegroundInfo(NOTIFICATION_ID, notification(AnalysisState(running = true)), LongWork.foregroundType)
 
     private fun notification(s: AnalysisState): android.app.Notification {
         val nm = applicationContext.getSystemService(NotificationManager::class.java)
@@ -169,6 +171,8 @@ class AnalysisWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
             .setContentText(s.current ?: tr(R.string.dl_preparing))
             .setProgress(s.total.coerceAtLeast(1), s.done, s.total == 0)
             .setOngoing(true)
+            .setSilent(true)
+            .setOnlyAlertOnce(true)
             .build()
     }
 
