@@ -23,6 +23,36 @@ object Tags {
         }
     }
 
+    private val copied = listOf(
+        FieldKey.TITLE, FieldKey.ARTIST, FieldKey.ALBUM, FieldKey.ALBUM_ARTIST, FieldKey.YEAR, FieldKey.GENRE,
+        FieldKey.TRACK, FieldKey.TRACK_TOTAL, FieldKey.DISC_NO, FieldKey.DISC_TOTAL, FieldKey.COMPOSER, FieldKey.LYRICS, FieldKey.COMMENT,
+    )
+
+    /**
+     * The file's tags and cover onto its new FLAC (a new version of the same song keeps the user's
+     * tags); [url] links it to its service track, [fallbackCover] goes in when the old file had none.
+     */
+    fun copy(from: File, to: File, url: String?, fallbackCover: ByteArray?) {
+        val src = runCatching { AudioFileIO.read(from).tag }.getOrNull()
+        val af = AudioFileIO.read(to)
+        val tag = af.tagOrCreateAndSetDefault
+        if (src != null) for (k in copied) {
+            val v = runCatching { src.getFirst(k) }.getOrNull()?.takeIf { it.isNotBlank() } ?: continue
+            runCatching { tag.setField(k, v) }
+        }
+        if (url != null) {
+            val v = if (tag is FlacTag) tag.vorbisCommentTag else tag
+            if (v is VorbisCommentTag) runCatching { v.setField("URL", url) }
+        }
+        val cover = runCatching { src?.firstArtwork?.binaryData }.getOrNull()?.takeIf { it.size > 100 } ?: fallbackCover
+        if (cover != null) {
+            val tmp = File.createTempFile("cover", ".jpg").apply { writeBytes(cover) }
+            runCatching { tag.deleteArtworkField(); tag.setField(ArtworkFactory.createArtworkFromFile(tmp)) }
+            tmp.delete()
+        }
+        af.commit()
+    }
+
     fun write(f: File, title: String, artist: String, album: String?, year: Int?, track: Int?, lyrics: String?, url: String?, cover: ByteArray?) {
         if (!canEdit(f)) return
         runCatching {

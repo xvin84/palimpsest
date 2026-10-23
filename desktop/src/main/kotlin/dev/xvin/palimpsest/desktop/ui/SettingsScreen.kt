@@ -41,6 +41,7 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Smartphone
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
@@ -348,6 +349,7 @@ private fun StylePreview(style: DesktopStyle, modifier: Modifier) {
 @Composable
 private fun settingItems(s: DesktopSettings): List<Item> {
     val graph = LocalGraph.current
+    val nav = LocalNav.current
     val pal = LocalPal.current
     val scope = rememberCoroutineScope()
     val list = mutableListOf<Item>()
@@ -421,7 +423,7 @@ private fun settingItems(s: DesktopSettings): List<Item> {
             s.musicRoots.forEach { r ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(r, Modifier.weight(1f))
-                    if (s.musicRoots.size > 1) TextButton(onClick = { graph.settings.update { it.copy(musicRoots = it.musicRoots - r) }; scope.launch { graph.library.scan() } }) { Text(t("Убрать", "Remove")) }
+                    if (s.musicRoots.size > 1) TextButton(onClick = { graph.settings.update { it.copy(musicRoots = it.musicRoots - r) }; rescan(graph, nav, force = false) }) { Text(t("Убрать", "Remove")) }
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -431,7 +433,7 @@ private fun settingItems(s: DesktopSettings): List<Item> {
                     if (chooser.showOpenDialog(null) == javax.swing.JFileChooser.APPROVE_OPTION) newRoot = chooser.selectedFile.absolutePath
                 }) { Text(t("Выбрать…", "Browse…")) }
                 TextButton(enabled = newRoot.isNotBlank(), onClick = {
-                    graph.settings.update { it.copy(musicRoots = (it.musicRoots + newRoot.trim()).distinct()) }; newRoot = ""; scope.launch { graph.library.scan() }
+                    graph.settings.update { it.copy(musicRoots = (it.musicRoots + newRoot.trim()).distinct()) }; newRoot = ""; rescan(graph, nav, force = false)
                 }) { Text(t("Добавить", "Add")) }
             }
         }
@@ -440,10 +442,22 @@ private fun settingItems(s: DesktopSettings): List<Item> {
     val scanHint = t("Найти новые и удалённые файлы. «Перечитать все теги» — заново прочитать теги каждого файла.", "Find new and removed files. «Re-read all tags» reads every file’s tags again.")
     add(Category.LIBRARY, scanTitle, scanHint, "scan rescan tags сканировать теги обновить") {
         Setting(scanTitle, scanHint) {
+            val scan by graph.library.progress.collectAsState()
             Row {
-                TextButton(onClick = { scope.launch { graph.library.scan() } }) { Text(scanTitle) }
-                TextButton(onClick = { scope.launch { graph.library.scan(force = true) } }) { Text(t("Перечитать все теги", "Re-read all tags")) }
+                TextButton(enabled = !scan.running, onClick = { rescan(graph, nav, force = false) }) { Text(scanTitle) }
+                TextButton(enabled = !scan.running, onClick = { rescan(graph, nav, force = true) }) { Text(t("Перечитать все теги", "Re-read all tags")) }
             }
+            if (scan.running) {
+                Text(if (scan.total > 0) t("Читаю теги: ${scan.done} из ${scan.total}", "Reading tags: ${scan.done} of ${scan.total}") else t("Ищу музыку…", "Looking for music…"), color = pal.muted, fontSize = 13.sp)
+                LinearProgressIndicator(progress = { if (scan.total > 0) scan.done.toFloat() / scan.total else 0f }, Modifier.widthIn(max = 500.dp).fillMaxWidth().padding(top = 4.dp))
+            }
+        }
+    }
+    val flacTitle = t("Перевести в FLAC", "Upgrade to FLAC")
+    val flacHint = t("Найти FLAC в Яндекс Музыке для MP3 и других сжатых файлов в выбранных папках; каждый проверяешь на слух", "Find FLAC on Yandex Music for MP3 and other lossy files in the folders you pick; you check each one by ear")
+    add(Category.LIBRARY, flacTitle, flacHint, "flac lossless mp3 качество quality upgrade перевести") {
+        Setting(flacTitle, flacHint) {
+            TextButton(onClick = { nav.go(Screen.Flac) }) { Text(t("Открыть", "Open")) }
         }
     }
     toggle(Category.LIBRARY, t("Сохранять тексты в файлы", "Save lyrics into files"), t("Найденный текст сразу пишется в тег файла", "Found lyrics go straight into the file’s tag"), s.embedLyrics, "lyrics tags lrc текст теги") { v ->
@@ -537,4 +551,19 @@ private fun settingItems(s: DesktopSettings): List<Item> {
         "Space — pause, ←/→ — seek 5 s, Ctrl+←/→ — previous/next track, Ctrl+F — search, Esc — back, Ctrl+Q — quit. Double-click a track to play it, right-click for its menu.")
     add(Category.ABOUT, keysTitle, keysHint, "keys shortcuts hotkeys клавиши горячие") { Setting(keysTitle, keysHint) }
     return list
+}
+
+/** Rescans in the app's scope — leaving Settings doesn't stop it — and says what came of it. */
+internal fun rescan(graph: dev.xvin.palimpsest.desktop.data.Graph, nav: Nav, force: Boolean) {
+    graph.scope.launch {
+        graph.library.scan(force)
+        val p = graph.library.progress.value
+        nav.toast(
+            when {
+                p.error != null -> t("Ошибка сканирования: ${p.error}", "Scan error: ${p.error}")
+                p.total == 0 && p.removed == 0 -> t("Медиатека в порядке: файлов ${p.files}, изменений нет", "Library is up to date: ${p.files} files, nothing changed")
+                else -> t("Медиатека обновлена: файлов ${p.files}, прочитано заново ${p.total}, убрано ${p.removed}", "Library refreshed: ${p.files} files, ${p.total} read again, ${p.removed} removed")
+            },
+        )
+    }
 }

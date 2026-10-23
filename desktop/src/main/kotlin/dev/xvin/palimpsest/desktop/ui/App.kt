@@ -125,6 +125,7 @@ sealed interface Screen {
     data object History : Screen
     data object Settings : Screen
     data object Liked : Screen
+    data object Flac : Screen
     data class Artist(val name: String, val remoteId: String? = null, val service: Service = Service.YANDEX) : Screen
     data class RemoteAlbum(val id: String, val service: Service) : Screen
     data class LocalAlbum(val album: String, val artist: String) : Screen
@@ -303,6 +304,7 @@ private fun ScreenContent(s: Screen) {
         Screen.History -> HistoryScreen()
         Screen.Settings -> SettingsScreen()
         Screen.Liked -> LikedScreen()
+        Screen.Flac -> FlacScreen()
         is Screen.Artist -> ArtistScreen(s)
         is Screen.RemoteAlbum -> RemoteAlbumScreen(s)
         is Screen.LocalAlbum -> LocalListScreen(s.album, s.artist) { it.album == s.album && (it.albumArtist ?: it.artist) == s.artist }

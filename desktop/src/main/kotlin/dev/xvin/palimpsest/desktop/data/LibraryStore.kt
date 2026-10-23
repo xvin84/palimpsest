@@ -58,7 +58,15 @@ data class Track(
 @Serializable
 private data class LibraryFile(val tracks: List<Track> = emptyList(), val liked: Set<String> = emptySet())
 
-data class ScanProgress(val running: Boolean = false, val done: Int = 0, val total: Int = 0, val error: String? = null)
+/** [files]: audio files found; [done] of [total] re-read; [removed]: tracks whose file is gone. */
+data class ScanProgress(
+    val running: Boolean = false,
+    val done: Int = 0,
+    val total: Int = 0,
+    val error: String? = null,
+    val files: Int = 0,
+    val removed: Int = 0,
+)
 
 /**
  * The library: files under the music folders (incremental — a file is re-read only when its size
@@ -126,9 +134,13 @@ class LibraryStore(private val settings: SettingsStore) {
                     if (old != null) merged.remove(old.id)
                     merged[key] = n.copy(id = key, addedAt = old?.addedAt ?: n.addedAt, coverUrl = n.coverUrl ?: old?.coverUrl)
                 }
+                val removed = _tracks.value.count { it.path != null && it.path !in seen }
                 _tracks.value = merged.values.toList()
                 persist()
-                _progress.value = ScanProgress(false, todo.size, todo.size)
+                _progress.value = ScanProgress(false, todo.size, todo.size, files = files.size, removed = removed)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                _progress.value = ScanProgress(false)
+                throw e
             } catch (e: Exception) {
                 _progress.value = ScanProgress(false, error = e.message ?: e.toString())
             }

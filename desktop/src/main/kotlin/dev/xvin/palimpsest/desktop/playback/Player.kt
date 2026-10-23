@@ -125,6 +125,14 @@ class Player(private val graph: Graph) {
         startCurrent(0)
     }
 
+    /** [t] alone from [fromMs]: comparing two files of the same song at the same moment. */
+    fun playAlone(t: Track, fromMs: Long) {
+        radioSession = null; radioBatch = null
+        _state.value = _state.value.copy(queue = listOf(t), index = 0, shuffle = false, radio = null, error = null)
+        order = listOf(0)
+        startCurrent(fromMs)
+    }
+
     fun playRemote(list: List<RemoteTrack>, index: Int) = play(list.map(graph.library::ensureRemote), index)
 
     fun enqueue(tracks: List<Track>) {
