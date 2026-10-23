@@ -77,8 +77,12 @@ interface TrackDao {
     fun observeUpdates(): Flow<List<TrackEntity>>
 
     // --- Library health ---
-    @Query("SELECT * FROM tracks WHERE path IS NOT NULL AND hasEmbeddedCover = 0 ORDER BY artist, title")
+    /** No picture in the file and no cover link (one is kept for files that can't hold a picture). */
+    @Query("SELECT * FROM tracks WHERE path IS NOT NULL AND hasEmbeddedCover = 0 AND coverUrl IS NULL ORDER BY artist, title")
     fun observeNoCover(): Flow<List<TrackEntity>>
+
+    @Query("UPDATE tracks SET coverUrl = :url WHERE id = :id")
+    suspend fun setCoverUrl(id: Long, url: String?)
 
     /** No lyrics in the file, a sidecar, or saved in the app. */
     @Query("SELECT * FROM tracks WHERE path IS NOT NULL AND hasLyrics = 0 AND id NOT IN (SELECT trackId FROM lyrics) ORDER BY artist, title")

@@ -164,7 +164,9 @@ class AppGraph(val app: Application) {
         appScope, embedEnabled = { settings.state.value?.embedLyrics != false }, rescan = { scanner.rescanFile(it) })
     val spotify = dev.xvin.palimpsest.core.spotify.SpotifyImporter(http)
     val releases = dev.xvin.palimpsest.data.remote.ReleaseWatcher(app, db, yandex)
-    val covers = dev.xvin.palimpsest.data.library.CoverFinder(db, yandex, dev.xvin.palimpsest.core.covers.CoverArtArchive(http), http, scanner, app.cacheDir)
+    val meta = dev.xvin.palimpsest.data.library.MetaLookup(yandex, dev.xvin.palimpsest.core.covers.OpenCatalogs(http))
+    val covers = dev.xvin.palimpsest.data.library.CoverFinder(db, meta, dev.xvin.palimpsest.core.covers.CoverArtArchive(http), http, scanner, app.cacheDir)
+    val tagFiller = dev.xvin.palimpsest.data.library.TagFiller(db, meta, http, scanner, app.cacheDir)
     val listenBrainz = dev.xvin.palimpsest.core.scrobble.ListenBrainz(http)
     val scrobbler = dev.xvin.palimpsest.data.remote.Scrobbler(db, settings, listenBrainz)
     val downloads = Downloads(app, db, settings, http, remote, versions) { e, ctx -> errors.report(e, ctx) }

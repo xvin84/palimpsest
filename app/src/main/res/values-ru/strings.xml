@@ -703,7 +703,7 @@
     <string name="settings_refresh_hint">Находит новые, изменённые и удалённые файлы (быстро: читаются только изменения)</string>
     <string name="settings_reread_hint">Заново читает теги всех файлов — после правки тегов в другой программе</string>
     <string name="settings_duplicates_hint">Одна песня в нескольких файлах: склеить в один трек, лишние файлы станут его версиями</string>
-    <string name="settings_covers_hint">Ищет недостающие обложки в Яндекс Музыке и MusicBrainz и вшивает их в файлы</string>
+    <string name="settings_covers_hint">Ищет недостающие обложки в Яндекс Музыке, Deezer, iTunes и MusicBrainz и вшивает их в файлы</string>
     <string name="settings_quality_hint">Для стриминга и скачивания. Lossless — это FLAC, если он есть у сервиса.</string>
     <string name="settings_embed_lyrics">Сохранять тексты в файлы</string>
     <string name="settings_embed_lyrics_hint">Найденный в сети или выбранный вручную текст сразу записывается в тег файла (синхронный, если есть тайминги) — его увидит любой плеер</string>
@@ -781,14 +781,14 @@
     <string name="health_title">Здоровье медиатеки</string>
     <string name="health_checking">Проверяю тексты в файлах: %1$d из %2$d</string>
     <string name="health_no_cover">Без обложки</string>
-    <string name="health_no_cover_hint">Найдутся в Яндекс Музыке или Cover Art Archive и запишутся в файл</string>
+    <string name="health_no_cover_hint">Найдутся в Яндекс Музыке, Deezer или iTunes (даже по имени файла) и запишутся в файл</string>
     <string name="health_fix_covers">Найти обложки</string>
     <string name="health_no_lyrics">Без текста</string>
     <string name="health_no_lyrics_hint">Нет ни в тегах, ни рядом с файлом</string>
     <string name="health_lyrics_progress">Ищу: %1$d из %2$d, найдено %3$d</string>
     <string name="health_fix_lyrics">Найти тексты</string>
     <string name="health_untagged">Без тегов</string>
-    <string name="health_untagged_hint">Нет исполнителя — поправьте вручную или «Заполнить из сервиса»</string>
+    <string name="health_untagged_hint">Нет исполнителя или альбома — «Заполнить теги» найдёт их в Яндекс Музыке, Deezer и iTunes; что уже есть в файле, не меняется. Остальное — вручную на экране трека</string>
     <string name="health_lossy">С потерями</string>
     <string name="health_lossy_hint">MP3/AAC, которые могут найтись во FLAC. На проверку: %1$d</string>
     <string name="health_hires">Hi-res FLAC</string>
@@ -848,4 +848,8 @@
     <string name="flac_found_downloading">Найденные FLAC скачиваются и появятся ниже — послушай и подтверди каждый</string>
     <string name="flac_needs_plus">У аккаунта Яндекса сейчас нет Плюса — без него Яндекс отдаёт треки только в AAC 192, FLAC скачать нельзя. С Плюсом поиск заработает.</string>
     <string name="flac_try_again">Проверить снова</string>
+    <string name="health_fix_tags">Заполнить теги</string>
+    <string name="health_tags_progress">Теги: %1$s из %2$s, заполнено %3$s</string>
+    <string name="health_tags_done">Теги заполнены у %1$s из %2$s</string>
+    <string name="health_covers_done">Обложки найдены для %1$s из %2$s</string>
 </resources>

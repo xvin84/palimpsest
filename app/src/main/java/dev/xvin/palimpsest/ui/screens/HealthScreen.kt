@@ -74,6 +74,7 @@ fun HealthScreen() {
     val covers by graph.covers.progress.collectAsStateWithLifecycle()
     val check by graph.health.check.collectAsStateWithLifecycle()
     val lyricsJob by graph.health.lyricsJob.collectAsStateWithLifecycle()
+    val tagsJob by graph.tagFiller.progress.collectAsStateWithLifecycle()
     val analysis by graph.analyzer.state.collectAsStateWithLifecycle()
     val lossy by produceState(-1, pending) { value = graph.flacFinder.lossyTracks().size }
     val hires by produceState<dev.xvin.palimpsest.data.library.CompressPlan?>(null) { value = graph.compressor.plan(CompressTarget.FLAC16) }
@@ -99,7 +100,13 @@ fun HealthScreen() {
             HealthRow(Icons.Rounded.Image, tr(R.string.health_no_cover), noCover.size, tr(R.string.health_no_cover_hint),
                 onOpen = { nav.openList(TrackListKind.NO_COVER, "health") },
                 fix = if (covers.running) tr(R.string.covers_progress, covers.done, covers.total, covers.found) else tr(R.string.health_fix_covers),
-                fixEnabled = !covers.running) { graph.appScope.launch { graph.covers.run(limit = 5000) } }
+                fixEnabled = !covers.running) {
+                graph.appScope.launch {
+                    graph.covers.run(limit = 5000)
+                    val p = graph.covers.progress.value
+                    nav.toast(tr(R.string.health_covers_done, p.found, p.total))
+                }
+            }
         }
         item {
             HealthRow(Icons.Rounded.Lyrics, tr(R.string.health_no_lyrics), noLyrics.size, tr(R.string.health_no_lyrics_hint),
@@ -109,7 +116,16 @@ fun HealthScreen() {
         }
         item {
             HealthRow(Icons.Rounded.Sell, tr(R.string.health_untagged), untagged.size, tr(R.string.health_untagged_hint),
-                onOpen = { nav.openList(TrackListKind.UNTAGGED, "health") })
+                onOpen = { nav.openList(TrackListKind.UNTAGGED, "health") },
+                fix = if (tagsJob.running) tr(R.string.health_tags_progress, tagsJob.done, tagsJob.total, tagsJob.found) else tr(R.string.health_fix_tags),
+                fixEnabled = !tagsJob.running) {
+                val ids = untagged.map { it.id }
+                graph.appScope.launch {
+                    graph.tagFiller.run(ids)
+                    val p = graph.tagFiller.progress.value
+                    nav.toast(tr(R.string.health_tags_done, p.found, p.total))
+                }
+            }
         }
         item {
             HealthRow(Icons.Rounded.ContentCopy, tr(R.string.settings_find_duplicates), dupes, tr(R.string.settings_duplicates_hint),

@@ -694,7 +694,7 @@
     <string name="settings_refresh_hint">Picks up new, changed and deleted files (fast: only changes are read)</string>
     <string name="settings_reread_hint">Reads the tags of every file again — after editing tags in another app</string>
     <string name="settings_duplicates_hint">The same song in several files: merge them into one track, the extra files become its versions</string>
-    <string name="settings_covers_hint">Looks for missing covers on Yandex Music and MusicBrainz and embeds them into the files</string>
+    <string name="settings_covers_hint">Looks for missing covers on Yandex Music, Deezer, iTunes and MusicBrainz and embeds them into the files</string>
     <string name="settings_quality_hint">For streaming and downloads. Lossless is FLAC where the service has it.</string>
     <string name="settings_embed_lyrics">Save lyrics into files</string>
     <string name="settings_embed_lyrics_hint">Lyrics found online or picked by hand go straight into the file’s tag (timed when there are timings), so any player shows them</string>
@@ -772,14 +772,14 @@
     <string name="health_title">Library health</string>
     <string name="health_checking">Checking lyrics in files: %1$d of %2$d</string>
     <string name="health_no_cover">No cover</string>
-    <string name="health_no_cover_hint">Found on Yandex Music or Cover Art Archive and written into the file</string>
+    <string name="health_no_cover_hint">Found on Yandex Music, Deezer or iTunes (even by the file name) and written into the file</string>
     <string name="health_fix_covers">Find covers</string>
     <string name="health_no_lyrics">No lyrics</string>
     <string name="health_no_lyrics_hint">Neither in the tags nor next to the file</string>
     <string name="health_lyrics_progress">Searching: %1$d of %2$d, found %3$d</string>
     <string name="health_fix_lyrics">Find lyrics</string>
     <string name="health_untagged">Untagged</string>
-    <string name="health_untagged_hint">No artist — fix them by hand or with «Fill in from the service»</string>
+    <string name="health_untagged_hint">No artist or album — «Fill in tags» finds them on Yandex Music, Deezer and iTunes; what the file already says stays. The rest by hand on the track screen</string>
     <string name="health_lossy">Lossy files</string>
     <string name="health_lossy_hint">MP3/AAC that may exist in FLAC. To review: %1$d</string>
     <string name="health_hires">Hi-res FLAC</string>
@@ -839,4 +839,8 @@
     <string name="flac_found_downloading">The FLACs found are downloading and will appear below — listen and confirm each</string>
     <string name="flac_needs_plus">This Yandex account has no Plus right now — without it Yandex gives tracks only in AAC 192, so there is no FLAC to download. With Plus the search works.</string>
     <string name="flac_try_again">Check again</string>
+    <string name="health_fix_tags">Fill in tags</string>
+    <string name="health_tags_progress">Tags: %1$s of %2$s, filled in %3$s</string>
+    <string name="health_tags_done">Tags filled in for %1$s of %2$s</string>
+    <string name="health_covers_done">Covers found for %1$s of %2$s</string>
 </resources>
