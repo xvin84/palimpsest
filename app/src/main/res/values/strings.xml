@@ -723,9 +723,9 @@
     <string name="style_mono_desc">Black and white, a monospace font, square edges, an ASCII progress bar</string>
     <string name="flac_title">FLAC versions</string>
     <string name="flac_explain">For every file stored lossy (MP3, AAC…) Palimpsest looks for the same recording on Yandex Music — by the file’s link, or by artist, title and length — and downloads it in FLAC as a version next to your file. Nothing is replaced until you listen and say it’s the same song.</string>
-    <string name="flac_searching">Searching: %1$d of %2$d, FLAC found for %3$d</string>
+    <string name="flac_searching">Searching: %1$d of %2$d · FLAC found for %3$d · only MP3/AAC: %4$d</string>
     <string name="flac_needs_yandex">Sign in to Yandex Music (Services) — it’s where the FLACs come from.</string>
-    <string name="flac_last_result">Last search: FLAC found for %1$d, not found for %2$d</string>
+    <string name="flac_last_result">Last search: FLAC found for %1$d · only MP3/AAC on Yandex: %2$d · not found: %3$d</string>
     <string name="flac_search_n">Find FLAC for %1$d tracks</string>
     <string name="flac_nothing_lossy">Nothing left to look for: every file is lossless or waiting for review</string>
     <string name="flac_downloading">Downloading FLAC: %1$d left</string>
@@ -836,4 +836,7 @@
     <string name="scan_no_changes">Library is up to date: %1$s files, nothing changed</string>
     <string name="scan_started">Refreshing the library…</string>
     <string name="scan_already">The library is already being refreshed</string>
+    <string name="flac_found_downloading">The FLACs found are downloading and will appear below — listen and confirm each</string>
+    <string name="flac_needs_plus">This Yandex account has no Plus right now — without it Yandex gives tracks only in AAC 192, so there is no FLAC to download. With Plus the search works.</string>
+    <string name="flac_try_again">Check again</string>
 </resources>

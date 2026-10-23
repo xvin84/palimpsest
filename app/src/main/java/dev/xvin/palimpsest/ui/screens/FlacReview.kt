@@ -87,12 +87,16 @@ fun FlacReviewScreen() {
                 Spacer(Modifier.height(12.dp))
                 when {
                     search.running -> {
-                        Text(tr(R.string.flac_searching, search.checked, search.total, search.found), style = MaterialTheme.typography.bodySmall)
+                        Text(tr(R.string.flac_searching, search.checked, search.total, search.found, search.noFlac), style = MaterialTheme.typography.bodySmall)
                         LinearProgressIndicator(progress = { if (search.total > 0) search.checked.toFloat() / search.total else 0f }, Modifier.fillMaxWidth().padding(top = 6.dp))
                     }
                     search.error == "yandex" -> Text(tr(R.string.flac_needs_yandex), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    search.error == "plus" -> Column {
+                        Text(tr(R.string.flac_needs_plus), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        TextButton(onClick = { graph.appScope.launch { graph.flacFinder.run() } }) { Text(tr(R.string.flac_try_again), color = accent) }
+                    }
                     else -> {
-                        if (search.total > 0) Text(tr(R.string.flac_last_result, search.found, search.notFound), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
+                        if (search.total > 0) Text(tr(R.string.flac_last_result, search.found, search.noFlac, search.notFound), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
                         Button(
                             onClick = { graph.appScope.launch { graph.flacFinder.run() } },
                             enabled = lossyCount != 0,
@@ -101,7 +105,10 @@ fun FlacReviewScreen() {
                     }
                 }
                 val inFlight = downloads.values.count { it.state == dev.xvin.palimpsest.data.remote.DownloadState.QUEUED || it.state == dev.xvin.palimpsest.data.remote.DownloadState.RUNNING }
-                if (inFlight > 0) Text(tr(R.string.flac_downloading, inFlight), style = MaterialTheme.typography.bodySmall, color = Ink.Muted, modifier = Modifier.padding(top = 8.dp))
+                if (inFlight > 0) {
+                    Text(tr(R.string.flac_downloading, inFlight), style = MaterialTheme.typography.bodySmall, color = Ink.Muted, modifier = Modifier.padding(top = 8.dp))
+                    Text(tr(R.string.flac_found_downloading), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
+                }
             }
         }
         if (pending.isNotEmpty()) {

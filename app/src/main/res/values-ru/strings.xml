@@ -732,9 +732,9 @@
     <string name="style_mono_desc">Чёрное и белое, моноширинный шрифт, прямые углы, ASCII-прогресс</string>
     <string name="flac_title">FLAC-версии</string>
     <string name="flac_explain">Для каждого файла в сжатом формате (MP3, AAC…) Palimpsest ищет ту же запись в Яндекс Музыке — по ссылке в файле или по исполнителю, названию и длительности — и скачивает её во FLAC как версию рядом с твоим файлом. Ничего не заменяется, пока ты не послушаешь и не скажешь, что это та же песня.</string>
-    <string name="flac_searching">Ищу: %1$d из %2$d, FLAC нашёлся для %3$d</string>
+    <string name="flac_searching">Ищу: %1$d из %2$d · FLAC нашёлся для %3$d · только MP3/AAC: %4$d</string>
     <string name="flac_needs_yandex">Войди в Яндекс Музыку (Сервисы) — FLAC берётся оттуда.</string>
-    <string name="flac_last_result">Прошлый поиск: FLAC нашёлся для %1$d, не нашёлся для %2$d</string>
+    <string name="flac_last_result">Прошлый поиск: FLAC нашёлся для %1$d · на Яндексе только MP3/AAC: %2$d · не нашлись: %3$d</string>
     <string name="flac_search_n">Найти FLAC для %1$d треков</string>
     <string name="flac_nothing_lossy">Искать нечего: все файлы без потерь или ждут проверки</string>
     <string name="flac_downloading">Скачиваю FLAC: осталось %1$d</string>
@@ -845,4 +845,7 @@
     <string name="scan_no_changes">Медиатека в порядке: файлов %1$s, изменений нет</string>
     <string name="scan_started">Обновляю медиатеку…</string>
     <string name="scan_already">Медиатека уже обновляется</string>
+    <string name="flac_found_downloading">Найденные FLAC скачиваются и появятся ниже — послушай и подтверди каждый</string>
+    <string name="flac_needs_plus">У аккаунта Яндекса сейчас нет Плюса — без него Яндекс отдаёт треки только в AAC 192, FLAC скачать нельзя. С Плюсом поиск заработает.</string>
+    <string name="flac_try_again">Проверить снова</string>
 </resources>

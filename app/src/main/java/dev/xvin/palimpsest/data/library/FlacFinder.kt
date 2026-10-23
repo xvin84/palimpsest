@@ -1,14 +1,18 @@
 package dev.xvin.palimpsest.data.library
 
 import dev.xvin.palimpsest.core.library.YandexLinks
-import dev.xvin.palimpsest.core.match.TrackMatcher
 import dev.xvin.palimpsest.core.model.Service
 import dev.xvin.palimpsest.core.yandex.YandexMusicProvider
 import dev.xvin.palimpsest.data.db.AppDatabase
 import dev.xvin.palimpsest.data.db.TrackEntity
 import dev.xvin.palimpsest.data.remote.DownloadMode
 import dev.xvin.palimpsest.data.remote.Downloads
+import dev.xvin.palimpsest.core.yandex.FlacLookup
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,7 +27,10 @@ data class FlacSearch(
     val total: Int = 0,
     /** FLAC found and queued for download as a «same song?» candidate. */
     val found: Int = 0,
+    /** Not found on the service at all. */
     val notFound: Int = 0,
+    /** Found, but the service has it only lossy (MP3/AAC). */
+    val noFlac: Int = 0,
     val error: String? = null,
 )
 
@@ -42,6 +49,7 @@ class FlacFinder(
     private val _state = MutableStateFlow(FlacSearch())
     val state: StateFlow<FlacSearch> = _state
     private val mutex = Mutex()
+    private val lookup = FlacLookup(yandex)
 
     /** Local files whose audio is lossy and that have no candidate waiting yet. */
     suspend fun lossyTracks(): List<TrackEntity> = withContext(Dispatchers.IO) {
@@ -54,32 +62,36 @@ class FlacFinder(
     suspend fun run() = mutex.withLock {
         withContext(Dispatchers.IO) {
             if (!yandex.isReady) { _state.value = FlacSearch(error = "yandex"); return@withContext }
+            if (lookup.accountHasPlus() == false) { _state.value = FlacSearch(error = "plus"); return@withContext }
             val todo = lossyTracks()
             _state.value = FlacSearch(running = true, total = todo.size)
-            val found = LinkedHashMap<Long, String>()
-            var notFound = 0
-            todo.forEachIndexed { i, t ->
-                val id = runCatching { match(t) }.getOrNull()
-                if (id != null) found[t.id] = id else notFound++
-                _state.value = _state.value.copy(checked = i + 1, found = found.size, notFound = notFound)
-                // Queue in small batches, so the first FLACs arrive while the search goes on.
-                if (found.size >= 10) { downloads.enqueue(found.keys.toList(), DownloadMode.CANDIDATE, found.toMap()); found.clear() }
-                if (t.service != Service.YANDEX || t.remoteId == null) delay(250) // be gentle with search
+            val batch = LinkedHashMap<Long, String>()
+            try {
+                todo.forEachIndexed { i, t ->
+                    currentCoroutineContext().ensureActive()
+                    val m = runCatching { match(t) }.getOrElse { if (it is CancellationException) throw it; FlacLookup.Match.NotFound }
+                    if (m is FlacLookup.Match.Flac) batch[t.id] = m.remoteId
+                    _state.value = _state.value.copy(
+                        checked = i + 1,
+                        found = _state.value.found + if (m is FlacLookup.Match.Flac) 1 else 0,
+                        notFound = _state.value.notFound + if (m == FlacLookup.Match.NotFound) 1 else 0,
+                        noFlac = _state.value.noFlac + if (m == FlacLookup.Match.LossyOnly) 1 else 0,
+                    )
+                    // Queue in small batches, so the first FLACs arrive while the search goes on.
+                    if (batch.size >= 10) { downloads.enqueue(batch.keys.toList(), DownloadMode.CANDIDATE, batch.toMap()); batch.clear() }
+                    delay(250) // be gentle with search
+                }
+            } finally {
+                withContext(NonCancellable) { downloads.enqueue(batch.keys.toList(), DownloadMode.CANDIDATE, batch.toMap()) }
+                _state.value = _state.value.copy(running = false)
             }
-            downloads.enqueue(found.keys.toList(), DownloadMode.CANDIDATE, found.toMap())
-            _state.value = _state.value.copy(running = false)
         }
     }
 
-    /** The Yandex track id of the same recording, or null. Rejected matches aren't offered again. */
-    private suspend fun match(t: TrackEntity): String? {
+    private suspend fun match(t: TrackEntity): FlacLookup.Match {
         val rejected = versions.rejectedLinks(t.id).mapNotNull { YandexLinks.parse(it)?.second }.toSet()
-        if (t.service == Service.YANDEX && t.remoteId != null) return t.remoteId.takeIf { it !in rejected }
-        val query = "${t.artist} ${TrackMatcher.normalizeTitle(t.title)}".trim()
-        val results = yandex.search(query).take(10).filter { it.available && it.id !in rejected }
-        val scored = results.map { r -> r to TrackMatcher.score(t.title, t.artist, t.durationMs, r.title, r.artistLine, r.durationMs) }
-        // ≥ 0.8: «almost certainly the same recording». The user still confirms by ear.
-        return scored.filter { it.second >= 0.8 }.maxByOrNull { it.second }?.first?.id
+        val linked = t.remoteId?.takeIf { t.service == Service.YANDEX }
+        return lookup.find(t.title, t.artist, t.durationMs, linked, rejected)
     }
 
     companion object {
