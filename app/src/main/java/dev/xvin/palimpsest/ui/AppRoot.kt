@@ -393,18 +393,25 @@ private fun BottomBar(nav: androidx.navigation.NavHostController) {
         Tab(SourcesRoute, tr(R.string.tab_services), Icons.Rounded.Hub),
         Tab(StatsRoute, tr(R.string.tab_history), Icons.Rounded.Insights),
     )
-    val entry by nav.currentBackStackEntryAsState()
-    val dest = entry?.destination
+    // The tab a screen belongs to is the nearest tab under it: Settings, opened from the library, is the library's.
+    val backStack by nav.currentBackStack.collectAsStateWithLifecycle()
+    val currentTab = backStack.lastOrNull { e -> tabRoutes.any { e.destination.hasRoute(it) } }?.destination
     NavigationBar(containerColor = Ink.Paper2, tonalElevation = androidx.compose.ui.unit.Dp(0f)) {
         tabs.forEach { tab ->
-            val selected = dest?.hierarchy?.any { it.hasRoute(tab.route::class) } == true
+            val selected = currentTab?.hasRoute(tab.route::class) == true
             NavigationBarItem(
                 selected = selected,
                 onClick = {
-                    nav.navigate(tab.route) {
-                        popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
+                    when {
+                        // Already in this tab: straight back to its first screen, whatever is open over it.
+                        selected -> nav.popBackStack(tab.route, inclusive = false)
+                        else -> nav.navigate(tab.route) {
+                            popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            // The library is where Settings and the tools open from: it always comes
+                            // back as the library itself, not as the settings page left open there.
+                            restoreState = tab.route != LibraryRoute
+                        }
                     }
                 },
                 icon = { Icon(tab.icon, null) },
