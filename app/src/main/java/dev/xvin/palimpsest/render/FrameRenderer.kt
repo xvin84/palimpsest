@@ -367,7 +367,7 @@ class FrameRenderer(private val s: FrameSpec) {
  * big jump skips most source pixels and keeps hard edges), then blurred for real. Blown up to the
  * whole frame it stays smooth, with no visible grid of enlarged pixels.
  */
-private fun blurredCover(cover: Bitmap, size: Int = 192, radius: Int = 12): Bitmap {
+private fun blurredCover(cover: Bitmap, size: Int = 192, radius: Int = 9): Bitmap {
     val side = min(cover.width, cover.height)
     var b = Bitmap.createBitmap(cover, (cover.width - side) / 2, (cover.height - side) / 2, side, side)
     while (b.width >= size * 2) b = Bitmap.createScaledBitmap(b, b.width / 2, b.height / 2, true)

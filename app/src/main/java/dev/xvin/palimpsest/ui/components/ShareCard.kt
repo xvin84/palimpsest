@@ -98,7 +98,7 @@ fun ShareCardDialog(np: NowPlaying, onDismiss: () -> Unit) {
                     if (cover != null) {
                         Artwork(
                             cover, np.album ?: np.title,
-                            Modifier.fillMaxSize().graphicsLayer { scaleX = 1.35f; scaleY = 1.35f }.blur(36.dp, BlurredEdgeTreatment.Rectangle),
+                            Modifier.fillMaxSize().graphicsLayer { scaleX = 1.35f; scaleY = 1.35f }.blur(28.dp, BlurredEdgeTreatment.Rectangle),
                             corner = 0.dp,
                         )
                     }

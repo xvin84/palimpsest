@@ -270,7 +270,7 @@ fun NowPlayingView() {
         if (lane) {
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(deep, pal.paper))))
         } else {
-            if (model != null) AsyncImage(model, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().blur(90.dp).graphicsLayer { alpha = 0.5f })
+            if (model != null) AsyncImage(model, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().blur(64.dp).graphicsLayer { alpha = 0.5f })
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(pal.paper.copy(alpha = 0.4f), pal.paper))))
         }
         @Composable

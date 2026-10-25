@@ -199,7 +199,7 @@ fun NowPlayingScreen(onClose: () -> Unit) {
             AsyncImage(
                 artModel, null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize().blur(80.dp).graphicsLayer { alpha = 0.55f },
+                modifier = Modifier.fillMaxSize().blur(60.dp).graphicsLayer { alpha = 0.55f },
             )
         }
         Box(

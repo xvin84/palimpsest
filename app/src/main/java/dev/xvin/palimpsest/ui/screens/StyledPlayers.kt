@@ -259,7 +259,7 @@ fun GlassNowPlaying(onClose: () -> Unit) {
     val np = bits.np
     val fg = Ink.Text
     Box(Modifier.fillMaxSize().dismissOnSwipeDown(onClose).background(Ink.Paper)) {
-        if (bits.art != null) AsyncImage(bits.art, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = 1.3f; scaleY = 1.3f }.blur(70.dp))
+        if (bits.art != null) AsyncImage(bits.art, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = 1.3f; scaleY = 1.3f }.blur(52.dp))
         Box(Modifier.fillMaxSize().background(Ink.Paper.copy(alpha = if (Ink.isLight) 0.35f else 0.45f)))
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
