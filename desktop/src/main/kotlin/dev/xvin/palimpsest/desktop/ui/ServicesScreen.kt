@@ -95,7 +95,7 @@ fun ServicesScreen() {
                 Row(
                     Modifier.fillMaxWidth().padding(vertical = 10.dp).clip(RoundedCornerShape(20.dp))
                         .background(Brush.horizontalGradient(listOf(accent.copy(alpha = 0.55f), accent.copy(alpha = 0.12f))))
-                        .clickable { scope.launch { runCatching { graph.player.startRadio(Player.MY_WAVE, t("Моя волна", "My Wave")) }.onFailure { nav.toast(it.message ?: "") } } }
+                        .clickable { startMyWave(graph, nav) }
                         .padding(24.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -103,6 +103,7 @@ fun ServicesScreen() {
                         Text(t("Моя волна", "My Wave"), style = MaterialTheme.typography.headlineLarge)
                         Text(t("Бесконечный поток под твой вкус", "An endless stream tuned to you"), color = pal.text.copy(alpha = 0.8f))
                     }
+                    TextButton(onClick = { nav.waveTuning = true }) { Text(t("Настроить", "Tune"), color = pal.text) }
                     Text("▶", style = MaterialTheme.typography.displayMedium)
                 }
             }

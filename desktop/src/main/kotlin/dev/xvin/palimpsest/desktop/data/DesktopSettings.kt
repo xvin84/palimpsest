@@ -12,6 +12,16 @@ enum class Rg { OFF, TRACK, ALBUM }
 /** How the tray icon looks: the letter with a dot, live bars, a spinning record, or one plain colour. */
 enum class TrayStyle { LETTER, BARS, VINYL, MONO }
 
+/** «Моя волна» tuning, sent as extra seeds (as on the phone). "" = no preference. */
+@Serializable
+data class WavePrefs(val diversity: String = "", val mood: String = "", val language: String = "") {
+    fun seeds(): List<String> = listOfNotNull(
+        diversity.ifEmpty { null }?.let { "settingDiversity:$it" },
+        mood.ifEmpty { null }?.let { "settingMoodEnergy:$it" },
+        language.ifEmpty { null }?.let { "settingLanguage:$it" },
+    )
+}
+
 @Serializable
 data class DesktopSettings(
     val musicRoots: List<String> = listOf(Paths.music.absolutePath),
@@ -50,6 +60,7 @@ data class DesktopSettings(
     val closeToTray: Boolean = true,
     /** Phone sync over the local network (off until turned on). */
     val lanSync: Boolean = false,
+    val wave: WavePrefs = WavePrefs(),
     /** Keys the user set, by [HotAction] name (an empty list: no key); the rest keep their defaults. */
     val hotkeys: Map<String, List<String>> = emptyMap(),
     /** Paired phones: token → device name. */

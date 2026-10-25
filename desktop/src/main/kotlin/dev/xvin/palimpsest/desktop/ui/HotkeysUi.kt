@@ -163,10 +163,7 @@ fun runHotAction(a: HotAction, graph: Graph, nav: Nav, window: WindowControls): 
         HotAction.SETTINGS -> nav.root(Screen.Settings)
         HotAction.BACK -> if (nav.selection?.clear() != true) nav.back()
         HotAction.SELECT_ALL -> { nav.selection?.selectAll() ?: return false }
-        HotAction.MY_WAVE -> {
-            if (!graph.yandex.isReady) { nav.toast(t("Нужно войти в Яндекс Музыку (Сервисы)", "Sign in to Yandex Music first (Services)")); return true }
-            graph.scope.launch { runCatching { player.startRadio(Player.MY_WAVE, t("Моя волна", "My Wave")) }.onFailure { nav.toast(it.message ?: "") } }
-        }
+        HotAction.MY_WAVE -> startMyWave(graph, nav)
         HotAction.HIDE -> window.hide()
         HotAction.QUIT -> window.quit()
     }

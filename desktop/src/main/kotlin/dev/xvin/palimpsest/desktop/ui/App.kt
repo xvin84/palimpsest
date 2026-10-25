@@ -34,6 +34,8 @@ import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Waves
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.OpenInFull
 import androidx.compose.material.icons.rounded.Pause
@@ -152,6 +154,7 @@ class Nav {
     var rightPanel by mutableStateOf<String?>(null)
     var message by mutableStateOf<String?>(null)
     var searchFocus by mutableStateOf(0)
+    var waveTuning by mutableStateOf(false)
 
     fun go(s: Screen) { nowPlaying = false; if (current != s) stack.add(s) }
     fun root(s: Screen) { nowPlaying = false; stack.clear(); stack.add(s) }
@@ -302,6 +305,7 @@ private fun Shell() {
         }
         if (nav.menu.isNotEmpty()) TrackMenu(nav.menu) { nav.menu = emptyList() }
         TrackDialogs()
+        if (nav.waveTuning) WaveTuningDialog { nav.waveTuning = false }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = 100.dp))
     }
 }
@@ -347,6 +351,7 @@ private fun Sidebar(compact: Boolean) {
         if (compact) Text("P", style = MaterialTheme.typography.headlineLarge, color = LocalAccent.current, modifier = Modifier.padding(start = 12.dp, top = 6.dp, bottom = 14.dp))
         else Text("Palimpsest", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(start = 8.dp, top = 6.dp, bottom = 14.dp))
         NavItem(Icons.Rounded.LibraryMusic, t("Медиатека", "Library"), nav.current == Screen.Library, compact) { nav.root(Screen.Library) }
+        WaveItem(compact)
         NavItem(Icons.Rounded.Search, t("Поиск", "Search"), nav.current == Screen.Search, compact) { nav.root(Screen.Search) }
         NavItem(Icons.Rounded.Radio, t("Сервисы", "Services"), nav.current == Screen.Services, compact) { nav.root(Screen.Services) }
         NavItem(Icons.Rounded.Favorite, t("Любимые", "Favourites"), nav.current == Screen.Liked, compact) { nav.root(Screen.Liked) }
@@ -369,6 +374,33 @@ private fun Sidebar(compact: Boolean) {
         dl.current?.let {
             Text(t("Скачиваю: ", "Downloading: ") + it, color = pal.muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             LinearProgressIndicator(progress = { dl.progress }, Modifier.fillMaxWidth().padding(top = 4.dp))
+        }
+    }
+}
+
+/** «Моя волна» one click away: the row starts it, the knob beside it opens its settings. */
+@Composable
+private fun WaveItem(compact: Boolean) {
+    val graph = LocalGraph.current
+    val nav = LocalNav.current
+    val pal = LocalPal.current
+    val accent = LocalAccent.current
+    val st by graph.player.state.collectAsState()
+    val on = st.radio == t("Моя волна", "My Wave")
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+            .background(if (on) accent.copy(alpha = 0.16f) else Color.Transparent)
+            .clickable { if (on) graph.player.toggle() else startMyWave(graph, nav) }
+            .padding(start = 10.dp, end = if (compact) 10.dp else 2.dp, top = if (compact) 8.dp else 2.dp, bottom = if (compact) 8.dp else 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Rounded.Waves, t("Моя волна", "My Wave"), tint = if (on) accent else pal.muted, modifier = Modifier.size(if (compact) 24.dp else 20.dp))
+        if (!compact) {
+            Spacer(Modifier.width(12.dp))
+            Text(t("Моя волна", "My Wave"), Modifier.weight(1f), color = if (on) pal.text else pal.muted, maxLines = 1)
+            IconButton(onClick = { nav.waveTuning = true }, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Rounded.Tune, t("Настроить волну", "Tune the wave"), tint = pal.faint, modifier = Modifier.size(18.dp))
+            }
         }
     }
 }
