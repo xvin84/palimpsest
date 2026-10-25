@@ -290,7 +290,7 @@ fun NowPlayingView() {
                 LyricsView(Modifier.weight(1f).fillMaxHeight().padding(40.dp), big = true, scale = scale)
             }
             wide && lyrics -> Row(Modifier.fillMaxSize().padding(48.dp), horizontalArrangement = Arrangement.spacedBy(48.dp)) {
-                CoverWithInfo(Modifier.weight(1f).fillMaxHeight(), w, centered = false, cover = { Artwork(model, t.album ?: t.title, Modifier.fillMaxSize(), 18.dp) }) {
+                CoverWithInfo(Modifier.weight(1f).fillMaxHeight(), w, centered = false, cover = { Artwork(model, t.album ?: t.title, Modifier.fillMaxSize(), 18.dp, artist = t.albumArtist ?: t.artist) }) {
                     Titles()
                     Spacer(Modifier.height(12.dp))
                     Spectrum(Modifier.fillMaxWidth().height(60.dp))
@@ -300,7 +300,7 @@ fun NowPlayingView() {
             // Narrow or tall with lyrics: a compact header, the lyrics below it.
             lyrics -> Column(Modifier.fillMaxSize().padding(horizontal = 28.dp, vertical = 20.dp)) {
                 Row(Modifier.padding(start = 40.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Artwork(model, t.album ?: t.title, Modifier.size(minOf(w * 0.22f, 120.dp)), 12.dp)
+                    Artwork(model, t.album ?: t.title, Modifier.size(minOf(w * 0.22f, 120.dp)), 12.dp, artist = t.albumArtist ?: t.artist)
                     Spacer(Modifier.width(18.dp))
                     Column(Modifier.weight(1f, fill = false)) {
                         Titles()
@@ -311,7 +311,7 @@ fun NowPlayingView() {
                 LyricsView(Modifier.weight(1f).fillMaxWidth(), big = true, scale = scale)
             }
             // Lyrics off: the cover as big as the window allows.
-            else -> CoverWithInfo(Modifier.fillMaxSize().padding(32.dp), minOf(w * 0.8f, h * 0.68f), centered = true, cover = { Artwork(model, t.album ?: t.title, Modifier.fillMaxSize(), if (lane) 6.dp else 18.dp) }) {
+            else -> CoverWithInfo(Modifier.fillMaxSize().padding(32.dp), minOf(w * 0.8f, h * 0.68f), centered = true, cover = { Artwork(model, t.album ?: t.title, Modifier.fillMaxSize(), if (lane) 6.dp else 18.dp, artist = t.albumArtist ?: t.artist) }) {
                 Titles()
                 if (!lane) { Spacer(Modifier.height(12.dp)); Spectrum(Modifier.fillMaxWidth().height(48.dp)) }
             }

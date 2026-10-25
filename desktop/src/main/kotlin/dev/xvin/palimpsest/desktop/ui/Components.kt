@@ -40,19 +40,16 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import dev.xvin.palimpsest.desktop.data.Track
 
-/** Cover art with a lettered tile underneath, so untagged files still look intentional. */
+/**
+ * Cover art over a generated one ([GeneratedCover]: colours, a pattern and the title, all from the
+ * name), so music without a picture still has a cover of its own. Round tiles (artists) skip the text.
+ */
 @Composable
-fun Artwork(model: Any?, seed: String, modifier: Modifier = Modifier, corner: Dp = 8.dp) {
-    val pal = LocalPal.current
-    Box(modifier.clip(RoundedCornerShape(corner)).background(placeholderColor(seed, pal.light)), contentAlignment = Alignment.Center) {
-        Text(seed.trim().take(1).uppercase(), style = MaterialTheme.typography.headlineMedium, color = Color.White.copy(alpha = 0.7f))
+fun Artwork(model: Any?, seed: String, modifier: Modifier = Modifier, corner: Dp = 8.dp, artist: String? = null) {
+    Box(modifier.clip(RoundedCornerShape(corner)), contentAlignment = Alignment.Center) {
+        GeneratedCover(seed, artist, Modifier.fillMaxSize(), withText = corner < 30.dp)
         if (model != null) AsyncImage(model, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
     }
-}
-
-private fun placeholderColor(seed: String, light: Boolean): Color {
-    val h = (seed.hashCode() and 0x7fffffff) % 360
-    return Color(java.awt.Color.HSBtoRGB(h / 360f, 0.35f, if (light) 0.7f else 0.32f))
 }
 
 /** A track's cover: the embedded picture of a file (extracted once) or the service's URL. */
@@ -60,7 +57,7 @@ private fun placeholderColor(seed: String, light: Boolean): Color {
 fun TrackArt(t: Track?, modifier: Modifier = Modifier, corner: Dp = 6.dp) {
     val graph = LocalGraph.current
     val model by produceState<Any?>(t?.coverUrl, t?.id, t?.modifiedAt) { value = graph.covers.model(t) }
-    Artwork(model, t?.album ?: t?.title ?: "?", modifier, corner)
+    Artwork(model, t?.album ?: t?.title ?: "?", modifier, corner, artist = t?.albumArtist ?: t?.artist)
 }
 
 @Composable
