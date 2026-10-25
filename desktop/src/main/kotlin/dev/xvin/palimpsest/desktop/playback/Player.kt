@@ -154,6 +154,13 @@ class Player(private val graph: Graph) {
         order = shifted.take(pos + 1) + (at until at + tracks.size) + shifted.drop(pos + 1)
     }
 
+    /** Tracks changed under the queue (moved, retagged): the queue gets the new entries, [old] id → new track. */
+    fun replaced(changes: Map<String, Track>) {
+        val st = _state.value
+        if (st.queue.none { it.id in changes }) return
+        _state.value = st.copy(queue = st.queue.map { changes[it.id] ?: it })
+    }
+
     fun removeAt(i: Int) {
         val st = _state.value
         if (i == st.index || i !in st.queue.indices) return
@@ -324,6 +331,7 @@ class Player(private val graph: Graph) {
     private fun maybeLog() {
         if (logged) return
         val t = _state.value.current ?: return
+        if (t.id.startsWith("preview:")) return
         val threshold = if (t.durationMs > 0) minOf(30_000L, t.durationMs / 2) else 30_000L
         if (listenedMs < threshold) return
         logged = true

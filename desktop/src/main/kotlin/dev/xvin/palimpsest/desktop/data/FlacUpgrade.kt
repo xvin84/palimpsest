@@ -128,6 +128,20 @@ class FlacUpgrade(private val graph: Graph) {
         }
     }
 
+    /**
+     * One track from its menu: looks for its FLAC and, when there is one, downloads it to wait on the
+     * «Upgrade to FLAC» screen. Null with the reason in [FlacSearchState.error] terms ("yandex", "plus").
+     */
+    suspend fun findOne(t: Track): Pair<FlacLookup.Match?, String?> = withContext(Dispatchers.IO) {
+        if (!graph.yandex.isReady) return@withContext null to "yandex"
+        if (lookup.accountHasPlus() == false) return@withContext null to "plus"
+        val rejected = data.rejected.filter { it.startsWith(t.path + "\t") }.mapTo(HashSet()) { it.substringAfter('\t') }
+        val linked = t.remoteId?.takeIf { t.service == dev.xvin.palimpsest.core.model.Service.YANDEX }
+        val m = lookup.find(t.title, t.artist, t.durationMs, linked, rejected)
+        if (m is FlacLookup.Match.Flac) download(t, m.remoteId)
+        m to null
+    }
+
     private suspend fun download(t: Track, remoteId: String) = withContext(Dispatchers.IO) {
         val info = graph.yandex.resolveStream(remoteId, Quality.LOSSLESS, forDownload = true)
         val base = "${(t.path + remoteId).hashCode().toUInt()}"

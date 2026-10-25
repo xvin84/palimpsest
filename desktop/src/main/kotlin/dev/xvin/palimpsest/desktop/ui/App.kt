@@ -33,6 +33,7 @@ import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.LibraryMusic
+import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.OpenInFull
 import androidx.compose.material.icons.rounded.Pause
@@ -90,6 +91,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.ApplicationScope
+import dev.xvin.palimpsest.desktop.data.Hotkeys
 import dev.xvin.palimpsest.desktop.data.SingleInstance
 import dev.xvin.palimpsest.desktop.tray.AwtTray
 import dev.xvin.palimpsest.desktop.tray.TrayController
@@ -132,13 +134,18 @@ sealed interface Screen {
     data class Folder(val folder: String) : Screen
     data class Playlist(val id: Long) : Screen
     data class RemotePlaylist(val service: Service, val id: String, val title: String) : Screen
+    data class Similar(val remoteId: String, val title: String) : Screen
 }
 
 /** Navigation and app-wide actions any screen may use. */
 class Nav {
     val stack = mutableStateListOf<Screen>(Screen.Library)
     val current get() = stack.last()
-    var menuFor by mutableStateOf<Track?>(null)
+    /** The tracks whose menu is open (one, or the selected ones). */
+    var menu by mutableStateOf<List<Track>>(emptyList())
+    var dialog by mutableStateOf<TrackDialog?>(null)
+    /** The track table on screen, for Ctrl+A and Esc. */
+    var selection: SelectionHooks? = null
     var nowPlaying by mutableStateOf(false)
     /** Lyrics on the full-window player (its own switch, separate from the side panel). */
     var bigLyrics by mutableStateOf(true)
@@ -150,7 +157,12 @@ class Nav {
     fun root(s: Screen) { nowPlaying = false; stack.clear(); stack.add(s) }
     fun back() { if (nowPlaying) nowPlaying = false else if (stack.size > 1) stack.removeLast() }
     fun toast(m: String) { message = m }
+    fun openMenu(t: Track) { menu = listOf(t) }
+    fun openMenu(ts: List<Track>) { menu = ts }
 }
+
+/** What a track table lets the window do with its selection. */
+class SelectionHooks(val selectAll: () -> Unit, val clear: () -> Boolean)
 
 fun main() {
     // One Palimpsest at a time: launching it again shows the running one (maybe hidden in the tray).
@@ -180,6 +192,18 @@ private fun ApplicationScope.App(showRequests: StateFlow<Int>) {
     LaunchedEffect(Unit) { tray.start() }
     LaunchedEffect(Unit) { showRequests.collect { if (it > 0) show() } }
     AwtTray(tray, graph)
+    // The keys: stroke → action, from Settings (the user's own) over the defaults.
+    val keys = remember(settings.hotkeys) { Hotkeys.effective(settings.hotkeys).flatMap { (a, ks) -> ks.map { it to a } }.toMap() }
+    val controls = remember {
+        WindowControls(
+            hide = { if (settings.trayIcon && tray.kind.value != TrayController.Kind.NONE) visible = false else state.isMinimized = true },
+            toggleFullScreen = {
+                state.placement = if (state.placement == androidx.compose.ui.window.WindowPlacement.Fullscreen) androidx.compose.ui.window.WindowPlacement.Floating
+                else androidx.compose.ui.window.WindowPlacement.Fullscreen
+            },
+            quit = { tray.stop(); quit() },
+        )
+    }
     Window(
         // With a tray to come back from, closing only hides the window and the music plays on.
         onCloseRequest = { if (settings.closeToTray && settings.trayIcon && tray.kind.value != TrayController.Kind.NONE) visible = false else quit() },
@@ -189,19 +213,13 @@ private fun ApplicationScope.App(showRequests: StateFlow<Int>) {
         state = state,
         onKeyEvent = { e ->
             if (e.type != KeyEventType.KeyDown) return@Window false
+            val action = strokeOf(e)?.let(keys::get)
             when {
-                e.key == Key.Spacebar -> { graph.player.toggle(); true }
-                e.isCtrlPressed && e.key == Key.F -> { nav.root(Screen.Search); nav.searchFocus++; true }
-                // Quits for real, whatever closing the window does.
-                e.isCtrlPressed && e.key == Key.Q -> { tray.stop(); quit(); true }
-                e.isCtrlPressed && e.key == Key.DirectionRight -> { graph.player.next(); true }
-                e.isCtrlPressed && e.key == Key.DirectionLeft -> { graph.player.previous(); true }
-                e.key == Key.DirectionRight -> { graph.player.seek(graph.player.state.value.positionMs + 5000); true }
-                e.key == Key.DirectionLeft -> { graph.player.seek((graph.player.state.value.positionMs - 5000).coerceAtLeast(0)); true }
+                action != null -> runHotAction(action, graph, nav, controls)
+                // Media keys on the keyboard always work.
                 e.key == Key.MediaPlayPause -> { graph.player.toggle(); true }
                 e.key == Key.MediaNext -> { graph.player.next(); true }
                 e.key == Key.MediaPrevious -> { graph.player.previous(); true }
-                e.key == Key.Escape -> { nav.back(); true }
                 else -> false
             }
         },
@@ -282,7 +300,8 @@ private fun Shell() {
             }
             PlayerBar(compact)
         }
-        nav.menuFor?.let { t -> TrackMenu(t) { nav.menuFor = null } }
+        if (nav.menu.isNotEmpty()) TrackMenu(nav.menu) { nav.menu = emptyList() }
+        TrackDialogs()
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = 100.dp))
     }
 }
@@ -311,6 +330,7 @@ private fun ScreenContent(s: Screen) {
         is Screen.Folder -> LocalListScreen(s.folder.substringAfterLast('/'), s.folder) { it.folder == s.folder }
         is Screen.Playlist -> PlaylistScreen(s.id)
         is Screen.RemotePlaylist -> RemotePlaylistScreen(s)
+        is Screen.Similar -> SimilarScreen(s)
     }
 }
 
@@ -398,6 +418,7 @@ private fun PlayerBar(compact: Boolean) {
                     modifier = Modifier.clickable(enabled = t != null) { t?.artists?.firstOrNull()?.let { nav.go(Screen.Artist(it)) } })
                 st.radio?.let { Text("≋ $it", color = accent, fontSize = 11.sp, maxLines = 1) }
             }
+            if (t != null) IconButton(onClick = { nav.openMenu(graph.library.get(t.id) ?: t) }) { Icon(Icons.Rounded.MoreHoriz, t("Действия", "Actions"), tint = pal.muted) }
             if (t != null) IconButton(onClick = { graph.library.setLiked(t.id, t.id !in liked); if (t.id !in liked) likeRemote(graph, t, true) else likeRemote(graph, t, false) }) {
                 Icon(if (t.id in liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, null, tint = if (t.id in liked) accent else pal.muted)
             }
@@ -475,60 +496,6 @@ fun SeekLine(positionMs: Long, durationMs: Long, modifier: Modifier = Modifier, 
         drawRoundRect(color, Offset(0f, y - h / 2), Size(size.width * frac, h), CornerRadius(h / 2))
         drawCircle(color, 6.dp.toPx(), Offset(size.width * frac, y))
     }
-}
-
-/** Right-click (or long-press) menu of a track. */
-@Composable
-private fun TrackMenu(t: Track, onDismiss: () -> Unit) {
-    val graph = LocalGraph.current
-    val nav = LocalNav.current
-    val liked by graph.library.liked.collectAsState()
-    val playlists by graph.playlists.lists.collectAsState()
-    var pickPlaylist by remember { mutableStateOf(false) }
-    fun act(block: () -> Unit) { block(); onDismiss() }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Column { Text(t.title, maxLines = 2, overflow = TextOverflow.Ellipsis); Text(t.artist, style = MaterialTheme.typography.bodyMedium, color = LocalPal.current.muted) } },
-        text = {
-            Column {
-                if (pickPlaylist) {
-                    playlists.forEach { p -> MenuLine(p.name) { act { graph.playlists.add(p.id, listOf(t.id)); nav.toast(t("Добавлено в «${p.name}»", "Added to «${p.name}»")) } } }
-                    MenuLine(t("+ Новый плейлист", "+ New playlist")) { act { val p = graph.playlists.create(t("Плейлист ", "Playlist ") + (playlists.size + 1)); graph.playlists.add(p.id, listOf(t.id)) } }
-                } else {
-                    MenuLine(t("Играть следующим", "Play next")) { act { graph.player.playNext(listOf(t)) } }
-                    MenuLine(t("В очередь", "Add to queue")) { act { graph.player.enqueue(listOf(t)) } }
-                    MenuLine(if (t.id in liked) t("Убрать из любимых", "Unlike") else t("В любимые", "Like")) { act { graph.library.setLiked(t.id, t.id !in liked); likeRemote(graph, t, t.id !in liked) } }
-                    MenuLine(t("В плейлист…", "Add to playlist…")) { pickPlaylist = true }
-                    if (t.path == null && t.remoteId != null) MenuLine(t("Скачать", "Download")) { act { graph.downloads.enqueue(listOf(t.id)); nav.toast(t("Скачиваю «${t.title}»", "Downloading «${t.title}»")) } }
-                    t.artists.forEach { a -> MenuLine(t("Исполнитель: ", "Artist: ") + a) { act { nav.go(Screen.Artist(a)) } } }
-                    t.album?.let { a ->
-                        MenuLine(t("Альбом: ", "Album: ") + a) {
-                            act { if (t.path != null) nav.go(Screen.LocalAlbum(a, t.albumArtist ?: t.artist)) else t.remoteAlbumId?.let { nav.go(Screen.RemoteAlbum(it, t.service)) } }
-                        }
-                    }
-                    if (t.service == Service.YANDEX && t.remoteId != null && graph.yandex.isReady) {
-                        MenuLine(t("Радио по треку", "Track radio")) { act { graph.scope.launch { runCatching { graph.player.startRadio("track:${t.remoteId}", t("Радио: ", "Radio: ") + t.title) }.onFailure { nav.toast(it.message ?: "") } } } }
-                    }
-                    t.path?.let { p ->
-                        MenuLine(t("Показать в папке", "Show in folder")) { act { runCatching { java.awt.Desktop.getDesktop().open(java.io.File(p).parentFile) } } }
-                        MenuLine(t("Удалить файл (в корзину системы)", "Delete file (to the system trash)")) {
-                            act {
-                                val ok = runCatching { java.awt.Desktop.getDesktop().moveToTrash(java.io.File(p)) }.getOrDefault(false)
-                                if (ok) { graph.library.remove(t.id); if (t.remoteId != null) graph.library.upsert(t.copy(path = null)) }
-                                nav.toast(if (ok) t("«${t.title}» — в корзине", "«${t.title}» moved to the trash") else t("Не удалось удалить", "Couldn’t delete"))
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(t("Закрыть", "Close")) } },
-    )
-}
-
-@Composable
-private fun MenuLine(text: String, onClick: () -> Unit) {
-    Text(text, Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp)).clickable(onClick = onClick).padding(horizontal = 8.dp, vertical = 9.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
 }
 
 /** The window, and when it last had focus — to tell «in front» from «somewhere behind». */

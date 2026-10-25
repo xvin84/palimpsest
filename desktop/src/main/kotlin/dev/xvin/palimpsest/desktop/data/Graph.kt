@@ -17,6 +17,7 @@ import kotlinx.coroutines.SupervisorJob
 import okhttp3.OkHttpClient
 import java.io.IOException
 import java.net.InetSocketAddress
+import kotlinx.coroutines.launch
 import java.net.Proxy
 import java.net.ProxySelector
 import java.net.SocketAddress
@@ -77,4 +78,21 @@ class Graph {
     val flacUpgrade by lazy { FlacUpgrade(this) }
     val player = Player(this)
     val lanSync = LanSyncServer(this).also { if (settings.value.lanSync) it.setEnabled(true) }
+
+    init { fillInServiceTracks() }
+
+    /**
+     * Covers, albums and years for Yandex tracks that came without them (a phone sync sends only
+     * the title and artist), in batches, when signed in. Run at start and after a sync.
+     */
+    fun fillInServiceTracks() {
+        scope.launch {
+            if (!yandex.isReady) return@launch
+            val bare = library.bare(Service.YANDEX)
+            for (chunk in bare.chunked(200)) {
+                val got = runCatching { yandex.tracksByIds(chunk.mapNotNull { it.remoteId }) }.getOrNull() ?: return@launch
+                library.fillIn(got)
+            }
+        }
+    }
 }

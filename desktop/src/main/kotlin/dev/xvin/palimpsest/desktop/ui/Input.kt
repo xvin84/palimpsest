@@ -1,6 +1,12 @@
 package dev.xvin.palimpsest.desktop.ui
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
+import androidx.compose.ui.input.pointer.PointerKeyboardModifiers
+import androidx.compose.ui.input.pointer.isPrimaryPressed
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.isSecondaryPressed
@@ -25,6 +31,33 @@ fun Modifier.onScroll(onScroll: (Float) -> Unit): Modifier = pointerInput(Unit) 
             val dy = e.changes.sumOf { it.scrollDelta.y.toDouble() }.toFloat()
             e.changes.forEach { it.consume() }
             if (dy != 0f) onScroll(dy)
+        }
+    }
+}
+
+/**
+ * Mouse on a list row: [onPress] at once (with the keys held, for Ctrl/Shift selection), [onDouble]
+ * on a double click, [onSecondary] on the right button.
+ */
+fun Modifier.rowClicks(onPress: (PointerKeyboardModifiers) -> Unit, onDouble: () -> Unit, onSecondary: () -> Unit): Modifier = composed {
+    val press by rememberUpdatedState(onPress)
+    val double by rememberUpdatedState(onDouble)
+    val secondary by rememberUpdatedState(onSecondary)
+    val last = remember { longArrayOf(0L) }
+    pointerInput(Unit) {
+        awaitPointerEventScope {
+            while (true) {
+                val e = awaitPointerEvent()
+                if (e.type != PointerEventType.Press) continue
+                when {
+                    e.buttons.isSecondaryPressed -> secondary()
+                    e.buttons.isPrimaryPressed -> {
+                        val now = e.changes.first().uptimeMillis
+                        if (now - last[0] < viewConfiguration.doubleTapTimeoutMillis) { last[0] = 0; double() }
+                        else { last[0] = now; press(e.keyboardModifiers) }
+                    }
+                }
+            }
         }
     }
 }

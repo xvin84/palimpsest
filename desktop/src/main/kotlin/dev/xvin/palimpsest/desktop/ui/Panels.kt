@@ -30,6 +30,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -63,8 +64,10 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import dev.xvin.palimpsest.core.lyrics.Lrc
 import dev.xvin.palimpsest.core.lyrics.ParsedLyrics
-import dev.xvin.palimpsest.desktop.data.DesktopStyle
+import dev.xvin.palimpsest.core.model.Lyrics
+import dev.xvin.palimpsest.desktop.data.LyricsService
 import dev.xvin.palimpsest.desktop.data.Track
+import dev.xvin.palimpsest.desktop.data.DesktopStyle
 import kotlinx.coroutines.launch
 
 @Composable
@@ -121,23 +124,34 @@ fun LyricsView(modifier: Modifier, big: Boolean, scale: Float = 1f) {
     val st by graph.player.state.collectAsState()
     val track = st.current
     var loading by remember { mutableStateOf(false) }
-    val parsed by produceState<ParsedLyrics?>(null, track?.id) {
+    // A variant picked with «Source» replaces what was found.
+    var picked by remember(track?.id) { mutableStateOf<Lyrics?>(null) }
+    val found by produceState<Lyrics?>(null, track?.id) {
         value = null
         val t = track ?: return@produceState
         loading = true
-        val l = runCatching { graph.lyrics.best(t) }.getOrNull()
+        value = runCatching { graph.lyrics.best(t) }.getOrNull()
         loading = false
-        value = l?.let { Lrc.parse(it.synced ?: it.plain.orEmpty()) } ?: ParsedLyrics(emptyList(), false)
     }
-    var translated by remember(track?.id) { mutableStateOf<List<String>?>(null) }
+    val shown = picked ?: found
+    val parsed = remember(shown, loading, track?.id) {
+        if (track == null || loading) null else shown?.let { Lrc.parse(it.synced ?: it.plain.orEmpty()) } ?: ParsedLyrics(emptyList(), false)
+    }
+    var translated by remember(track?.id, shown) { mutableStateOf<List<String>?>(null) }
     var translating by remember(track?.id) { mutableStateOf(false) }
     val p = parsed
     when {
         track == null -> EmptyState(t("Ничего не играет", "Nothing playing"), "")
-        p == null || loading -> Box(modifier, contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-        p.lines.isEmpty() -> Box(modifier, contentAlignment = Alignment.Center) { Text(t("Текста не нашлось", "No lyrics found"), color = pal.muted) }
+        p == null -> Box(modifier, contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        p.lines.isEmpty() -> Box(modifier, contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(t("Текста не нашлось", "No lyrics found"), color = pal.muted)
+                LyricsSourceButton(track, shown) { picked = it }
+            }
+        }
         else -> Column(modifier) {
-            Row {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                LyricsSourceButton(track, shown) { picked = it }
                 TextButton(enabled = !translating, onClick = {
                     if (translated != null) { translated = null; return@TextButton }
                     translating = true
@@ -171,6 +185,57 @@ fun LyricsView(modifier: Modifier, big: Boolean, scale: Float = 1f) {
                         translated?.getOrNull(i)?.takeIf { it.isNotBlank() && it != line.text }?.let {
                             Text(it, color = accent.copy(alpha = 0.8f), fontSize = if (big) (18 * scale).sp else 13.sp)
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** «tag» → «из файла»: a lyrics variant's source as people say it. */
+fun lyricsSourceName(source: String): String = when (source) {
+    LyricsService.SAVED -> t("сохранённый", "saved")
+    LyricsService.TAG -> t("из тега файла", "from the file’s tag")
+    LyricsService.LRC -> t("файл .lrc", ".lrc file")
+    "Yandex Music" -> t("Яндекс Музыка", "Yandex Music")
+    else -> source
+}
+
+/**
+ * «Source: LRCLIB ▾» — every variant found for the track (saved, in the file, LRCLIB, NetEase,
+ * Genius, Yandex), timed or not, with its first line; the picked one is shown and saved.
+ */
+@Composable
+private fun LyricsSourceButton(track: Track, shown: Lyrics?, onPick: (Lyrics) -> Unit) {
+    val graph = LocalGraph.current
+    val pal = LocalPal.current
+    var open by remember { mutableStateOf(false) }
+    Box {
+        TextButton(onClick = { open = true }) {
+            Text(t("Источник", "Source") + (shown?.let { ": " + lyricsSourceName(it.source) } ?: "") + " ▾", color = pal.muted)
+        }
+        if (open) {
+            val variants by produceState<List<Lyrics>?>(null, track.id) { value = runCatching { graph.lyrics.variants(track) }.getOrDefault(emptyList()) }
+            androidx.compose.material3.DropdownMenu(true, onDismissRequest = { open = false }, modifier = Modifier.widthIn(min = 300.dp, max = 420.dp)) {
+                val list = variants
+                when {
+                    list == null -> Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(Modifier.size(18.dp)); Spacer(Modifier.width(10.dp)); Text(t("Ищу во всех источниках…", "Looking everywhere…"), color = pal.muted)
+                    }
+                    list.isEmpty() -> Text(t("Нигде нет", "Nowhere to be found"), Modifier.padding(16.dp), color = pal.muted)
+                    else -> list.forEach { l ->
+                        val text = l.synced ?: l.plain.orEmpty()
+                        val first = Lrc.parse(text).lines.firstOrNull { it.text.isNotBlank() }?.text.orEmpty()
+                        val same = shown != null && (shown.synced ?: shown.plain).orEmpty().trim() == text.trim()
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = {
+                                Column {
+                                    Text((if (same) "✓ " else "") + lyricsSourceName(l.source) + " · " + (if (l.synced != null) t("по времени", "timed") else t("без времени", "untimed")), fontSize = 14.sp)
+                                    Text(first, color = pal.muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                            },
+                            onClick = { open = false; graph.lyrics.save(track, l); onPick(l) },
+                        )
                     }
                 }
             }
@@ -250,6 +315,9 @@ fun NowPlayingView() {
                 Titles()
                 if (!lane) { Spacer(Modifier.height(12.dp)); Spectrum(Modifier.fillMaxWidth().height(48.dp)) }
             }
+        }
+        IconButton(onClick = { nav.openMenu(graph.library.get(t.id) ?: t) }, modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)) {
+            Icon(Icons.Rounded.MoreHoriz, t("Действия", "Actions"), Modifier.size(28.dp), tint = if (lane || !pal.light) Color.White else pal.text)
         }
         IconButton(onClick = { nav.nowPlaying = false }, modifier = Modifier.padding(8.dp)) { Icon(Icons.Rounded.KeyboardArrowDown, null, Modifier.size(32.dp), tint = if (lane || !pal.light) Color.White else pal.text) }
     }

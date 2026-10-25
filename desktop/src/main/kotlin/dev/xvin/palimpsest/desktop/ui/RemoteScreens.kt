@@ -78,7 +78,7 @@ fun RemoteTrackList(tracks: List<RemoteTrack>, numbered: Boolean = false) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) {
                     TrackLine(t, if (numbered) r.trackNumber ?: (i + 1) else i + 1, st.current?.id == t.id, t.id in liked,
-                        onPlay = { graph.player.playRemote(tracks, i) }, onMenu = { nav.menuFor = graph.library.ensureRemote(r) })
+                        onPlay = { graph.player.playRemote(tracks, i) }, onMenu = { nav.openMenu(graph.library.ensureRemote(r)) })
                 }
                 IconButton(onClick = { graph.downloads.enqueue(listOf(graph.library.ensureRemote(r).id)); nav.toast(t("Скачиваю «${r.title}»", "Downloading «${r.title}»")) }) {
                     Icon(Icons.Rounded.Download, null, tint = LocalPal.current.faint, modifier = Modifier.size(18.dp))
@@ -144,7 +144,7 @@ fun ArtistScreen(s: Screen.Artist) {
             item { SectionHeader(t("В медиатеке", "In your library")) }
             items(local.take(30), key = { "l" + it.id }) { tr ->
                 val st by graph.player.state.collectAsState()
-                TrackLine(tr, null, st.current?.id == tr.id, tr.id in liked, onPlay = { graph.player.play(local, local.indexOf(tr)) }, onMenu = { nav.menuFor = tr })
+                TrackLine(tr, null, st.current?.id == tr.id, tr.id in liked, onPlay = { graph.player.play(local, local.indexOf(tr)) }, onMenu = { nav.openMenu(tr) })
             }
         }
         a?.let { info ->
@@ -204,4 +204,12 @@ private fun <T> RemoteList(data: Load<T>, title: (T) -> String, subtitle: (T) ->
             }
         }
     }
+}
+
+/** Songs Yandex Music finds similar to one (from a track's menu). */
+@Composable
+fun SimilarScreen(s: Screen.Similar) {
+    val graph = LocalGraph.current
+    val data by produceState<Load<List<RemoteTrack>>>(Load.Loading, s) { value = load { graph.yandex.similarTracks(s.remoteId) } }
+    RemoteList(data, { t("Похожие на «${s.title}»", "Similar to «${s.title}»") }, { t("${it.size} треков", "${it.size} tracks") }, { it.firstOrNull()?.coverUrl }, { it }, numbered = false)
 }

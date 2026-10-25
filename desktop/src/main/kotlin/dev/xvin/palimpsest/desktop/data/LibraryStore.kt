@@ -186,10 +186,51 @@ class LibraryStore(private val settings: SettingsStore) {
         }.getOrElse { base }
     }
 
-    /** A service track as a library entry (created on first play, like or download). */
+    /** Reads the files of [tracks] again (after their tags were edited), keeping their ids. */
+    suspend fun reread(tracks: List<Track>): List<Track> = mutex.withLock {
+        withContext(Dispatchers.IO) {
+            val fresh = tracks.mapNotNull { t ->
+                val f = File(t.path ?: return@mapNotNull null)
+                val n = runCatching { read(rootOf(f) ?: f.parentFile, f) }.getOrNull() ?: return@mapNotNull null
+                t.id to n.copy(
+                    id = t.id, addedAt = t.addedAt, coverUrl = t.coverUrl, folder = if (rootOf(f) != null) n.folder else t.folder,
+                    service = if (n.remoteId != null) n.service else t.service, remoteId = n.remoteId ?: t.remoteId, remoteAlbumId = n.remoteAlbumId ?: t.remoteAlbumId,
+                )
+            }.toMap()
+            _tracks.value = _tracks.value.map { fresh[it.id] ?: it }
+            persist()
+            fresh.values.toList()
+        }
+    }
+
+    private fun rootOf(f: File): File? = settings.value.musicRoots.map(::File).firstOrNull { f.absolutePath.startsWith(it.absolutePath + File.separator) }
+
+    /**
+     * The file of [t] is now [to]: the entry follows it. A file-only track's id is its path, so it
+     * changes with it, and its like goes along (playlists and the queue are the caller's).
+     */
+    fun relocate(t: Track, to: File): Track {
+        val root = rootOf(to)
+        val folder = root?.let { to.parentFile.absolutePath.removePrefix(it.absolutePath).trimStart('/', '\\').ifEmpty { null } }
+        val id = if (t.id == t.path) to.absolutePath else t.id
+        val n = t.copy(id = id, path = to.absolutePath, folder = folder, modifiedAt = to.lastModified(), sizeBytes = to.length())
+        _tracks.value = _tracks.value.filterNot { it.id == id && it.id != t.id }.map { if (it.id == t.id) n else it }
+        if (id != t.id && t.id in _liked.value) _liked.value = _liked.value - t.id + id
+        persist()
+        return n
+    }
+
+    /**
+     * A service track as a library entry (created on first play, like or download). An entry made
+     * from less (a phone sync knows only the title and artist) is filled in from [r].
+     */
     fun ensureRemote(r: RemoteTrack): Track {
         val id = "${r.service}:${r.id}"
-        get(id)?.let { return it }
+        get(id)?.let { old ->
+            val filled = fillIn(old, r)
+            if (filled != old) { _tracks.value = _tracks.value.map { if (it.id == id) filled else it }; persist() }
+            return filled
+        }
         val t = Track(
             id = id, title = r.title, artist = r.artistLine.ifBlank { "—" }, album = r.album, year = r.year, trackNumber = r.trackNumber,
             durationMs = r.durationMs, service = r.service, remoteId = r.id, remoteAlbumId = r.albumId, coverUrl = r.coverUrl,
@@ -197,6 +238,27 @@ class LibraryStore(private val settings: SettingsStore) {
         _tracks.value = _tracks.value + t
         persist()
         return t
+    }
+
+    /** What [t] lacks (cover, album, year…) taken from the service; a file's own tags stay. */
+    private fun fillIn(t: Track, r: RemoteTrack): Track = t.copy(
+        coverUrl = t.coverUrl ?: r.coverUrl,
+        album = t.album ?: r.album,
+        remoteAlbumId = t.remoteAlbumId ?: r.albumId,
+        year = t.year ?: r.year,
+        trackNumber = t.trackNumber ?: r.trackNumber,
+        durationMs = t.durationMs.takeIf { it > 0 } ?: r.durationMs,
+        artist = if (t.path == null && r.artistLine.isNotBlank()) r.artistLine else t.artist,
+    )
+
+    /** Service tracks still waiting for their cover (made by a phone sync, say). */
+    fun bare(service: Service): List<Track> = _tracks.value.filter { it.service == service && it.remoteId != null && it.coverUrl == null && it.path == null }
+
+    /** Fills in many at once (one save). */
+    fun fillIn(remotes: List<RemoteTrack>) {
+        val byId = remotes.associateBy { "${it.service}:${it.id}" }
+        _tracks.value = _tracks.value.map { t -> byId[t.id]?.let { fillIn(t, it) } ?: t }
+        persist()
     }
 
     fun upsert(t: Track) {

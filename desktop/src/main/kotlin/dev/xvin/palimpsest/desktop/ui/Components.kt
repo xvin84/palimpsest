@@ -18,6 +18,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerKeyboardModifiers
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -89,7 +93,7 @@ fun fmt(ms: Long): String = if (ms <= 0) "–:––" else if (ms >= 3_600_000) 
 
 /**
  * A row of a track table: number or cover, title and artist, album, length. Hover highlights,
- * double click plays (like every desktop player), right click opens the menu.
+ * click selects (Ctrl and Shift add), double click plays (like every desktop player), right click or ⋯ opens the menu.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -101,6 +105,8 @@ fun TrackLine(
     onPlay: () -> Unit,
     onMenu: () -> Unit,
     showAlbum: Boolean = true,
+    selected: Boolean = false,
+    onSelect: ((PointerKeyboardModifiers) -> Unit)? = null,
 ) {
     val pal = LocalPal.current
     val accent = LocalAccent.current
@@ -108,10 +114,9 @@ fun TrackLine(
     val hovered by hover.collectIsHoveredAsState()
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-            .background(if (playing) accent.copy(alpha = 0.12f) else if (hovered) pal.paper3 else Color.Transparent)
+            .background(if (selected) accent.copy(alpha = 0.22f) else if (playing) accent.copy(alpha = 0.12f) else if (hovered) pal.paper3 else Color.Transparent)
             .hoverable(hover)
-            .combinedClickable(onClick = {}, onDoubleClick = onPlay, onLongClick = onMenu)
-            .onRightClick(onMenu)
+            .rowClicks(onPress = { onSelect?.invoke(it) }, onDouble = onPlay, onSecondary = onMenu)
             .padding(horizontal = 10.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -129,5 +134,8 @@ fun TrackLine(
         Text(if (liked) "♥" else "", color = accent, modifier = Modifier.width(22.dp))
         Text(if (t.path == null) "☁" else "", color = pal.faint, modifier = Modifier.width(20.dp), fontSize = 12.sp)
         Text(fmt(t.durationMs), color = pal.faint, fontSize = 12.sp, modifier = Modifier.width(52.dp))
+        Box(Modifier.size(28.dp), contentAlignment = Alignment.Center) {
+            if (hovered || selected) Icon(Icons.Rounded.MoreHoriz, t("Действия", "Actions"), tint = pal.muted, modifier = Modifier.size(26.dp).clip(RoundedCornerShape(50)).clickable(onClick = onMenu).padding(3.dp))
+        }
     }
 }

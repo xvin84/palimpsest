@@ -149,6 +149,7 @@ class LanSyncServer(private val graph: Graph) {
             Play(resolve(p.identity)?.id ?: p.identity, p.title, p.artist, p.at, p.listenedMs)
         }
         graph.history.addAll(newPlays)
+        graph.fillInServiceTracks()
         return SyncReport(added, removed, changed, newPlays.size)
     }
 }

@@ -33,6 +33,8 @@ data class DesktopSettings(
     val preampDb: Float = 0f,
     val volume: Float = 0.9f,
     val embedLyrics: Boolean = true,
+    /** Where lyrics come from first ("LRCLIB", "NetEase", "Genius", "Yandex Music"), or "" for any, timed first. */
+    val lyricsSource: String = "",
     val keepVersions: Boolean = true,
     val lastQueue: List<String> = emptyList(),
     val lastIndex: Int = 0,
@@ -48,6 +50,8 @@ data class DesktopSettings(
     val closeToTray: Boolean = true,
     /** Phone sync over the local network (off until turned on). */
     val lanSync: Boolean = false,
+    /** Keys the user set, by [HotAction] name (an empty list: no key); the rest keep their defaults. */
+    val hotkeys: Map<String, List<String>> = emptyMap(),
     /** Paired phones: token → device name. */
     val lanTokens: Map<String, String> = emptyMap(),
 )

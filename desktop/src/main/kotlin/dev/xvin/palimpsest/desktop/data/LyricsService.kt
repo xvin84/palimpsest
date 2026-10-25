@@ -26,12 +26,24 @@ class LyricsService(private val graph: Graph) {
     private fun fromText(text: String, source: String) = if (Lrc.looksSynced(text)) Lyrics(null, text, source) else Lyrics(text, null, source)
 
     suspend fun local(t: Track): Lyrics? = withContext(Dispatchers.IO) {
-        cache[t.id]?.let { return@withContext fromText(it, "Palimpsest") }
-        val path = t.path ?: return@withContext null
-        val f = File(path)
+        cache[t.id]?.let { return@withContext fromText(it, cache[SOURCE + t.id] ?: SAVED) }
+        inFiles(t).let { all -> all.firstOrNull { it.synced != null } ?: all.firstOrNull() }
+    }
+
+    /** The file's tag and a `.lrc` next to it. */
+    private fun inFiles(t: Track): List<Lyrics> {
+        val f = File(t.path ?: return emptyList())
         val tag = runCatching { AudioFileIO.read(f).tag?.getFirst(FieldKey.LYRICS) }.getOrNull()?.takeIf { it.isNotBlank() }
         val lrc = File(f.parentFile, f.nameWithoutExtension + ".lrc").takeIf { it.isFile }?.readText()
-        listOfNotNull(tag?.let { fromText(it, "tag") }, lrc?.let { fromText(it, ".lrc") }).let { all -> all.firstOrNull { it.synced != null } ?: all.firstOrNull() }
+        return listOfNotNull(tag?.let { fromText(it, TAG) }, lrc?.let { fromText(it, LRC) })
+    }
+
+    /** Every variant there is, to choose from: what's saved, the files, then each online source. */
+    suspend fun variants(t: Track): List<Lyrics> {
+        val saved = cache[t.id]?.let { fromText(it, cache[SOURCE + t.id] ?: SAVED) }
+        val files = withContext(Dispatchers.IO) { inFiles(t) }
+        val all = listOfNotNull(saved) + files + online(t)
+        return all.distinctBy { (it.synced ?: it.plain).orEmpty().trim() }
     }
 
     /** Every online source in parallel; timed lyrics first. */
@@ -50,7 +62,10 @@ class LyricsService(private val graph: Graph) {
     suspend fun best(t: Track): Lyrics? {
         val l = local(t)
         if (l?.synced != null) return l
-        val found = online(t).let { all -> all.firstOrNull { it.synced != null } ?: all.firstOrNull() } ?: return l
+        val all = online(t)
+        // The source picked in Settings first (timed or not), then any timed lyrics, then any.
+        val preferred = graph.settings.value.lyricsSource.takeIf { it.isNotEmpty() }?.let { src -> all.filter { it.source == src } }.orEmpty()
+        val found = preferred.firstOrNull { it.synced != null } ?: preferred.firstOrNull() ?: all.firstOrNull { it.synced != null } ?: all.firstOrNull() ?: return l
         if (l != null && found.synced == null) return l
         save(t, found)
         return found
@@ -59,7 +74,18 @@ class LyricsService(private val graph: Graph) {
     fun save(t: Track, l: Lyrics) {
         val text = l.synced ?: l.plain ?: return
         cache[t.id] = text
+        cache[SOURCE + t.id] = l.source
         cacheFile.save(cache)
         if (graph.settings.value.embedLyrics) t.path?.let { p -> Tags.writeLyrics(File(p), text) }
+    }
+
+    companion object {
+        /** Labels of variants that aren't an online source. */
+        const val SAVED = "Palimpsest"
+        const val TAG = "tag"
+        const val LRC = ".lrc"
+        /** Online sources, as their clients name them. */
+        val ONLINE = listOf("LRCLIB", "NetEase", "Genius", "Yandex Music")
+        private const val SOURCE = "source:"
     }
 }

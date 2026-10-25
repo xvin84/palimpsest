@@ -32,6 +32,9 @@ class Covers(private val graph: Graph) {
         }
     }
 
+    /** After the picture inside the file changed. */
+    fun forget(id: String) { known.remove(id) }
+
     /** Raw bytes, e.g. for writing into a downloaded file's tag. */
     fun bytes(url: String): ByteArray? = runCatching {
         graph.http.newCall(okhttp3.Request.Builder().url(url).build()).execute().use { if (it.isSuccessful) it.body.bytes() else null }

@@ -44,5 +44,10 @@ class PlaylistStore {
     fun delete(id: Long) = save(_lists.value.filterNot { it.id == id })
     fun add(id: Long, trackIds: List<String>) = save(_lists.value.map { if (it.id == id) it.copy(trackIds = it.trackIds + trackIds) else it })
     fun setTracks(id: Long, trackIds: List<String>) = save(_lists.value.map { if (it.id == id) it.copy(trackIds = trackIds) else it })
+    /** A track's id changed (its file moved): the playlists follow. */
+    fun replaceId(old: String, new: String) {
+        if (old == new || _lists.value.none { old in it.trackIds }) return
+        save(_lists.value.map { p -> p.copy(trackIds = p.trackIds.map { if (it == old) new else it }) })
+    }
     fun removeAt(id: Long, index: Int) = save(_lists.value.map { if (it.id == id) it.copy(trackIds = it.trackIds.filterIndexed { i, _ -> i != index }) else it })
 }

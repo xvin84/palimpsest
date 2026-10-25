@@ -24,6 +24,10 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.ui.input.pointer.isCtrlPressed
+import androidx.compose.ui.input.pointer.isMetaPressed
+import androidx.compose.ui.input.pointer.isShiftPressed
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
@@ -157,10 +161,35 @@ fun TrackTable(tracks: List<Track>, liked: Set<String>, numbered: Boolean = fals
             modifier = modifier.clickable { if (sort == s) desc = !desc else { sort = s; desc = false } },
         )
     }
+    // Selection: click picks a row, Ctrl adds or removes one, Shift takes the range from the last click.
+    var selected by remember { mutableStateOf(emptySet<String>()) }
+    var anchor by remember { mutableStateOf(-1) }
+    val chosen = remember(sorted, selected) { sorted.filter { it.id in selected } }
+    fun select(i: Int, m: androidx.compose.ui.input.pointer.PointerKeyboardModifiers) {
+        val id = sorted[i].id
+        val ctrl = m.isCtrlPressed || m.isMetaPressed
+        when {
+            m.isShiftPressed && anchor in sorted.indices -> {
+                val range = if (anchor <= i) anchor..i else i..anchor
+                selected = (if (ctrl) selected else emptySet()) + range.map { sorted[it].id }
+            }
+            ctrl -> { selected = if (id in selected) selected - id else selected + id; anchor = i }
+            else -> { selected = setOf(id); anchor = i }
+        }
+    }
+    val latest by androidx.compose.runtime.rememberUpdatedState(sorted)
+    androidx.compose.runtime.DisposableEffect(nav) {
+        val hooks = SelectionHooks(
+            selectAll = { selected = latest.mapTo(HashSet()) { it.id } },
+            clear = { if (selected.isEmpty()) false else { selected = emptySet(); true } },
+        )
+        nav.selection = hooks
+        onDispose { if (nav.selection === hooks) nav.selection = null }
+    }
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
     // Narrow windows drop the album column.
     val showAlbum = maxWidth >= 720.dp
-    LazyColumn(Modifier.fillMaxSize()) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = if (chosen.size > 1) 72.dp else 0.dp)) {
         header?.let { h -> item { h() } }
         item {
             Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -182,18 +211,41 @@ fun TrackTable(tracks: List<Track>, liked: Set<String>, numbered: Boolean = fals
                 if (showAlbum) H(t("Альбом", "Album"), Sort.ALBUM, Modifier.weight(1f).padding(horizontal = 8.dp))
                 Spacer(Modifier.width(42.dp))
                 H(t("Время", "Time"), Sort.DURATION, Modifier.width(52.dp))
+                Spacer(Modifier.width(28.dp))
             }
         }
         itemsIndexed(sorted, key = { i, t -> "$i:${t.id}" }) { i, t ->
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) {
                     TrackLine(t, if (numbered) (t.trackNumber ?: (i + 1)) else i + 1, st.current?.id == t.id, t.id in liked,
-                        onPlay = { graph.player.play(sorted, i) }, onMenu = { nav.menuFor = t }, showAlbum = showAlbum)
+                        onPlay = { graph.player.play(sorted, i) },
+                        // The menu of the selection when the row is in it, otherwise of this row alone.
+                        onMenu = { if (t.id in selected && chosen.size > 1) nav.openMenu(chosen) else { selected = setOf(t.id); anchor = i; nav.openMenu(t) } },
+                        showAlbum = showAlbum, selected = t.id in selected, onSelect = { select(i, it) })
                 }
                 if (onRemove != null) TextButton(onClick = { onRemove(tracks.indexOf(t)) }) { Text("✕", color = pal.faint) }
             }
         }
     }
+    if (chosen.size > 1) SelectionBar(chosen, { selected = emptySet() }, Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp))
+    }
+}
+
+/** Floats under a track table while several rows are selected: the usual things for all of them at once. */
+@Composable
+private fun SelectionBar(tracks: List<Track>, onClear: () -> Unit, modifier: Modifier) {
+    val graph = LocalGraph.current
+    val nav = LocalNav.current
+    val pal = LocalPal.current
+    androidx.compose.material3.Surface(modifier, shape = RoundedCornerShape(50), color = pal.paper3, shadowElevation = 12.dp) {
+        Row(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(t("Выбрано: ${tracks.size}", "Selected: ${tracks.size}"), Modifier.padding(horizontal = 10.dp), fontSize = 14.sp)
+            TextButton(onClick = { graph.player.play(tracks) }) { Text(t("Слушать", "Play")) }
+            TextButton(onClick = { graph.player.playNext(tracks); nav.toast(t("Сыграют следующими", "Play next")) }) { Text(t("Следующими", "Next")) }
+            TextButton(onClick = { graph.player.enqueue(tracks); nav.toast(t("В очереди", "Queued")) }) { Text(t("В очередь", "Queue")) }
+            TextButton(onClick = { nav.openMenu(tracks) }) { Text(t("Ещё…", "More…")) }
+            IconButton(onClick = onClear) { Icon(androidx.compose.material.icons.Icons.Rounded.Close, t("Снять выделение", "Clear selection"), tint = pal.muted) }
+        }
     }
 }
 
@@ -253,7 +305,7 @@ fun PlaylistScreen(id: Long) {
             TextButton(onClick = { graph.playlists.delete(p.id); nav.root(Screen.Library) }) { Text(t("Удалить плейлист", "Delete playlist"), color = MaterialTheme.colorScheme.error) }
         }
         Spacer(Modifier.height(12.dp))
-        if (tracks.isEmpty()) EmptyState(t("Плейлист пуст", "Empty playlist"), t("Правый клик по треку → «В плейлист…»", "Right-click a track → «Add to playlist…»"))
+        if (tracks.isEmpty()) EmptyState(t("Плейлист пуст", "Empty playlist"), t("Правый клик или ⋯ у трека → «В плейлист…»", "Right-click or ⋯ on a track → «Add to playlist…»"))
         else TrackTable(tracks, liked, numbered = true, onRemove = { i -> graph.playlists.removeAt(p.id, i) })
     }
 }

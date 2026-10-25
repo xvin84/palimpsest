@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Hub
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Keyboard
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Search
@@ -86,13 +87,14 @@ import kotlinx.coroutines.launch
 /** Settings are grouped as on the phone; each group has an icon and a line on what's inside. */
 private enum class Category(val icon: ImageVector) {
     APPEARANCE(Icons.Rounded.Palette), SOUND(Icons.Rounded.GraphicEq), LIBRARY(Icons.Rounded.LibraryMusic),
-    DOWNLOADS(Icons.Rounded.Download), WINDOW(Icons.Rounded.DesktopWindows), NETWORK(Icons.Rounded.Hub), PHONE(Icons.Rounded.Smartphone), ABOUT(Icons.Rounded.Info);
+    DOWNLOADS(Icons.Rounded.Download), KEYS(Icons.Rounded.Keyboard), WINDOW(Icons.Rounded.DesktopWindows), NETWORK(Icons.Rounded.Hub), PHONE(Icons.Rounded.Smartphone), ABOUT(Icons.Rounded.Info);
 
     val title: String get() = when (this) {
         APPEARANCE -> t("Оформление", "Appearance")
         SOUND -> t("Звук", "Sound")
         LIBRARY -> t("Медиатека", "Library")
         DOWNLOADS -> t("Загрузки", "Downloads")
+        KEYS -> t("Горячие клавиши", "Keyboard shortcuts")
         WINDOW -> t("Окно и трей", "Window and tray")
         NETWORK -> t("Сеть", "Network")
         PHONE -> t("Телефон", "Phone")
@@ -104,10 +106,11 @@ private enum class Category(val icon: ImageVector) {
         SOUND -> t("Выравнивание громкости, эквалайзер", "Volume levelling, equalizer")
         LIBRARY -> t("Папки с музыкой, теги и тексты", "Music folders, tags and lyrics")
         DOWNLOADS -> t("Куда и в каком качестве", "Where to and in what quality")
+        KEYS -> t("Как в Яндекс Музыке; любую можно поменять", "As in Yandex Music; change any of them")
         WINDOW -> t("Иконка в трее и что делает крестик", "The tray icon and what closing the window does")
         NETWORK -> t("Прокси для YouTube и Bandcamp", "A proxy for YouTube and Bandcamp")
         PHONE -> t("Лайки, плейлисты и история с телефона", "Likes, playlists and history with the phone")
-        ABOUT -> t("Версия, горячие клавиши, лицензия", "Version, keys, licence")
+        ABOUT -> t("Версия, мышь, лицензия", "Version, mouse, licence")
     }
 }
 
@@ -460,6 +463,17 @@ private fun settingItems(s: DesktopSettings): List<Item> {
             TextButton(onClick = { nav.go(Screen.Flac) }) { Text(t("Открыть", "Open")) }
         }
     }
+    val lyrTitle = t("Источник текстов", "Lyrics source")
+    val lyrHint = t("Откуда брать текст песни в первую очередь; если там нет — из остальных. Для одного трека — кнопка «Источник» над текстом.",
+        "Where lyrics come from first; when it has none, the others. For one track, the «Source» button above the lyrics.")
+    add(Category.LIBRARY, lyrTitle, lyrHint, "lyrics source lrclib netease genius yandex текст источник") {
+        Setting(lyrTitle, lyrHint) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                (listOf("" to t("Любой, синхронный первым", "Any, timed first")) + dev.xvin.palimpsest.desktop.data.LyricsService.ONLINE.map { it to lyricsSourceName(it) })
+                    .forEach { (src, l) -> Pill(l, s.lyricsSource == src, { graph.settings.update { it.copy(lyricsSource = src) } }) }
+            }
+        }
+    }
     toggle(Category.LIBRARY, t("Сохранять тексты в файлы", "Save lyrics into files"), t("Найденный текст сразу пишется в тег файла", "Found lyrics go straight into the file’s tag"), s.embedLyrics, "lyrics tags lrc текст теги") { v ->
         graph.settings.update { it.copy(embedLyrics = v) }
     }
@@ -546,10 +560,16 @@ private fun settingItems(s: DesktopSettings): List<Item> {
     val aboutTitle = "Palimpsest $version"
     val aboutHint = t("Palimpsest для компьютера. Свободная программа под GPL-3.0.", "Palimpsest for the desktop. Free software under GPL-3.0.")
     add(Category.ABOUT, aboutTitle, aboutHint, "version версия gpl license лицензия") { Setting(aboutTitle, aboutHint) }
-    val keysTitle = t("Горячие клавиши", "Keys")
-    val keysHint = t("Пробел — пауза, ←/→ — перемотка на 5 с, Ctrl+←/→ — трек назад/вперёд, Ctrl+F — поиск, Esc — назад, Ctrl+Q — выйти. Двойной клик по треку — играть, правый клик — меню.",
-        "Space — pause, ←/→ — seek 5 s, Ctrl+←/→ — previous/next track, Ctrl+F — search, Esc — back, Ctrl+Q — quit. Double-click a track to play it, right-click for its menu.")
-    add(Category.ABOUT, keysTitle, keysHint, "keys shortcuts hotkeys клавиши горячие") { Setting(keysTitle, keysHint) }
+    val mouseTitle = t("Мышь", "Mouse")
+    val mouseHint = t("Двойной клик по треку — играть, клик — выделить (Ctrl и Shift — несколько), правый клик или ⋯ — меню. Колесо над громкостью меняет её.",
+        "Double-click a track to play it, click to select (Ctrl and Shift for several), right-click or ⋯ for its menu. The wheel over the volume changes it.")
+    add(Category.ABOUT, mouseTitle, mouseHint, "mouse мышь клик click") { Setting(mouseTitle, mouseHint) }
+
+    // --- Keys ---
+    add(Category.KEYS, t("Горячие клавиши", "Keyboard shortcuts"), "", "keys shortcuts hotkeys клавиши горячие сбросить reset") { HotkeysIntro() }
+    dev.xvin.palimpsest.desktop.data.HotAction.entries.forEach { a ->
+        add(Category.KEYS, a.title(), a.group.title(), "keys клавиши " + dev.xvin.palimpsest.desktop.data.Hotkeys.effective(s.hotkeys).getValue(a).joinToString(" ")) { HotkeyRow(a) }
+    }
     return list
 }
 

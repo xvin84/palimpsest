@@ -152,7 +152,7 @@ private fun LibraryResults(all: List<Track>, liked: Set<String>, query: String, 
             item { SectionHeader(t("Треки", "Tracks")) }
             items(tracks.take(if (kind == SearchType.ALL) 12 else 300), key = { it.id }) { tr ->
                 val st by graph.player.state.collectAsState()
-                TrackLine(tr, null, st.current?.id == tr.id, tr.id in liked, onPlay = { graph.player.play(tracks, tracks.indexOf(tr)) }, onMenu = { nav.menuFor = tr })
+                TrackLine(tr, null, st.current?.id == tr.id, tr.id in liked, onPlay = { graph.player.play(tracks, tracks.indexOf(tr)) }, onMenu = { nav.openMenu(tr) })
             }
         }
         if (tracks.isEmpty() && artists.isEmpty()) item { EmptyState(t("Ничего не нашлось", "Nothing found"), t("Попробуй поискать в сервисах", "Try a service")) }
