@@ -2,6 +2,32 @@
 
 **English** | [Русский](CHANGELOG.ru.md)
 
+## 0.4.9 — 2026-10-26
+
+### New
+- Computer: **video from a track** (track menu → «Video from the track…») — the same videos as on the phone: the
+  cover or the synced lyrics, 9:16 or 16:9, up to 1440p at 60 fps, bars, mirror or a ring; the sound goes through your
+  equalizer. Saved to Videos/Palimpsest (Movies on a Mac); the progress, and a way to stop it, are in the sidebar.
+- Computer: **My Wave one click away** — in the sidebar, with a knob next to it to tune it: character, mood,
+  language and Yandex's activity stations, as on the phone.
+- **Covers for music that has none**, on the phone and the computer: made from the name — colours that go together,
+  soft light, rings or waves, and the title and artist on big ones — instead of a letter on a flat tile.
+- Computer: **lyrics reworked** — the sung line lights up as it's sung (word by word where the lyrics know the words),
+  the others fade with distance, the list glides and fades at the edges; scroll it yourself and it stays put until
+  «Back to the line»; pauses in the singing show as breathing dots.
+- Computer: **smoother motion** — screens, the big player and the side panel slide in, the cover and the name change
+  smoothly, play/pause morphs, the track menu opens out of the pointer.
+- The blurred cover behind the player is a little sharper everywhere (and in videos).
+
+### Fixed
+- **The phone didn't see new versions** until many taps on «Check»: GitHub's API allows 60 checks an hour per address
+  and a mobile network shares one address among many people — when it said «limit reached», the app said «up to
+  date». Now it asks the release page instead, and says so when GitHub can't be reached at all.
+- A new release appears everywhere at once — the phone, pacman and the download links — only after the computer
+  packages are built, so `pacman -Syu` never meets a release without them.
+- Computer: **keyboard shortcuts didn't work at all**, and the «press the keys» field closed right away.
+- Computer: the player bar and the big player had no cover for a track whose cover was found after it was queued.
+
 ## 0.4.8 — 2026-10-26
 
 ### New

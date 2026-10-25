@@ -82,6 +82,8 @@ download lands in your music folder as a properly tagged file.
   moving to a folder, finding the FLAC, versions, similar tracks, the link. **Select** several tracks with Ctrl and Shift.
 - **«Upgrade to FLAC»**: pick folders and FLAC versions are found for the MP3/AAC files; listen to the old and the new
   file from the same second and decide.
+- **Video from a track**, as on the phone: the cover or the lyrics, 9:16 or 16:9, up to 1440p at 60 fps.
+- **My Wave one click away** in the sidebar, tuned by character, mood and language.
 - **Keyboard shortcuts like Yandex Music** (K, J/L, N/P, F/D, R, S, M, W…), any of them can be changed in Settings.
 - A tray icon (closing the window keeps the music going), media keys and the system's player controls (MPRIS on Linux).
 - **Sync with the phone** over the local network: likes, playlists and history, paired with a six-digit code.
