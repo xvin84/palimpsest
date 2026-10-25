@@ -2,6 +2,29 @@
 
 **English** | [Русский](CHANGELOG.ru.md)
 
+## 0.4.8 — 2026-10-26
+
+### New
+- Computer: **a real track menu** — at the mouse pointer, from right-click or the ⋯ on every row, on the player bar
+  and in the big player. Besides the queue, likes and playlists: **edit tags** (title, artist, album, year, number,
+  genre, lyrics, cover from a file or found on Yandex, Deezer and iTunes), **move to a folder**, **find it in FLAC**,
+  **versions** (the earlier files «Upgrade to FLAC» kept: listen, restore, throw out), **similar tracks**, copy the
+  link, show in folder, the Yandex album. The file, its format, bitrate and size are shown on top.
+- Computer: **select several tracks** — click, Ctrl+click, Shift+click, Ctrl+A. A bar with Play, Next, Queue and
+  More… appears; the menu and the tag editor work on all of them (shared tags only, the rest stay as they are).
+- Computer: **keyboard shortcuts like Yandex Music** — K pause, J/L seek, N/P tracks, F/D like and dislike, R repeat,
+  S shuffle, M mute, W big player, arrows for volume and seeking, F11 full screen, and more. Every action is in
+  Settings → Keyboard shortcuts: see the keys, press new ones, take any off, put the defaults back. Some actions
+  (current track's menu, tags, radio, My Wave…) start without a key for you to give one. A Russian layout works too.
+- Computer: **pick where lyrics come from** — «Source» above the lyrics shows every variant (saved, in the file,
+  LRCLIB, NetEase, Genius, Yandex), timed or not, with its first line; the picked one stays. Settings → Library →
+  Lyrics source sets which one is tried first (Yandex gives no lyrics without Plus).
+
+### Fixed
+- Computer: tracks that came from the phone sync and then played in My Wave had **no cover and no album** — they are
+  filled in from Yandex now (952 of them in one library), and a track that arrives with more later takes it.
+- Computer: deleting a file asks first, and **works on Linux** (into the system trash; before, it always failed there).
+
 ## 0.4.7 — 2026-10-26
 
 ### Fixed
