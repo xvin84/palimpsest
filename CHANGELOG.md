@@ -2,6 +2,13 @@
 
 **English** | [Русский](CHANGELOG.ru.md)
 
+## 0.4.7 — 2026-10-26
+
+### Fixed
+- Computer: the **spectrum under the cover in the big player** no longer flattens into a dashed line in large
+  windows with lyrics — the cover gets a little smaller so the title and the spectrum always fit under it. In a
+  narrow window with lyrics the spectrum now shows next to the title too.
+
 ## 0.4.6 — 2026-10-24
 
 ### New
