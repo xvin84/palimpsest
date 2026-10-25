@@ -436,7 +436,7 @@ fun NowPlayingView() {
                 LyricsView(Modifier.weight(1f).fillMaxHeight().padding(40.dp), big = true, scale = scale)
             }
             wide && lyrics -> Row(Modifier.fillMaxSize().padding(48.dp), horizontalArrangement = Arrangement.spacedBy(48.dp)) {
-                CoverWithInfo(Modifier.weight(1f).fillMaxHeight(), w, centered = false, cover = { Artwork(model, t.album ?: t.title, Modifier.fillMaxSize(), 18.dp, artist = t.albumArtist ?: t.artist) }) {
+                CoverWithInfo(Modifier.weight(1f).fillMaxHeight(), w, centered = false, cover = { androidx.compose.animation.Crossfade(t.id to model, animationSpec = androidx.compose.animation.core.tween(450)) { (_, m) -> Artwork(m, t.album ?: t.title, Modifier.fillMaxSize(), 18.dp, artist = t.albumArtist ?: t.artist) } }) {
                     Titles()
                     Spacer(Modifier.height(12.dp))
                     Spectrum(Modifier.fillMaxWidth().height(60.dp))
@@ -457,7 +457,7 @@ fun NowPlayingView() {
                 LyricsView(Modifier.weight(1f).fillMaxWidth(), big = true, scale = scale)
             }
             // Lyrics off: the cover as big as the window allows.
-            else -> CoverWithInfo(Modifier.fillMaxSize().padding(32.dp), minOf(w * 0.8f, h * 0.68f), centered = true, cover = { Artwork(model, t.album ?: t.title, Modifier.fillMaxSize(), if (lane) 6.dp else 18.dp, artist = t.albumArtist ?: t.artist) }) {
+            else -> CoverWithInfo(Modifier.fillMaxSize().padding(32.dp), minOf(w * 0.8f, h * 0.68f), centered = true, cover = { androidx.compose.animation.Crossfade(t.id to model, animationSpec = androidx.compose.animation.core.tween(450)) { (_, m) -> Artwork(m, t.album ?: t.title, Modifier.fillMaxSize(), if (lane) 6.dp else 18.dp, artist = t.albumArtist ?: t.artist) } }) {
                 Titles()
                 if (!lane) { Spacer(Modifier.height(12.dp)); Spectrum(Modifier.fillMaxWidth().height(48.dp)) }
             }

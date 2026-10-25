@@ -132,6 +132,13 @@ fun TrackMenu(tracks: List<Track>, onDismiss: () -> Unit) {
         properties = PopupProperties(focusable = true),
         onKeyEvent = { e -> if (e.type == KeyEventType.KeyDown && e.key == Key.Escape) { onDismiss(); true } else false },
     ) {
+        // Opens out of the pointer: a quick fade and grow from its corner.
+        val appear = remember { androidx.compose.animation.core.MutableTransitionState(false).apply { targetState = true } }
+        androidx.compose.animation.AnimatedVisibility(
+            appear,
+            enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(120)) +
+                androidx.compose.animation.scaleIn(androidx.compose.animation.core.tween(170, easing = androidx.compose.animation.core.EaseOutCubic), initialScale = 0.92f, transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f)),
+        ) {
         Surface(
             shape = RoundedCornerShape(12.dp), color = pal.paper2, shadowElevation = 16.dp, border = BorderStroke(1.dp, pal.line),
             modifier = Modifier.width(310.dp),
@@ -205,6 +212,7 @@ fun TrackMenu(tracks: List<Track>, onDismiss: () -> Unit) {
                     }
                 }
             }
+        }
         }
     }
 }

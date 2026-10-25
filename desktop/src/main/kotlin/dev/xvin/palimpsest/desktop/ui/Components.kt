@@ -111,7 +111,10 @@ fun TrackLine(
     val hovered by hover.collectIsHoveredAsState()
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-            .background(if (selected) accent.copy(alpha = 0.22f) else if (playing) accent.copy(alpha = 0.12f) else if (hovered) pal.paper3 else Color.Transparent)
+            .background(androidx.compose.animation.animateColorAsState(
+                if (selected) accent.copy(alpha = 0.22f) else if (playing) accent.copy(alpha = 0.12f) else if (hovered) pal.paper3 else pal.paper3.copy(alpha = 0f),
+                androidx.compose.animation.core.tween(160),
+            ).value)
             .hoverable(hover)
             .rowClicks(onPress = { onSelect?.invoke(it) }, onDouble = onPlay, onSecondary = onMenu)
             .padding(horizontal = 10.dp, vertical = 5.dp),

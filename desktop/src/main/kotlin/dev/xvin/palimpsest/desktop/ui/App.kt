@@ -3,6 +3,8 @@ package dev.xvin.palimpsest.desktop.ui
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -287,12 +289,19 @@ private fun Shell() {
                 Row(Modifier.fillMaxSize()) {
                     Sidebar(compact)
                     Box(Modifier.weight(1f).fillMaxHeight()) {
-                        Crossfade(nav.current) { s -> Box(Modifier.fillMaxSize()) { ScreenContent(s) } }
-                        if (!panelInline) nav.rightPanel?.let { panel ->
-                            RightPanel(panel, Modifier.align(Alignment.CenterEnd).width(340.dp).fillMaxHeight().androidxShadow())
+                        // A new screen rises a little as it fades in; the old one just fades.
+                        androidx.compose.animation.AnimatedContent(
+                            nav.current,
+                            transitionSpec = {
+                                (fadeIn(tween(260, delayMillis = 40)) + slideInVertically(tween(340, easing = androidx.compose.animation.core.EaseOutCubic)) { it / 28 }) togetherWith
+                                    fadeOut(tween(140))
+                            },
+                        ) { s -> Box(Modifier.fillMaxSize()) { ScreenContent(s) } }
+                        if (!panelInline) SidePanel(nav.rightPanel, Modifier.align(Alignment.CenterEnd)) { panel ->
+                            RightPanel(panel, Modifier.width(340.dp).fillMaxHeight().androidxShadow())
                         }
                     }
-                    if (panelInline) nav.rightPanel?.let { panel -> RightPanel(panel, Modifier.width(360.dp).fillMaxHeight()) }
+                    if (panelInline) SidePanel(nav.rightPanel, Modifier) { panel -> RightPanel(panel, Modifier.width(360.dp).fillMaxHeight()) }
                 }
                 // The big player covers the content, never the player bar.
                 BigPlayer(nav.nowPlaying)
@@ -310,12 +319,28 @@ private fun Shell() {
     }
 }
 
-/** The full player sliding over the content (a function of its own: no Column scope around it). */
+/** The full player sliding over the content on a soft spring (a function of its own: no Column scope around it). */
 @Composable
 private fun BigPlayer(visible: Boolean) {
-    AnimatedVisibility(visible, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
+    AnimatedVisibility(
+        visible,
+        enter = slideInVertically(androidx.compose.animation.core.spring(dampingRatio = 0.92f, stiffness = 320f)) { it } + fadeIn(tween(220)),
+        exit = slideOutVertically(tween(280, easing = androidx.compose.animation.core.FastOutLinearInEasing)) { it } + fadeOut(tween(240)),
+    ) {
         NowPlayingView()
     }
+}
+
+/** The lyrics / queue panel sliding in from the right and back out (the last one stays drawn while it leaves). */
+@Composable
+private fun SidePanel(panel: String?, modifier: Modifier, content: @Composable (String) -> Unit) {
+    var last by remember { mutableStateOf(panel ?: "lyrics") }
+    if (panel != null) last = panel
+    AnimatedVisibility(
+        panel != null, modifier,
+        enter = androidx.compose.animation.slideInHorizontally(androidx.compose.animation.core.spring(dampingRatio = 0.92f, stiffness = 380f)) { it } + fadeIn(tween(200)),
+        exit = androidx.compose.animation.slideOutHorizontally(tween(220)) { it } + fadeOut(tween(200)),
+    ) { content(last) }
 }
 
 @Composable
@@ -442,13 +467,20 @@ private fun PlayerBar(compact: Boolean) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-            TrackArt(t, Modifier.size(60.dp).clickable { if (t != null) nav.nowPlaying = !nav.nowPlaying }, 8.dp)
+            Crossfade(t, Modifier.size(60.dp), animationSpec = tween(350)) { tr -> TrackArt(tr, Modifier.fillMaxSize().clickable { if (tr != null) nav.nowPlaying = !nav.nowPlaying }, 8.dp) }
             Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(t?.title ?: "—", maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
-                Text(t?.artist.orEmpty(), color = pal.muted, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp,
-                    modifier = Modifier.clickable(enabled = t != null) { t?.artists?.firstOrNull()?.let { nav.go(Screen.Artist(it)) } })
-                st.radio?.let { Text("≋ $it", color = accent, fontSize = 11.sp, maxLines = 1) }
+            // The next track's name slides up into place.
+            androidx.compose.animation.AnimatedContent(
+                t, Modifier.weight(1f),
+                transitionSpec = { (fadeIn(tween(260)) + slideInVertically(tween(300)) { it / 3 }) togetherWith (fadeOut(tween(160)) + slideOutVertically(tween(200)) { -it / 3 }) },
+                contentKey = { it?.id },
+            ) { tr ->
+                Column {
+                    Text(tr?.title ?: "—", maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
+                    Text(tr?.artist.orEmpty(), color = pal.muted, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp,
+                        modifier = Modifier.clickable(enabled = tr != null) { tr?.artists?.firstOrNull()?.let { nav.go(Screen.Artist(it)) } })
+                    st.radio?.let { Text("≋ $it", color = accent, fontSize = 11.sp, maxLines = 1) }
+                }
             }
             if (t != null) IconButton(onClick = { nav.openMenu(graph.library.get(t.id) ?: t) }) { Icon(Icons.Rounded.MoreHoriz, t("Действия", "Actions"), tint = pal.muted) }
             if (t != null) IconButton(onClick = { graph.library.setLiked(t.id, t.id !in liked); if (t.id !in liked) likeRemote(graph, t, true) else likeRemote(graph, t, false) }) {
@@ -464,7 +496,10 @@ private fun PlayerBar(compact: Boolean) {
                     contentAlignment = Alignment.Center,
                 ) {
                     if (st.loading != null) Text("${(st.loading!! * 100).toInt()}%", color = MaterialTheme.colorScheme.onPrimary, fontSize = 11.sp)
-                    else Icon(if (st.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(30.dp))
+                    else androidx.compose.animation.AnimatedContent(
+                        st.playing,
+                        transitionSpec = { (androidx.compose.animation.scaleIn(tween(180), initialScale = 0.5f) + fadeIn(tween(180))) togetherWith (androidx.compose.animation.scaleOut(tween(140), targetScale = 0.5f) + fadeOut(tween(140))) },
+                    ) { playing -> Icon(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(30.dp)) }
                 }
                 IconButton(onClick = graph.player::next) { Icon(Icons.Rounded.SkipNext, null, Modifier.size(30.dp)) }
                 IconButton(onClick = graph.player::cycleRepeat) {

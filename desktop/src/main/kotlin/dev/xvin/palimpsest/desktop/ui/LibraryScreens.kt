@@ -227,7 +227,14 @@ fun TrackTable(tracks: List<Track>, liked: Set<String>, numbered: Boolean = fals
             }
         }
     }
-    if (chosen.size > 1) SelectionBar(chosen, { selected = emptySet() }, Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp))
+    // The bar rises from the bottom when a second row is picked and sinks when the selection goes.
+    var barTracks by remember { mutableStateOf(chosen) }
+    if (chosen.size > 1) barTracks = chosen
+    androidx.compose.animation.AnimatedVisibility(
+        chosen.size > 1, Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp),
+        enter = androidx.compose.animation.slideInVertically(androidx.compose.animation.core.spring(dampingRatio = 0.8f, stiffness = 500f)) { it * 2 } + androidx.compose.animation.fadeIn(),
+        exit = androidx.compose.animation.slideOutVertically { it * 2 } + androidx.compose.animation.fadeOut(),
+    ) { SelectionBar(barTracks, { selected = emptySet() }, Modifier) }
     }
 }
 
