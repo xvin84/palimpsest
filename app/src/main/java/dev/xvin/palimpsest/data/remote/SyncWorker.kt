@@ -45,8 +45,9 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
     private suspend fun checkAppUpdateDaily(graph: dev.xvin.palimpsest.AppGraph) {
         val prefs = applicationContext.getSharedPreferences("updates", Context.MODE_PRIVATE)
         if (System.currentTimeMillis() - prefs.getLong("last_check", 0) < 20 * 3600_000L) return
-        prefs.edit().putLong("last_check", System.currentTimeMillis()).apply()
         graph.updater.check(notify = true)
+        // Only an answered check counts: an unreachable GitHub is tried again on the next run.
+        prefs.edit().putLong("last_check", System.currentTimeMillis()).apply()
     }
 
     companion object {

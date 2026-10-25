@@ -22,6 +22,9 @@ android {
         buildConfigField("String", "GITHUB_REPO", "\"xvin84/palimpsest\"")
         // GitHub API base; a debug build can be pointed at a local stand-in to test updating end to end.
         buildConfigField("String", "UPDATE_API", "\"${providers.gradleProperty("palimpsest.updateApi").orNull ?: "https://api.github.com"}\"")
+        // Its web and raw-file counterparts: the fallbacks when the API's hourly limit runs out.
+        buildConfigField("String", "UPDATE_WEB", "\"${providers.gradleProperty("palimpsest.updateWeb").orNull ?: "https://github.com"}\"")
+        buildConfigField("String", "UPDATE_RAW", "\"${providers.gradleProperty("palimpsest.updateRaw").orNull ?: "https://raw.githubusercontent.com"}\"")
     }
 
     // Official releases are signed with the maintainer's key, configured outside the repository in

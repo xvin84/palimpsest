@@ -124,6 +124,19 @@ jobs:
 
   # The Arch package (palimpsest-bin): the Linux tarball above, repackaged by packaging/aur/PKGBUILD.
   # Needs the AUR_SSH_KEY secret (a private key whose public half is on the AUR account); skipped without it.
+  # Only now the release becomes «latest» (scripts/release.sh publishes it without): the APK, the
+  # computer packages and the pacman repo behind releases/latest/download appear together.
+  latest:
+    needs: [package, pacman-repo]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Mark the release as latest
+        run: gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --latest
+
   aur:
     needs: package
     if: ${{ !cancelled() }}

@@ -60,4 +60,6 @@ if [[ "${1:-}" == "--dry" ]]; then
 fi
 
 git push origin HEAD --tags
-gh release create "$tag" "$apk" --title "Palimpsest $version" --notes-file "$notes"
+# Not «latest» yet: the desktop CI marks it so once the computer packages and the pacman repo are
+# attached, so the phone's updater, pacman and the download links all switch over together.
+gh release create "$tag" "$apk" --title "Palimpsest $version" --notes-file "$notes" --latest=false

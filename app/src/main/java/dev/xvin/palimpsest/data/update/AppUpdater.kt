@@ -19,6 +19,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -56,29 +57,50 @@ class AppUpdater(private val context: Context, private val http: OkHttpClient) {
 
     private val prefs get() = context.getSharedPreferences("updates", Context.MODE_PRIVATE)
 
-    /** Null when up to date (or the repository isn't reachable — that's not worth an error). */
+    /**
+     * Null when up to date. Asks the GitHub API first; it allows 60 requests an hour per address,
+     * and a mobile network shares one address among many people, so it often says «limit reached».
+     * Then the release page's redirect (`/releases/latest` → `/releases/tag/v…`) tells the version,
+     * with no limit. Throws when neither answers — «up to date» would be a lie then.
+     */
     suspend fun check(notify: Boolean = false): AppRelease? = withContext(Dispatchers.IO) {
-        val r = http.newCall(
-            Request.Builder().url("${BuildConfig.UPDATE_API}/repos/${BuildConfig.GITHUB_REPO}/releases/latest")
-                .header("Accept", "application/vnd.github+json").build(),
-        ).fetch()
-        if (!r.isSuccessful) return@withContext null
-        val gh = Http.json.decodeFromString<GhRelease>(r.body)
-        val version = gh.tag.removePrefix("v")
-        val apk = gh.assets.firstOrNull { it.name.endsWith(".apk") }
-        if (gh.draft || gh.prerelease || apk == null || !isNewer(version, BuildConfig.VERSION_NAME)) {
+        val release = fromApi() ?: fromRedirect() ?: throw IOException(tr(R.string.update_unreachable))
+        if (!isNewer(release.version, BuildConfig.VERSION_NAME)) {
             _available.value = null
             return@withContext null
         }
-        val notes = changelogNotes(gh.tag, version) ?: gh.body.orEmpty().trim()
-        val release = AppRelease(version, notes, apk.url, apk.size, gh.htmlUrl)
         _available.value = release
-        if (notify && prefs.getString(KEY_NOTIFIED, null) != version) {
+        if (notify && prefs.getString(KEY_NOTIFIED, null) != release.version) {
             notify(release)
-            prefs.edit().putString(KEY_NOTIFIED, version).apply()
+            prefs.edit().putString(KEY_NOTIFIED, release.version).apply()
         }
         release
     }
+
+    /** The latest release from the API, or null when it didn't answer (rate limit, network). */
+    private suspend fun fromApi(): AppRelease? = runCatching {
+        val r = http.newCall(
+            Request.Builder().url("${BuildConfig.UPDATE_API}/repos/${BuildConfig.GITHUB_REPO}/releases/latest")
+                .header("Accept", "application/vnd.github+json").header("Cache-Control", "no-cache").build(),
+        ).fetch()
+        if (!r.isSuccessful) return@runCatching null
+        val gh = Http.json.decodeFromString<GhRelease>(r.body)
+        val version = gh.tag.removePrefix("v")
+        val apk = gh.assets.firstOrNull { it.name.endsWith(".apk") } ?: return@runCatching null
+        if (gh.draft || gh.prerelease) return@runCatching null
+        AppRelease(version, changelogNotes(gh.tag, version) ?: gh.body.orEmpty().trim(), apk.url, apk.size, gh.htmlUrl)
+    }.getOrNull()
+
+    /** The latest release from where github.com redirects `/releases/latest`; the APK's name is known. */
+    private suspend fun fromRedirect(): AppRelease? = runCatching {
+        val web = "${BuildConfig.UPDATE_WEB}/${BuildConfig.GITHUB_REPO}"
+        val noFollow = http.newBuilder().followRedirects(false).followSslRedirects(false).build()
+        val location = runInterruptible { noFollow.newCall(Request.Builder().url("$web/releases/latest").head().build()).execute().use { it.header("Location") } }
+            ?: return@runCatching null
+        val tag = location.substringAfter("/releases/tag/", "").substringBefore('?').takeIf { it.isNotBlank() } ?: return@runCatching null
+        val version = tag.removePrefix("v")
+        AppRelease(version, changelogNotes(tag, version).orEmpty(), "$web/releases/download/$tag/palimpsest-$version.apk", 0, "$web/releases/tag/$tag")
+    }.getOrNull()
 
     /** Downloads the APK and starts the system install dialog. */
     suspend fun install(release: AppRelease) = withContext(Dispatchers.IO) {
@@ -153,11 +175,15 @@ class AppUpdater(private val context: Context, private val http: OkHttpClient) {
      */
     private suspend fun changelogNotes(tag: String, version: String): String? = runCatching {
         val file = if (context.resources.configuration.locales[0].language == "ru") "CHANGELOG.ru.md" else "CHANGELOG.md"
-        val r = http.newCall(
-            Request.Builder().url("${BuildConfig.UPDATE_API}/repos/${BuildConfig.GITHUB_REPO}/contents/$file?ref=$tag")
-                .header("Accept", "application/vnd.github.raw").build(),
-        ).fetch()
-        if (r.isSuccessful) dev.xvin.palimpsest.core.text.ReleaseNotes.section(r.body, version) else null
+        // The API first, then the raw file (no rate limit there either).
+        val urls = listOf(
+            "${BuildConfig.UPDATE_API}/repos/${BuildConfig.GITHUB_REPO}/contents/$file?ref=$tag",
+            "${BuildConfig.UPDATE_RAW}/${BuildConfig.GITHUB_REPO}/$tag/$file",
+        )
+        urls.firstNotNullOfOrNull { url ->
+            val r = runCatching { http.newCall(Request.Builder().url(url).header("Accept", "application/vnd.github.raw").build()).fetch() }.getOrNull()
+            if (r != null && r.isSuccessful) dev.xvin.palimpsest.core.text.ReleaseNotes.section(r.body, version) else null
+        }
     }.getOrNull()
 
     companion object {

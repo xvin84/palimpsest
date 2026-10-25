@@ -580,6 +580,7 @@
     <string name="update_auto">Проверять обновления</string>
     <string name="update_auto_hint">Раз в день смотрю релизы на GitHub и присылаю уведомление о новой версии</string>
     <string name="update_check">Проверить обновления</string>
+    <string name="update_unreachable">GitHub не ответил — проверь интернет и попробуй ещё раз</string>
     <string name="update_up_to_date">Стоит последняя версия (%1$s)</string>
     <string name="update_available">Доступна версия %1$s</string>
     <string name="update_tap">Нажми, чтобы посмотреть, что нового</string>
