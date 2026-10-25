@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.awt.awtEventOrNull
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isAltPressed
@@ -50,7 +51,8 @@ import java.io.File
 
 /** «Ctrl+Shift+K» for a key press (a Russian layout counts as the keys underneath), or null. */
 fun strokeOf(e: KeyEvent): String? {
-    val awt = e.nativeKeyEvent as? java.awt.event.KeyEvent ?: return null
+    // The AWT event under it (nativeKeyEvent is Compose's own wrapper, not the AWT event).
+    val awt = e.awtEventOrNull ?: return null
     val code = Hotkeys.usCode(awt.keyCode, awt.keyChar.takeIf { it != java.awt.event.KeyEvent.CHAR_UNDEFINED })
     if (Hotkeys.isModifier(code)) return null
     return Hotkeys.stroke(code, e.isCtrlPressed, e.isAltPressed, e.isShiftPressed, e.isMetaPressed)
@@ -186,6 +188,8 @@ fun HotkeyRow(a: HotAction) {
     val all = Hotkeys.effective(settings.hotkeys)
     val keys = all.getValue(a)
     var capturing by remember { mutableStateOf(false) }
+    // Focus arrives a frame after the field appears: only losing it after having had it cancels.
+    var hadFocus by remember { mutableStateOf(false) }
     fun save(changes: Map<HotAction, List<String>>) = graph.settings.update { s ->
         s.copy(hotkeys = s.hotkeys + changes.map { (k, v) -> k.name to v })
     }
@@ -207,7 +211,7 @@ fun HotkeyRow(a: HotAction) {
                 Text(
                     t("Нажми сочетание… (Esc — отмена)", "Press the keys… (Esc cancels)"), color = accent, fontSize = 13.sp,
                     modifier = Modifier.clip(RoundedCornerShape(6.dp)).border(1.dp, accent, RoundedCornerShape(6.dp)).padding(horizontal = 10.dp, vertical = 3.dp)
-                        .focusRequester(focus).onFocusChanged { if (!it.isFocused && capturing) capturing = false }.focusable()
+                        .focusRequester(focus).onFocusChanged { if (it.isFocused) hadFocus = true else if (hadFocus) capturing = false }.focusable()
                         .onPreviewKeyEvent { e ->
                             if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent true
                             val stroke = strokeOf(e) ?: return@onPreviewKeyEvent true
@@ -220,7 +224,7 @@ fun HotkeyRow(a: HotAction) {
                         },
                 )
             } else {
-                Text("+", color = accent, fontSize = 16.sp, modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable { capturing = true }.padding(horizontal = 10.dp, vertical = 1.dp))
+                Text("+", color = accent, fontSize = 16.sp, modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable { hadFocus = false; capturing = true }.padding(horizontal = 10.dp, vertical = 1.dp))
             }
         }
         if (a.name in settings.hotkeys) TextButton(onClick = { graph.settings.update { it.copy(hotkeys = it.hotkeys - a.name) } }) { Text(t("Как было", "Default"), color = pal.muted, fontSize = 12.sp) }

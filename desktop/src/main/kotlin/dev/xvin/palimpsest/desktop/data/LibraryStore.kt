@@ -228,7 +228,7 @@ class LibraryStore(private val settings: SettingsStore) {
         val id = "${r.service}:${r.id}"
         get(id)?.let { old ->
             val filled = fillIn(old, r)
-            if (filled != old) { _tracks.value = _tracks.value.map { if (it.id == id) filled else it }; persist() }
+            if (filled != old) { _tracks.value = _tracks.value.map { if (it.id == id) filled else it }; persist(); onFilled(filled) }
             return filled
         }
         val t = Track(
@@ -239,6 +239,9 @@ class LibraryStore(private val settings: SettingsStore) {
         persist()
         return t
     }
+
+    /** Told when an entry got what it lacked (the player swaps it into the queue). */
+    var onFilled: (Track) -> Unit = {}
 
     /** What [t] lacks (cover, album, year…) taken from the service; a file's own tags stay. */
     private fun fillIn(t: Track, r: RemoteTrack): Track = t.copy(
@@ -254,11 +257,13 @@ class LibraryStore(private val settings: SettingsStore) {
     /** Service tracks still waiting for their cover (made by a phone sync, say). */
     fun bare(service: Service): List<Track> = _tracks.value.filter { it.service == service && it.remoteId != null && it.coverUrl == null && it.path == null }
 
-    /** Fills in many at once (one save). */
-    fun fillIn(remotes: List<RemoteTrack>) {
+    /** Fills in many at once (one save); the entries that changed. */
+    fun fillIn(remotes: List<RemoteTrack>): List<Track> {
         val byId = remotes.associateBy { "${it.service}:${it.id}" }
-        _tracks.value = _tracks.value.map { t -> byId[t.id]?.let { fillIn(t, it) } ?: t }
+        val changed = ArrayList<Track>()
+        _tracks.value = _tracks.value.map { t -> byId[t.id]?.let { fillIn(t, it) }?.takeIf { it != t }?.also(changed::add) ?: t }
         persist()
+        return changed
     }
 
     fun upsert(t: Track) {

@@ -79,7 +79,10 @@ class Graph {
     val player = Player(this)
     val lanSync = LanSyncServer(this).also { if (settings.value.lanSync) it.setEnabled(true) }
 
-    init { fillInServiceTracks() }
+    init {
+        library.onFilled = { t -> player.replaced(mapOf(t.id to t)) }
+        fillInServiceTracks()
+    }
 
     /**
      * Covers, albums and years for Yandex tracks that came without them (a phone sync sends only
@@ -91,7 +94,8 @@ class Graph {
             val bare = library.bare(Service.YANDEX)
             for (chunk in bare.chunked(200)) {
                 val got = runCatching { yandex.tracksByIds(chunk.mapNotNull { it.remoteId }) }.getOrNull() ?: return@launch
-                library.fillIn(got)
+                // The queue holds its own copies of the tracks: they get the cover too.
+                player.replaced(library.fillIn(got).associateBy { it.id })
             }
         }
     }
