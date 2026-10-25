@@ -49,6 +49,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.hoverable
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -68,6 +74,7 @@ import dev.xvin.palimpsest.core.model.Lyrics
 import dev.xvin.palimpsest.desktop.data.LyricsService
 import dev.xvin.palimpsest.desktop.data.Track
 import dev.xvin.palimpsest.desktop.data.DesktopStyle
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @Composable
@@ -149,9 +156,50 @@ fun LyricsView(modifier: Modifier, big: Boolean, scale: Float = 1f) {
                 LyricsSourceButton(track, shown) { picked = it }
             }
         }
-        else -> Column(modifier) {
+        else -> LyricsBody(p, track, shown, big, scale, modifier) { picked = it }
+    }
+}
+
+/**
+ * The lyrics themselves. Synced ones follow the music: the sung line is bright and fills as it's
+ * sung (word by word where the lyrics know the words), the others fade with distance, the list glides
+ * to keep the line a third of the way down and fades out at the edges. Scroll it yourself and it stays
+ * put until «Back to the line»; a click on a line jumps there; pauses in the singing show as dots.
+ */
+@Composable
+private fun LyricsBody(p: ParsedLyrics, track: Track, shown: Lyrics?, big: Boolean, scale: Float, modifier: Modifier, onPick: (Lyrics) -> Unit) {
+    val graph = LocalGraph.current
+    val pal = LocalPal.current
+    val accent = LocalAccent.current
+    val scope = rememberCoroutineScope()
+    var translated by remember(track.id, shown) { mutableStateOf<List<String>?>(null) }
+    var translating by remember(track.id) { mutableStateOf(false) }
+    val pos by rememberSmoothPosition()
+    val active = if (p.isSynced) p.indexAt(pos) else -1
+    val list = rememberLazyListState()
+    var follow by remember(track.id) { mutableStateOf(true) }
+    var gliding by remember { mutableStateOf(false) }
+    // A scroll that isn't ours means the reader wants to look around: stop following.
+    LaunchedEffect(list.isScrollInProgress) { if (list.isScrollInProgress && !gliding) follow = false }
+    LaunchedEffect(active, follow, translated != null) {
+        if (!follow || active < 0) return@LaunchedEffect
+        gliding = true
+        try {
+            // The first time, the list may not be laid out yet: wait until it has a height.
+            androidx.compose.runtime.snapshotFlow { list.layoutInfo.viewportSize.height }.first { it > 0 }
+            val info = list.layoutInfo
+            val anchor = ((info.viewportEndOffset - info.viewportStartOffset) * 0.3f).toInt()
+            val visible = info.visibleItemsInfo.firstOrNull { it.index == active }
+            if (visible != null) list.animateScrollBy((visible.offset - anchor).toFloat(), androidx.compose.animation.core.spring(dampingRatio = 1f, stiffness = 120f))
+            else { list.scrollToItem(active); list.scrollBy(-anchor.toFloat()) }
+        } finally { gliding = false }
+    }
+    val lineSize = if (big) (30 * scale).sp else 18.sp
+    val lineHeight = if (big) (38 * scale).sp else 25.sp
+    Box(modifier) {
+        Column(Modifier.fillMaxSize()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                LyricsSourceButton(track, shown) { picked = it }
+                LyricsSourceButton(track, shown, onPick)
                 TextButton(enabled = !translating, onClick = {
                     if (translated != null) { translated = null; return@TextButton }
                     translating = true
@@ -159,37 +207,135 @@ fun LyricsView(modifier: Modifier, big: Boolean, scale: Float = 1f) {
                         translated = runCatching { graph.translator.translate(p.lines.map { it.text }, if (ru) "ru" else "en").lines }.getOrNull()
                         translating = false
                     }
-                }) { Text(if (translated != null) t("Оригинал", "Original") else if (translating) t("Перевожу…", "Translating…") else t("Перевести", "Translate"), color = pal.muted) }
+                }) { Text(if (translated != null) t("Оригинал", "Original") else if (translating) t("Перевожу…", "Translating…") else t("Перевести", "Translate"), color = pal.muted, fontSize = 13.sp) }
             }
-            val active = if (p.isSynced) p.indexAt(st.positionMs) else -1
-            val list = rememberLazyListState()
-            // The sung line rests a little below the top, however tall the lines are (a translation doubles them).
-            LaunchedEffect(active, translated != null) {
-                if (active < 0) return@LaunchedEffect
-                val info = list.layoutInfo
-                val anchor = ((info.viewportEndOffset - info.viewportStartOffset) * 0.18f).toInt()
-                val visible = info.visibleItemsInfo.firstOrNull { it.index == active }
-                if (visible != null) list.animateScrollBy((visible.offset - anchor).toFloat())
-                else { list.scrollToItem(active); list.scrollBy(-anchor.toFloat()) }
-            }
-            LazyColumn(state = list, contentPadding = PaddingValues(bottom = 200.dp)) {
+            LazyColumn(
+                state = list,
+                contentPadding = PaddingValues(top = 24.dp, bottom = 260.dp),
+                modifier = Modifier.weight(1f).fillMaxWidth()
+                    // The lines fade in at the top and out at the bottom instead of being cut off.
+                    .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+                    .drawWithContent {
+                        drawContent()
+                        drawRect(Brush.verticalGradient(0f to Color.Transparent, 0.07f to Color.Black, 0.82f to Color.Black, 1f to Color.Transparent), blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
+                    },
+            ) {
                 itemsIndexed(p.lines) { i, line ->
-                    val color by animateColorAsState(if (!p.isSynced || i == active) pal.text else if (i < active) pal.faint else pal.muted)
-                    val scale by animateFloatAsState(if (i == active) 1f else 0.94f)
+                    val isActive = i == active
+                    val distance = if (active < 0) 3 else kotlin.math.abs(i - active)
+                    val alpha by animateFloatAsState(
+                        when { !p.isSynced -> 0.92f; isActive -> 1f; distance == 1 -> 0.52f; distance == 2 -> 0.4f; else -> 0.3f },
+                        androidx.compose.animation.core.tween(500),
+                    )
+                    val grow by animateFloatAsState(if (isActive || !p.isSynced) 1f else 0.965f, androidx.compose.animation.core.spring(dampingRatio = 0.8f, stiffness = 200f))
+                    val hover = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                    val hovered by hover.collectIsHoveredAsState()
                     Column(
-                        Modifier.fillMaxWidth().clickable(enabled = p.isSynced) { graph.player.seek(line.timeMs) }
-                            .graphicsLayer { scaleX = scale; scaleY = scale; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0.5f) }
-                            .padding(vertical = if (big) 8.dp else 5.dp),
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                            .background(if (hovered && p.isSynced) pal.text.copy(alpha = 0.05f) else Color.Transparent)
+                            .hoverable(hover)
+                            .clickable(enabled = p.isSynced) { follow = true; graph.player.seek(line.timeMs) }
+                            .graphicsLayer { this.alpha = alpha; scaleX = grow; scaleY = grow; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0.5f) }
+                            .padding(horizontal = 10.dp, vertical = if (big) 9.dp else 6.dp),
                     ) {
-                        Text(line.text.ifBlank { "♪" }, color = color, fontSize = if (big) (30 * scale).sp else 18.sp, fontWeight = if (i == active) FontWeight.Bold else FontWeight.SemiBold, lineHeight = if (big) (36 * scale).sp else 24.sp)
+                        val style = MaterialTheme.typography.bodyLarge.copy(fontSize = lineSize, lineHeight = lineHeight, fontWeight = FontWeight.Bold)
+                        val end = p.lines.getOrNull(i + 1)?.timeMs ?: (line.timeMs + 5000)
+                        when {
+                            line.text.isBlank() -> PauseDots(isActive, if (big) 10.dp else 7.dp, pal.text)
+                            isActive -> SungLine(line, end, pos, style, pal.text)
+                            else -> Text(line.text, style = style, color = pal.text)
+                        }
                         translated?.getOrNull(i)?.takeIf { it.isNotBlank() && it != line.text }?.let {
-                            Text(it, color = accent.copy(alpha = 0.8f), fontSize = if (big) (18 * scale).sp else 13.sp)
+                            Text(it, color = accent.copy(alpha = 0.85f), fontSize = if (big) (19 * scale).sp else 13.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 2.dp))
                         }
                     }
                 }
             }
         }
+        if (p.isSynced && !follow) {
+            androidx.compose.material3.Surface(
+                onClick = { follow = true }, shape = RoundedCornerShape(50), color = pal.paper3, shadowElevation = 6.dp,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp),
+            ) { Text(t("↧ К текущей строке", "↧ Back to the line"), Modifier.padding(horizontal = 16.dp, vertical = 8.dp), fontSize = 13.sp) }
+        }
     }
+}
+
+/**
+ * The line being sung, lit up to where the singing is: word by word with word timings, otherwise
+ * evenly over the time a line like this takes (and never slower than until the next line).
+ */
+@Composable
+private fun SungLine(line: dev.xvin.palimpsest.core.lyrics.LrcLine, endMs: Long, posMs: Long, style: androidx.compose.ui.text.TextStyle, color: Color) {
+    val text = line.text
+    val sung = if (line.words != null) {
+        val w = line.words!!
+        val prog = line.wordProgress(posMs, endMs)
+        var chars = 0f
+        w.forEachIndexed { k, word -> chars += word.text.length * prog[k] }
+        (chars / text.length.coerceAtLeast(1)).coerceIn(0f, 1f)
+    } else {
+        val span = minOf(endMs - line.timeMs, text.length * 70L + 600).coerceAtLeast(300)
+        ((posMs - line.timeMs).toFloat() / span).coerceIn(0f, 1f)
+    }
+    var layout by remember { mutableStateOf<androidx.compose.ui.text.TextLayoutResult?>(null) }
+    Box {
+        Text(text, style = style, color = color.copy(alpha = 0.45f), onTextLayout = { layout = it })
+        Text(
+            text, style = style, color = color,
+            modifier = Modifier.drawWithContent {
+                val l = layout ?: return@drawWithContent drawContent()
+                val upTo = (sung * text.length).toInt().coerceIn(0, text.length)
+                val path = androidx.compose.ui.graphics.Path()
+                for (n in 0 until l.lineCount) {
+                    val startChar = l.getLineStart(n)
+                    val endChar = l.getLineEnd(n)
+                    val top = l.getLineTop(n)
+                    val bottom = l.getLineBottom(n)
+                    when {
+                        upTo >= endChar -> path.addRect(androidx.compose.ui.geometry.Rect(0f, top, this.size.width, bottom))
+                        upTo > startChar -> path.addRect(androidx.compose.ui.geometry.Rect(0f, top, l.getHorizontalPosition(upTo, true), bottom))
+                    }
+                }
+                clipPath(path) { this@drawWithContent.drawContent() }
+            },
+        )
+    }
+}
+
+/** A pause in the singing: three dots that breathe while it lasts. */
+@Composable
+private fun PauseDots(active: Boolean, dot: androidx.compose.ui.unit.Dp, color: Color) {
+    val pulse = androidx.compose.animation.core.rememberInfiniteTransition()
+    Row(horizontalArrangement = Arrangement.spacedBy(dot * 0.8f), modifier = Modifier.padding(vertical = dot)) {
+        repeat(3) { k ->
+            val a by pulse.animateFloat(
+                0.3f, 1f,
+                androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(700, delayMillis = k * 180), androidx.compose.animation.core.RepeatMode.Reverse),
+            )
+            Box(Modifier.size(dot).graphicsLayer { alpha = if (active) a else 0.5f; val sc = if (active) 0.8f + 0.2f * a else 0.8f; scaleX = sc; scaleY = sc }.clip(CircleShape).background(color))
+        }
+    }
+}
+
+/**
+ * Where the music is, every frame: the player reports it five times a second, and between reports
+ * the clock carries it on, so the lyrics move smoothly.
+ */
+@Composable
+fun rememberSmoothPosition(): androidx.compose.runtime.State<Long> {
+    val graph = LocalGraph.current
+    val st by graph.player.state.collectAsState()
+    val pos = remember { androidx.compose.runtime.mutableLongStateOf(st.positionMs) }
+    LaunchedEffect(st.positionMs, st.playing) {
+        // Small differences are the report lagging behind the clock: keep going rather than step back.
+        val base = if (kotlin.math.abs(st.positionMs - pos.longValue) < 250) maxOf(pos.longValue, st.positionMs) else st.positionMs
+        pos.longValue = base
+        if (!st.playing) return@LaunchedEffect
+        val start = System.nanoTime()
+        while (true) androidx.compose.runtime.withFrameNanos { pos.longValue = base + (it - start).coerceAtLeast(0) / 1_000_000 }
+    }
+    return pos
 }
 
 /** «tag» → «из файла»: a lyrics variant's source as people say it. */
