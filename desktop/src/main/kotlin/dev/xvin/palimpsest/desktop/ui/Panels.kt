@@ -10,6 +10,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -52,6 +53,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.SubcomposeLayout
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -221,9 +225,7 @@ fun NowPlayingView() {
                 LyricsView(Modifier.weight(1f).fillMaxHeight().padding(40.dp), big = true, scale = scale)
             }
             wide && lyrics -> Row(Modifier.fillMaxSize().padding(48.dp), horizontalArrangement = Arrangement.spacedBy(48.dp)) {
-                Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.Center) {
-                    Artwork(model, t.album ?: t.title, Modifier.fillMaxWidth().aspectRatio(1f), 18.dp)
-                    Spacer(Modifier.height(20.dp))
+                CoverWithInfo(Modifier.weight(1f).fillMaxHeight(), w, centered = false, cover = { Artwork(model, t.album ?: t.title, Modifier.fillMaxSize(), 18.dp) }) {
                     Titles()
                     Spacer(Modifier.height(12.dp))
                     Spectrum(Modifier.fillMaxWidth().height(60.dp))
@@ -235,21 +237,52 @@ fun NowPlayingView() {
                 Row(Modifier.padding(start = 40.dp), verticalAlignment = Alignment.CenterVertically) {
                     Artwork(model, t.album ?: t.title, Modifier.size(minOf(w * 0.22f, 120.dp)), 12.dp)
                     Spacer(Modifier.width(18.dp))
-                    Column { Titles() }
+                    Column(Modifier.weight(1f, fill = false)) {
+                        Titles()
+                        if (!lane) { Spacer(Modifier.height(10.dp)); Spectrum(Modifier.widthIn(max = 360.dp).fillMaxWidth().height(32.dp)) }
+                    }
                 }
                 Spacer(Modifier.height(16.dp))
                 LyricsView(Modifier.weight(1f).fillMaxWidth(), big = true, scale = scale)
             }
             // Lyrics off: the cover as big as the window allows.
-            else -> Column(Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                val side = minOf(w * 0.8f, h * 0.68f)
-                Artwork(model, t.album ?: t.title, Modifier.size(side), if (lane) 6.dp else 18.dp)
-                Spacer(Modifier.height(20.dp))
-                Column(Modifier.widthIn(max = side), horizontalAlignment = Alignment.CenterHorizontally) { Titles() }
-                if (!lane) { Spacer(Modifier.height(12.dp)); Spectrum(Modifier.widthIn(max = side).fillMaxWidth().height(48.dp)) }
+            else -> CoverWithInfo(Modifier.fillMaxSize().padding(32.dp), minOf(w * 0.8f, h * 0.68f), centered = true, cover = { Artwork(model, t.album ?: t.title, Modifier.fillMaxSize(), if (lane) 6.dp else 18.dp) }) {
+                Titles()
+                if (!lane) { Spacer(Modifier.height(12.dp)); Spectrum(Modifier.fillMaxWidth().height(48.dp)) }
             }
         }
         IconButton(onClick = { nav.nowPlaying = false }, modifier = Modifier.padding(8.dp)) { Icon(Icons.Rounded.KeyboardArrowDown, null, Modifier.size(32.dp), tint = if (lane || !pal.light) Color.White else pal.text) }
+    }
+}
+
+/**
+ * A square cover with the titles and spectrum under it, all as wide as the cover. The cover gives way
+ * (down from [maxSide]) so the part below always fits — otherwise a tall cover squeezed the spectrum flat.
+ */
+@Composable
+private fun CoverWithInfo(modifier: Modifier, maxSide: Dp, centered: Boolean, cover: @Composable () -> Unit, info: @Composable ColumnScope.() -> Unit) {
+    SubcomposeLayout(modifier) { c ->
+        val gap = 20.dp.roundToPx()
+        var side = minOf(c.maxWidth, maxSide.roundToPx())
+        var below = subcompose(0) { Column(horizontalAlignment = if (centered) Alignment.CenterHorizontally else Alignment.Start, content = info) }
+            .single().measure(Constraints.fixedWidth(side))
+        // A narrower column may wrap the title onto another line, so measure again at the new width.
+        for (pass in 1..2) {
+            val fits = (c.maxHeight - gap - below.height).coerceAtLeast(0)
+            if (side <= fits) break
+            side = fits
+            below = subcompose(pass) { Column(horizontalAlignment = if (centered) Alignment.CenterHorizontally else Alignment.Start, content = info) }
+                .single().measure(Constraints.fixedWidth(side))
+        }
+        side = minOf(side, (c.maxHeight - gap - below.height).coerceAtLeast(0))
+        val art = subcompose("cover", cover).single().measure(Constraints.fixed(side, side))
+        val width = c.maxWidth
+        val x = if (centered) (width - maxOf(side, below.width)) / 2 else 0
+        val y = (c.maxHeight - side - gap - below.height).coerceAtLeast(0) / 2
+        layout(width, c.maxHeight) {
+            art.place(x, y)
+            below.place(x, y + side + gap)
+        }
     }
 }
 
