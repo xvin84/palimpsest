@@ -77,6 +77,7 @@ class Graph {
     val downloads = Downloads(this)
     val flacUpgrade by lazy { FlacUpgrade(this) }
     val player = Player(this)
+    val videos by lazy { dev.xvin.palimpsest.desktop.render.VideoRenders(this) }
     val lanSync = LanSyncServer(this).also { if (settings.value.lanSync) it.setEnabled(true) }
 
     init {

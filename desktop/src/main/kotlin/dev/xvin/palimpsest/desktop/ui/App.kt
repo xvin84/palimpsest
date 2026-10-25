@@ -395,6 +395,14 @@ private fun Sidebar(compact: Boolean) {
             Text(if (scan.total > 0) t("Читаю теги: ${scan.done} из ${scan.total}", "Reading tags: ${scan.done} of ${scan.total}") else t("Ищу музыку…", "Looking for music…"), color = pal.muted, fontSize = 12.sp)
             LinearProgressIndicator(progress = { if (scan.total > 0) scan.done.toFloat() / scan.total else 0f }, Modifier.fillMaxWidth().padding(top = 4.dp))
         }
+        val video by graph.videos.job.collectAsState()
+        video?.let { v ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(t("Видео: ", "Video: ") + v.title, color = pal.muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Text("✕", color = pal.faint, fontSize = 12.sp, modifier = Modifier.clickable { graph.videos.cancel() }.padding(start = 6.dp))
+            }
+            LinearProgressIndicator(progress = { v.progress }, Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 6.dp))
+        }
         val dl by graph.downloads.state.collectAsState()
         dl.current?.let {
             Text(t("Скачиваю: ", "Downloading: ") + it, color = pal.muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)

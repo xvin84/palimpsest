@@ -61,6 +61,8 @@ data class DesktopSettings(
     /** Phone sync over the local network (off until turned on). */
     val lanSync: Boolean = false,
     val wave: WavePrefs = WavePrefs(),
+    /** The last «video from a track» choices: mode, aspect, quality, visualiser (enum names). */
+    val renderChoice: List<String> = emptyList(),
     /** Keys the user set, by [HotAction] name (an empty list: no key); the rest keep their defaults. */
     val hotkeys: Map<String, List<String>> = emptyMap(),
     /** Paired phones: token → device name. */

@@ -253,6 +253,9 @@ class Player(private val graph: Graph) {
         }
     }
 
+    /** The track's audio as a file (fetched like for playing when it's a stream), e.g. to render a video of it. */
+    suspend fun audioFileOf(t: Track, onProgress: (Float) -> Unit = {}): File = fileFor(t, onProgress)
+
     /** The file to play: the track's own, or the cloud audio fetched (and decrypted) into the cache. */
     private suspend fun fileFor(t: Track, onProgress: (Float) -> Unit): File {
         t.path?.let { p -> File(p).takeIf { it.isFile }?.let { return it } }
