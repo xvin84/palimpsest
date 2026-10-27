@@ -29,7 +29,7 @@ import java.io.File
 /**
  * Screenshots of the main screens without a window, drawn from the library and settings in [Paths.config]
  * (point XDG_CONFIG_HOME / XDG_CACHE_HOME at a copy to keep the real ones untouched). Nothing plays.
- *   ./gradlew :desktop:shots -Pout=/some/dir [-Pwidth=1280 -Pheight=820]
+ *   [SHOTS_ONLY=library,now] ./gradlew :desktop:shots -Pout=/some/dir [-Pwidth=1280 -Pheight=820]
  */
 fun main(args: Array<String>) {
     val out = File(args.getOrElse(0) { "build/shots" }).apply { mkdirs() }
@@ -58,7 +58,9 @@ fun main(args: Array<String>) {
         add(Triple("library-light", DesktopTheme.LIGHT) { it.root(Screen.Library) })
         add(Triple("now-light", DesktopTheme.LIGHT) { it.nowPlaying = true })
     }
+    val only = System.getenv("SHOTS_ONLY")?.split(',')
     for ((name, theme, setup) in shots) {
+        if (only != null && name !in only) continue
         val nav = Nav().also(setup)
         val scene = ImageComposeScene(w, h, Density(1f)) {
             setSingletonImageLoaderFactory { ctx ->

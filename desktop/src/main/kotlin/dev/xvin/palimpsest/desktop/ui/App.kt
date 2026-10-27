@@ -10,6 +10,17 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.automirrored.rounded.VolumeDown
+import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -390,8 +401,8 @@ private fun ScreenContent(s: Screen) {
         Screen.Flac -> FlacScreen()
         is Screen.Artist -> ArtistScreen(s)
         is Screen.RemoteAlbum -> RemoteAlbumScreen(s)
-        is Screen.LocalAlbum -> LocalListScreen(s.album, s.artist) { it.album == s.album && (it.albumArtist ?: it.artist) == s.artist }
-        is Screen.Folder -> LocalListScreen(s.folder.substringAfterLast('/'), s.folder) { it.folder == s.folder }
+        is Screen.LocalAlbum -> LocalListScreen(s.album, s.artist, t("Альбом", "Album")) { it.album == s.album && (it.albumArtist ?: it.artist) == s.artist }
+        is Screen.Folder -> LocalListScreen(s.folder.substringAfterLast('/'), s.folder, t("Папка", "Folder")) { it.folder == s.folder }
         is Screen.Playlist -> PlaylistScreen(s.id)
         is Screen.RemotePlaylist -> RemotePlaylistScreen(s)
         is Screen.Similar -> SimilarScreen(s)
@@ -407,42 +418,52 @@ private fun Sidebar(compact: Boolean) {
     val pal = LocalPal.current
     val playlists by graph.playlists.lists.collectAsState()
     val scan by graph.library.progress.collectAsState()
-    Column(Modifier.width(if (compact) 64.dp else 230.dp).fillMaxHeight().background(pal.paper2).padding(if (compact) 8.dp else 12.dp)) {
-        if (compact) Text("P", style = MaterialTheme.typography.headlineLarge, color = LocalAccent.current, modifier = Modifier.padding(start = 12.dp, top = 6.dp, bottom = 14.dp))
-        else Text("Palimpsest", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(start = 8.dp, top = 6.dp, bottom = 14.dp))
+    Column(Modifier.width(if (compact) 64.dp else 232.dp).fillMaxHeight().background(pal.paper2).padding(horizontal = if (compact) 8.dp else 12.dp, vertical = 12.dp)) {
+        if (compact) Text("P", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(start = 14.dp, top = 2.dp, bottom = 16.dp))
+        else Text("Palimpsest", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(start = 10.dp, top = 2.dp, bottom = 18.dp))
+        // Listening, then what you've kept, then your playlists; the settings wait at the bottom.
         NavItem(Icons.Rounded.LibraryMusic, t("Медиатека", "Library"), nav.current == Screen.Library, compact) { nav.root(Screen.Library) }
         WaveItem(compact)
         NavItem(Icons.Rounded.Search, t("Поиск", "Search"), nav.current == Screen.Search, compact) { nav.root(Screen.Search) }
-        NavItem(Icons.Rounded.Radio, t("Сервисы", "Services"), nav.current == Screen.Services, compact) { nav.root(Screen.Services) }
+        Spacer(Modifier.height(12.dp))
         NavItem(Icons.Rounded.Favorite, t("Любимые", "Favourites"), nav.current == Screen.Liked, compact) { nav.root(Screen.Liked) }
         NavItem(Icons.Rounded.History, t("История", "History"), nav.current == Screen.History, compact) { nav.root(Screen.History) }
-        NavItem(Icons.Rounded.Settings, t("Настройки", "Settings"), nav.current == Screen.Settings, compact) { nav.root(Screen.Settings) }
-        if (compact) { Spacer(Modifier.weight(1f)); return@Column }
-        SectionHeader(t("Плейлисты", "Playlists"), Modifier.padding(start = 8.dp)) {
-            Text("+", color = LocalAccent.current, style = MaterialTheme.typography.titleLarge, modifier = Modifier.clickable {
+        NavItem(Icons.Rounded.Radio, t("Сервисы", "Services"), nav.current == Screen.Services, compact) { nav.root(Screen.Services) }
+        if (compact) {
+            Spacer(Modifier.weight(1f))
+            NavItem(Icons.Rounded.Settings, t("Настройки", "Settings"), nav.current == Screen.Settings, compact) { nav.root(Screen.Settings) }
+            return@Column
+        }
+        SectionHeader(t("Плейлисты", "Playlists"), Modifier.padding(start = 10.dp, top = 8.dp)) {
+            PIconButton(Icons.Rounded.Add, t("Новый плейлист", "New playlist"), {
                 val p = graph.playlists.create(t("Плейлист ", "Playlist ") + (playlists.size + 1)); nav.go(Screen.Playlist(p.id))
-            }.padding(horizontal = 8.dp))
+            }, size = 26.dp, iconSize = 18.dp)
         }
-        Column(Modifier.weight(1f)) {
-            playlists.forEach { p -> NavItem(Icons.AutoMirrored.Rounded.PlaylistPlay, p.name, nav.current == Screen.Playlist(p.id)) { nav.root(Screen.Playlist(p.id)) } }
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+            playlists.forEach { p -> NavItem(Icons.AutoMirrored.Rounded.QueueMusic, p.name, nav.current == Screen.Playlist(p.id)) { nav.root(Screen.Playlist(p.id)) } }
         }
-        if (scan.running) {
-            Text(if (scan.total > 0) t("Читаю теги: ${scan.done} из ${scan.total}", "Reading tags: ${scan.done} of ${scan.total}") else t("Ищу музыку…", "Looking for music…"), color = pal.muted, fontSize = 12.sp)
-            LinearProgressIndicator(progress = { if (scan.total > 0) scan.done.toFloat() / scan.total else 0f }, Modifier.fillMaxWidth().padding(top = 4.dp))
-        }
-        val video by graph.videos.job.collectAsState()
-        video?.let { v ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(t("Видео: ", "Video: ") + v.title, color = pal.muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                Text("✕", color = pal.faint, fontSize = 12.sp, modifier = Modifier.clickable { graph.videos.cancel() }.padding(start = 6.dp))
+        @Composable
+        fun Job(label: String, progress: Float, onCancel: (() -> Unit)? = null) {
+            Column(Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(label, style = Type.meta, color = pal.muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    onCancel?.let { PIconButton(Icons.Rounded.Close, t("Отменить", "Cancel"), it, size = 20.dp, iconSize = 14.dp) }
+                }
+                LinearProgressIndicator(
+                    progress = { progress }, Modifier.fillMaxWidth().padding(top = 6.dp).height(3.dp).clip(RoundedCornerShape(2.dp)),
+                    color = pal.text.copy(alpha = 0.7f), trackColor = pal.line, drawStopIndicator = {}, gapSize = 0.dp,
+                )
             }
-            LinearProgressIndicator(progress = { v.progress }, Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 6.dp))
         }
+        if (scan.running) Job(
+            if (scan.total > 0) t("Читаю теги: ${scan.done} из ${scan.total}", "Reading tags: ${scan.done} of ${scan.total}") else t("Ищу музыку…", "Looking for music…"),
+            if (scan.total > 0) scan.done.toFloat() / scan.total else 0f,
+        )
+        val video by graph.videos.job.collectAsState()
+        video?.let { v -> Job(t("Видео: ", "Video: ") + v.title, v.progress) { graph.videos.cancel() } }
         val dl by graph.downloads.state.collectAsState()
-        dl.current?.let {
-            Text(t("Скачиваю: ", "Downloading: ") + it, color = pal.muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            LinearProgressIndicator(progress = { dl.progress }, Modifier.fillMaxWidth().padding(top = 4.dp))
-        }
+        dl.current?.let { Job(t("Скачиваю: ", "Downloading: ") + it, dl.progress) }
+        NavItem(Icons.Rounded.Settings, t("Настройки", "Settings"), nav.current == Screen.Settings, compact) { nav.root(Screen.Settings) }
     }
 }
 
@@ -451,41 +472,29 @@ private fun Sidebar(compact: Boolean) {
 private fun WaveItem(compact: Boolean) {
     val graph = LocalGraph.current
     val nav = LocalNav.current
-    val pal = LocalPal.current
-    val accent = LocalAccent.current
     val st by graph.player.state.collectAsState()
     val on = st.radio == t("Моя волна", "My Wave")
-    Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
-            .background(if (on) accent.copy(alpha = 0.16f) else Color.Transparent)
-            .clickable { if (on) graph.player.toggle() else startMyWave(graph, nav) }
-            .padding(start = 10.dp, end = if (compact) 10.dp else 2.dp, top = if (compact) 8.dp else 2.dp, bottom = if (compact) 8.dp else 2.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(Icons.Rounded.Waves, t("Моя волна", "My Wave"), tint = if (on) accent else pal.muted, modifier = Modifier.size(if (compact) 24.dp else 20.dp))
-        if (!compact) {
-            Spacer(Modifier.width(12.dp))
-            Text(t("Моя волна", "My Wave"), Modifier.weight(1f), color = if (on) pal.text else pal.muted, maxLines = 1)
-            IconButton(onClick = { nav.waveTuning = true }, modifier = Modifier.size(36.dp)) {
-                Icon(Icons.Rounded.Tune, t("Настроить волну", "Tune the wave"), tint = pal.faint, modifier = Modifier.size(18.dp))
-            }
-        }
-    }
+    val tune = @Composable { PIconButton(Icons.Rounded.Tune, t("Настроить волну", "Tune the wave"), { nav.waveTuning = true }, size = 26.dp, iconSize = 16.dp, tint = LocalPal.current.faint) }
+    NavItem(Icons.Rounded.Waves, t("Моя волна", "My Wave"), on, compact, tune) { if (on) graph.player.toggle() else startMyWave(graph, nav) }
 }
 
 @Composable
-private fun NavItem(icon: ImageVector, label: String, selected: Boolean, compact: Boolean = false, onClick: () -> Unit) {
+private fun NavItem(icon: ImageVector, label: String, selected: Boolean, compact: Boolean = false, trailing: (@Composable () -> Unit)? = null, onClick: () -> Unit) {
     val pal = LocalPal.current
     val accent = LocalAccent.current
+    val hover = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val hovered by hover.collectIsHoveredAsState()
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(if (selected) accent.copy(alpha = 0.16f) else Color.Transparent)
-            .clickable(onClick = onClick).padding(horizontal = 10.dp, vertical = 8.dp),
+        Modifier.fillMaxWidth().height(if (compact) 44.dp else 34.dp).clip(RoundedCornerShape(Radius.md))
+            .background(if (selected) pal.text.copy(alpha = 0.08f) else if (hovered) pal.text.copy(alpha = 0.04f) else Color.Transparent)
+            .hoverable(hover).clickable(onClick = onClick).padding(start = if (compact) 12.dp else 10.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, label, tint = if (selected) accent else pal.muted, modifier = Modifier.size(if (compact) 24.dp else 20.dp))
+        Icon(icon, label, tint = if (selected) accent else pal.muted, modifier = Modifier.size(if (compact) 22.dp else 18.dp))
         if (!compact) {
             Spacer(Modifier.width(12.dp))
-            Text(label, color = if (selected) pal.text else pal.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(label, color = if (selected || hovered) pal.text else pal.muted, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            trailing?.invoke()
         }
     }
 }
@@ -504,76 +513,98 @@ private fun PlayerBar(compact: Boolean) {
     val lane = LocalStyle.current == dev.xvin.palimpsest.desktop.data.DesktopStyle.LANE
     val tint = LocalTint.current
     Row(
-        Modifier.fillMaxWidth().height(92.dp)
+        Modifier.fillMaxWidth().height(76.dp)
             .background(if (lane) androidx.compose.ui.graphics.lerp(pal.paper2, tint, 0.35f) else pal.paper2)
-            .padding(horizontal = 16.dp),
+            .drawBehind { drawLine(pal.line, Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx()) }
+            .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-            Crossfade(t, Modifier.size(60.dp), animationSpec = tween(350)) { tr -> TrackArt(tr, Modifier.fillMaxSize().clickable { if (tr != null) nav.nowPlaying = !nav.nowPlaying }, 8.dp) }
+            Crossfade(t, Modifier.size(52.dp), animationSpec = tween(350)) { tr -> TrackArt(tr, Modifier.fillMaxSize().clickable { if (tr != null) nav.nowPlaying = !nav.nowPlaying }, Radius.sm) }
             Spacer(Modifier.width(12.dp))
             // The next track's name slides up into place.
             androidx.compose.animation.AnimatedContent(
-                t, Modifier.weight(1f),
+                t, Modifier.weight(1f, fill = false),
                 transitionSpec = { (fadeIn(tween(260)) + slideInVertically(tween(300)) { it / 3 }) togetherWith (fadeOut(tween(160)) + slideOutVertically(tween(200)) { -it / 3 }) },
                 contentKey = { it?.id },
             ) { tr ->
                 Column {
-                    Text(tr?.title ?: "—", maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
-                    Text(tr?.artist.orEmpty(), color = pal.muted, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp,
+                    Text(tr?.title ?: "—", maxLines = 1, overflow = TextOverflow.Ellipsis, style = Type.rowTitle)
+                    Text(tr?.artist.orEmpty(), color = pal.muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = Type.rowSub,
                         modifier = Modifier.clickable(enabled = tr != null) { tr?.artists?.firstOrNull()?.let { nav.go(Screen.Artist(it)) } })
-                    st.radio?.let { Text("≋ $it", color = accent, fontSize = 11.sp, maxLines = 1) }
+                    st.radio?.let {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
+                            Icon(Icons.Rounded.Waves, null, tint = pal.faint, modifier = Modifier.size(12.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(it, style = Type.meta, color = pal.faint, maxLines = 1)
+                        }
+                    }
                 }
             }
-            if (t != null) IconButton(onClick = { nav.openMenu(graph.library.get(t.id) ?: t) }) { Icon(Icons.Rounded.MoreHoriz, t("Действия", "Actions"), tint = pal.muted) }
-            if (t != null) IconButton(onClick = { graph.library.setLiked(t.id, t.id !in liked); if (t.id !in liked) likeRemote(graph, t, true) else likeRemote(graph, t, false) }) {
-                Icon(if (t.id in liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, null, tint = if (t.id in liked) accent else pal.muted)
+            if (t != null) {
+                Spacer(Modifier.width(6.dp))
+                val on = t.id in liked
+                PIconButton(if (on) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, t("Любимое", "Favourite"), {
+                    graph.library.setLiked(t.id, !on); likeRemote(graph, t, !on)
+                }, iconSize = 18.dp, tint = if (on) pal.text else null)
             }
         }
-        Column(Modifier.weight(if (compact) 1.3f else 1.4f).padding(horizontal = if (compact) 8.dp else 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                IconButton(onClick = { graph.player.setShuffle(!st.shuffle) }) { Icon(Icons.Rounded.Shuffle, null, tint = if (st.shuffle) accent else pal.muted) }
-                IconButton(onClick = graph.player::previous) { Icon(Icons.Rounded.SkipPrevious, null, Modifier.size(30.dp)) }
+        Column(Modifier.weight(if (compact) 1.3f else 1.3f).padding(horizontal = if (compact) 8.dp else 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PIconButton(Icons.Rounded.Shuffle, t("Вперемешку", "Shuffle"), { graph.player.setShuffle(!st.shuffle) }, iconSize = 18.dp, active = st.shuffle)
+                PIconButton(Icons.Rounded.SkipPrevious, t("Назад", "Previous"), graph.player::previous, size = 36.dp, iconSize = 26.dp, tint = pal.text)
                 Box(
-                    Modifier.size(48.dp).clip(if (lane) RoundedCornerShape(14.dp) else CircleShape).background(MaterialTheme.colorScheme.primary).clickable { graph.player.toggle() },
+                    Modifier.size(40.dp).clip(if (lane) RoundedCornerShape(Radius.lg) else CircleShape).background(MaterialTheme.colorScheme.primary).clickable { graph.player.toggle() },
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (st.loading != null) Text("${(st.loading!! * 100).toInt()}%", color = MaterialTheme.colorScheme.onPrimary, fontSize = 11.sp)
+                    if (st.loading != null) Text("${(st.loading!! * 100).toInt()}%", color = MaterialTheme.colorScheme.onPrimary, style = Type.meta)
                     else androidx.compose.animation.AnimatedContent(
                         st.playing,
                         transitionSpec = { (androidx.compose.animation.scaleIn(tween(180), initialScale = 0.5f) + fadeIn(tween(180))) togetherWith (androidx.compose.animation.scaleOut(tween(140), targetScale = 0.5f) + fadeOut(tween(140))) },
-                    ) { playing -> Icon(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(30.dp)) }
+                    ) { playing -> Icon(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp)) }
                 }
-                IconButton(onClick = graph.player::next) { Icon(Icons.Rounded.SkipNext, null, Modifier.size(30.dp)) }
-                IconButton(onClick = graph.player::cycleRepeat) {
-                    Icon(if (st.repeat == Repeat.ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat, null, tint = if (st.repeat != Repeat.OFF) accent else pal.muted)
-                }
+                PIconButton(Icons.Rounded.SkipNext, t("Дальше", "Next"), graph.player::next, size = 36.dp, iconSize = 26.dp, tint = pal.text)
+                PIconButton(if (st.repeat == Repeat.ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat, t("Повтор", "Repeat"), graph.player::cycleRepeat, iconSize = 18.dp, active = st.repeat != Repeat.OFF)
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(fmt(st.positionMs), color = pal.faint, fontSize = 11.sp, modifier = Modifier.width(48.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.widthIn(max = 620.dp)) {
+                Text(fmt(st.positionMs), color = pal.faint, style = Type.meta, textAlign = TextAlign.End, modifier = Modifier.width(44.dp).padding(end = 8.dp))
                 SeekLine(st.positionMs, t?.durationMs ?: 0, Modifier.weight(1f)) { graph.player.seek(it) }
-                Text(fmt(t?.durationMs ?: 0), color = pal.faint, fontSize = 11.sp, modifier = Modifier.width(48.dp).padding(start = 8.dp))
+                Text(fmt(t?.durationMs ?: 0), color = pal.faint, style = Type.meta, modifier = Modifier.width(44.dp).padding(start = 8.dp))
             }
-            st.error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            st.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = Type.meta, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         }
-        Row(Modifier.weight(if (compact) 0.7f else 1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End) {
+        Row(Modifier.weight(if (compact) 0.7f else 1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp, Alignment.End)) {
+            if (t != null && !compact) PIconButton(Icons.Rounded.MoreHoriz, t("Действия", "Actions"), { nav.openMenu(graph.library.get(t.id) ?: t) })
             // On the full-window player the button shows or hides its lyrics; elsewhere the side panel.
             val lyricsOn = if (nav.nowPlaying) nav.bigLyrics else nav.rightPanel == "lyrics"
-            IconButton(onClick = {
+            Toggle(Icons.Rounded.Lyrics, t("Текст", "Lyrics"), lyricsOn) {
                 if (nav.nowPlaying) nav.bigLyrics = !nav.bigLyrics
                 else nav.rightPanel = if (nav.rightPanel == "lyrics") null else "lyrics"
-            }) { Icon(Icons.Rounded.Lyrics, null, tint = if (lyricsOn) accent else pal.muted) }
-            IconButton(onClick = { nav.rightPanel = if (nav.rightPanel == "queue") null else "queue" }) { Icon(Icons.AutoMirrored.Rounded.QueueMusic, null, tint = if (nav.rightPanel == "queue") accent else pal.muted) }
-            IconButton(onClick = { if (t != null) nav.nowPlaying = !nav.nowPlaying }) { Icon(Icons.Rounded.OpenInFull, null, tint = if (nav.nowPlaying) accent else pal.muted) }
+            }
+            Toggle(Icons.AutoMirrored.Rounded.QueueMusic, t("Очередь", "Queue"), nav.rightPanel == "queue") { nav.rightPanel = if (nav.rightPanel == "queue") null else "queue" }
+            Toggle(Icons.Rounded.OpenInFull, t("Во всё окно", "Full window"), nav.nowPlaying) { if (t != null) nav.nowPlaying = !nav.nowPlaying }
             // Wheel or touchpad over the volume changes it, 5 % a notch; in a narrow window only the icon is left for that.
             Row(
-                Modifier.onScroll { dy -> graph.player.setVolume(graph.settings.value.volume - dy * 0.05f) },
+                Modifier.padding(start = 6.dp).onScroll { dy -> graph.player.setVolume(graph.settings.value.volume - dy * 0.05f) },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.AutoMirrored.Rounded.VolumeUp, null, tint = pal.muted, modifier = Modifier.padding(start = 8.dp))
-                if (!compact) Slider(settings.volume, { graph.player.setVolume(it) }, Modifier.width(120.dp))
+                val v = settings.volume
+                Icon(
+                    when { v <= 0.001f -> Icons.AutoMirrored.Rounded.VolumeOff; v < 0.5f -> Icons.AutoMirrored.Rounded.VolumeDown; else -> Icons.AutoMirrored.Rounded.VolumeUp },
+                    t("Громкость", "Volume"), tint = pal.muted, modifier = Modifier.size(18.dp),
+                )
+                if (!compact) LineSlider(v, { graph.player.setVolume(it) }, Modifier.padding(start = 8.dp).width(96.dp))
             }
         }
+    }
+}
+
+/** A panel switch in the player bar: lit while its panel is open. */
+@Composable
+private fun Toggle(icon: ImageVector, description: String, on: Boolean, onClick: () -> Unit) {
+    val pal = LocalPal.current
+    Box(Modifier.clip(CircleShape).background(if (on) pal.text.copy(alpha = 0.1f) else Color.Transparent)) {
+        PIconButton(icon, description, onClick, iconSize = 18.dp, tint = if (on) pal.text else null)
     }
 }
 
@@ -583,29 +614,11 @@ fun likeRemote(graph: Graph, t: Track, liked: Boolean) {
     graph.scope.launch { runCatching { graph.yandex.setLiked(t.remoteId, liked) } }
 }
 
-/** A thin seek line; click or drag to move. */
+/** The seek line: click or drag to move; the knob shows under the pointer. */
 @Composable
 fun SeekLine(positionMs: Long, durationMs: Long, modifier: Modifier = Modifier, color: Color = LocalAccent.current, onSeek: (Long) -> Unit) {
-    val pal = LocalPal.current
-    var drag by remember { mutableStateOf<Float?>(null) }
-    val frac = drag ?: if (durationMs > 0) (positionMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
-    androidx.compose.foundation.Canvas(
-        modifier.height(18.dp)
-            .pointerInput(durationMs) { detectTapGestures { o -> if (durationMs > 0) onSeek((o.x / size.width * durationMs).toLong()) } }
-            .pointerInput(durationMs) {
-                detectHorizontalDragGestures(
-                    onDragStart = { o -> drag = (o.x / size.width).coerceIn(0f, 1f) },
-                    onDragEnd = { drag?.let { onSeek((it * durationMs).toLong()) }; drag = null },
-                    onDragCancel = { drag = null },
-                ) { c, _ -> drag = (c.position.x / size.width).coerceIn(0f, 1f) }
-            },
-    ) {
-        val y = size.height / 2
-        val h = 4.dp.toPx()
-        drawRoundRect(pal.line, Offset(0f, y - h / 2), Size(size.width, h), CornerRadius(h / 2))
-        drawRoundRect(color, Offset(0f, y - h / 2), Size(size.width * frac, h), CornerRadius(h / 2))
-        drawCircle(color, 6.dp.toPx(), Offset(size.width * frac, y))
-    }
+    val frac = if (durationMs > 0) (positionMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
+    LineSlider(frac, {}, modifier, color, onDone = { if (durationMs > 0) onSeek((it * durationMs).toLong()) })
 }
 
 /** The window, and when it last had focus — to tell «in front» from «somewhere behind». */

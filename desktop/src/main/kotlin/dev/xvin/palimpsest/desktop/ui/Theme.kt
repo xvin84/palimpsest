@@ -18,7 +18,10 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.platform.Font
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.xvin.palimpsest.desktop.data.DesktopStyle
 import dev.xvin.palimpsest.desktop.data.DesktopTheme
@@ -60,27 +63,54 @@ fun lane(theme: DesktopTheme, tint: Color): Pal = when (theme) {
     )
 }
 
-val Serif = FontFamily(Font(resource = "font/playfair_display.ttf", weight = FontWeight.Bold))
-val Sans = FontFamily(
-    Font(resource = "font/manrope.ttf", weight = FontWeight.Normal),
-    Font(resource = "font/manrope.ttf", weight = FontWeight.Bold),
-    Font(resource = "font/manrope.ttf", weight = FontWeight.ExtraBold),
-)
+// Both faces are variable fonts: each weight has to be asked for on the axis, or every weight
+// comes out as the file's default instance (Manrope's is ExtraLight) made bold by the renderer.
+@OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
+private fun face(file: String, weight: Int) =
+    Font(file, FontWeight(weight), FontStyle.Normal, FontVariation.Settings(FontVariation.weight(weight)))
+
+val Serif = FontFamily(face("font/playfair_display.ttf", 600), face("font/playfair_display.ttf", 700))
+val Sans = FontFamily(listOf(400, 500, 600, 700, 800).map { face("font/manrope.ttf", it) })
+
+/** Corners on one scale, so things side by side agree. */
+object Radius {
+    val xs = 4.dp
+    val sm = 6.dp
+    val md = 8.dp
+    val lg = 12.dp
+    val xl = 16.dp
+}
+
+/**
+ * Text styles for what M3's slots don't name: table rows, numbers that line up, the lyrics.
+ *
+ * The accent is kept for a few things so it means something: what's playing (its row, title and
+ * the seek line), the play button, the screen's one main action and the current place in the
+ * sidebar. Likes, volume, tabs and icons stay in the text colours.
+ */
+object Type {
+    val rowTitle = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 18.sp)
+    val rowSub = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Medium, fontSize = 12.5.sp, lineHeight = 16.sp)
+    val meta = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 16.sp, fontFeatureSettings = "tnum")
+    val caption = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Bold, fontSize = 10.5.sp, lineHeight = 14.sp, letterSpacing = 1.sp)
+    val lyric = TextStyle(fontFamily = Sans, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.4).sp)
+}
 
 private fun typography(style: DesktopStyle): Typography {
-    val t = Typography()
-    val display = if (style == DesktopStyle.LANE) Sans else Serif
-    val w = if (style == DesktopStyle.LANE) FontWeight.ExtraBold else FontWeight.Bold
-    val ls = if (style == DesktopStyle.LANE) (-0.8).sp else (-0.3).sp
-    return t.copy(
-        displayLarge = TextStyle(fontFamily = display, fontWeight = w, fontSize = 44.sp, lineHeight = 48.sp, letterSpacing = ls),
-        displayMedium = TextStyle(fontFamily = display, fontWeight = w, fontSize = 34.sp, lineHeight = 40.sp, letterSpacing = ls),
-        headlineLarge = TextStyle(fontFamily = display, fontWeight = w, fontSize = 28.sp, lineHeight = 34.sp, letterSpacing = ls),
-        headlineMedium = TextStyle(fontFamily = display, fontWeight = w, fontSize = 24.sp, lineHeight = 30.sp),
-        headlineSmall = TextStyle(fontFamily = display, fontWeight = w, fontSize = 20.sp, lineHeight = 26.sp),
-        titleLarge = t.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-        titleMedium = t.titleMedium.copy(fontWeight = FontWeight.Medium),
-        labelSmall = t.labelSmall.copy(letterSpacing = 0.8.sp),
+    val lane = style == DesktopStyle.LANE
+    val display = if (lane) Sans else Serif
+    val w = if (lane) FontWeight.ExtraBold else FontWeight.Bold
+    val ls = if (lane) (-0.8).sp else (-0.2).sp
+    fun d(size: Int, line: Int) = TextStyle(fontFamily = display, fontWeight = w, fontSize = size.sp, lineHeight = line.sp, letterSpacing = ls)
+    fun s(weight: FontWeight, size: Double, line: Int, spacing: Double = 0.0) =
+        TextStyle(fontFamily = Sans, fontWeight = weight, fontSize = size.sp, lineHeight = line.sp, letterSpacing = spacing.sp)
+    // Serif only where a page or a song is named; everything that is read or clicked is Manrope.
+    return Typography(
+        displayLarge = d(40, 46), displayMedium = d(28, 34), displaySmall = d(24, 30),
+        headlineLarge = d(26, 32), headlineMedium = d(21, 27), headlineSmall = s(FontWeight.Bold, 18.0, 24),
+        titleLarge = s(FontWeight.Bold, 17.0, 22), titleMedium = s(FontWeight.SemiBold, 14.5, 20), titleSmall = s(FontWeight.SemiBold, 13.0, 18),
+        bodyLarge = s(FontWeight.Medium, 14.0, 20), bodyMedium = s(FontWeight.Medium, 13.0, 18), bodySmall = s(FontWeight.Medium, 12.0, 16),
+        labelLarge = s(FontWeight.SemiBold, 13.0, 18), labelMedium = s(FontWeight.SemiBold, 12.0, 16), labelSmall = s(FontWeight.Bold, 10.5, 14, 1.0),
     )
 }
 
