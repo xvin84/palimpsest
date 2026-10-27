@@ -42,14 +42,15 @@ import kotlin.math.roundToInt
 val Emphasized = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 
 /**
- * Where the playing track's cover is: in the player bar and on the big player. Opening or closing
- * the big player flies one cover to the other's place instead of the two just swapping.
+ * Where the playing track's cover is: in the player bar, and on the big player in each of its two
+ * layouts (with the lyrics and without). Opening or closing the big player, or switching its lyrics,
+ * flies the cover from one place to the other instead of the picture jumping.
  */
 class CoverSpots {
     var bar by mutableStateOf<Rect?>(null)
-    var big by mutableStateOf<Rect?>(null)
-    var bigCorner: Dp = 18.dp
-    /** While a cover is in the air, both real ones stay hidden. */
+    /** The big player's cover by layout (lyrics on → true): its place and corner. */
+    val big = androidx.compose.runtime.mutableStateMapOf<Boolean, Pair<Rect, Dp>>()
+    /** While a cover is in the air, the real ones stay hidden. */
     var flying by mutableStateOf(false)
     internal var from: Rect? = null
     internal var to: Rect? = null
@@ -60,37 +61,44 @@ class CoverSpots {
 
 val LocalCoverSpots = androidx.compose.runtime.staticCompositionLocalOf { CoverSpots() }
 
-/** Reports this cover's place ([big] or the bar's), and hides it while a copy flies. */
-fun Modifier.coverSpot(big: Boolean, corner: Dp = 18.dp): Modifier = composed {
+/** Reports this cover's place — the bar's, or the big player's in the [lyrics] layout — and hides it while a copy flies. */
+fun Modifier.coverSpot(big: Boolean, corner: Dp = 18.dp, lyrics: Boolean = true): Modifier = composed {
     val spots = LocalCoverSpots.current
-    DisposableEffect(big) { onDispose { if (big) spots.big = null else spots.bar = null } }
+    DisposableEffect(big, lyrics) { onDispose { if (big) spots.big.remove(lyrics) else spots.bar = null } }
     onGloballyPositioned { c ->
         val r = c.boundsInRoot()
-        if (big) { spots.big = r; spots.bigCorner = corner } else spots.bar = r
+        if (big) spots.big[lyrics] = r to corner else spots.bar = r
     }.graphicsLayer { alpha = if (spots.flying) 0f else 1f }
 }
 
-/** Flies the cover between the bar and the big player whenever [open] changes. Drawn above everything. */
+/** Flies the cover when the big player opens or closes ([open]) or its [lyrics] are switched. Drawn above everything. */
 @Composable
-fun CoverFlight(open: Boolean, model: Any?, seed: String, artist: String?) {
+fun CoverFlight(open: Boolean, lyrics: Boolean, model: Any?, seed: String, artist: String?) {
     val spots = LocalCoverSpots.current
-    val first = remember { mutableStateOf(true) }
-    LaunchedEffect(open) {
-        if (first.value) { first.value = false; return@LaunchedEffect }
-        val from = (if (open) spots.bar else spots.big) ?: return@LaunchedEffect
-        val fromCorner = if (open) Radius.sm else spots.bigCorner
-        spots.from = from; spots.fromCorner = fromCorner
-        // The other end may not be laid out yet (the big player is only now appearing).
-        spots.to = from; spots.toCorner = fromCorner
+    val was = remember { mutableStateOf<Pair<Boolean, Boolean>?>(null) }
+    LaunchedEffect(open, lyrics) {
+        val before = was.value
+        was.value = open to lyrics
+        if (before == null) return@LaunchedEffect
+        val (wasOpen, wasLyrics) = before
+        // Where it leaves from, and how to find where it lands (that layout may only now be appearing).
+        val start: Pair<Rect, Dp>
+        val target: () -> Pair<Rect, Dp>?
+        when {
+            open && !wasOpen -> { start = (spots.bar ?: return@LaunchedEffect) to Radius.sm; target = { spots.big[lyrics] } }
+            !open && wasOpen -> { start = spots.big[wasLyrics] ?: return@LaunchedEffect; target = { spots.bar?.let { it to Radius.sm } } }
+            open && lyrics != wasLyrics -> { start = spots.big[wasLyrics] ?: return@LaunchedEffect; target = { spots.big[lyrics] } }
+            else -> return@LaunchedEffect
+        }
+        spots.from = start.first; spots.fromCorner = start.second
+        spots.to = start.first; spots.toCorner = start.second
         spots.progress.snapTo(0f)
         spots.flying = true
         try {
-            val to = withTimeoutOrNull(300) {
-                if (open) snapshotFlow { spots.big }.first { it != null && it.width > 0f } else spots.bar
-            } ?: return@LaunchedEffect
-            spots.to = to
-            spots.toCorner = if (open) spots.bigCorner else Radius.sm
-            spots.progress.animateTo(1f, tween(if (open) 520 else 440, easing = Emphasized))
+            val end = withTimeoutOrNull(400) { snapshotFlow { target() }.first { it != null && it.first.width > 0f } } ?: return@LaunchedEffect
+            spots.to = end.first
+            spots.toCorner = end.second
+            spots.progress.animateTo(1f, tween(if (open && wasOpen) 480 else if (open) 520 else 440, easing = Emphasized))
         } finally {
             spots.flying = false
         }

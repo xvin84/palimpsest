@@ -4,6 +4,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -61,15 +63,13 @@ fun main(args: Array<String>) {
     val fps = 30
     val graph = Graph().also { language = it.settings.value.language }
     val engine = graph.player.engine.state as MutableStateFlow<AudioEngine.State>
-    var positionMs = System.getenv("DEMO_POS")?.toLongOrNull() ?: 36_000L
-    var playing = false
-    engine.value = AudioEngine.State(positionMs = positionMs)
+    // The music plays from the first frame, from here; the video's sound is cut from the same spot.
+    val startMs = System.getenv("DEMO_POS")?.toLongOrNull() ?: 20_000L
+    engine.value = AudioEngine.State(playing = true, positionMs = startMs)
     val current = graph.player.state.value.current
     val colors = runBlocking { current?.let { CoverColors.of(graph, it) } } ?: (Vermilion to Color(0xFF2A2A30))
 
     val nav = Nav()
-    var theme by mutableStateOf(DesktopTheme.DARK)
-    var style by mutableStateOf(DesktopStyle.PALIMPSEST)
     var cursor by mutableStateOf(Offset(640f, 400f))
     val scene = ImageComposeScene(w, h, Density(1f)) {
         setSingletonImageLoaderFactory { ctx ->
@@ -78,7 +78,8 @@ fun main(args: Array<String>) {
                 .diskCache { DiskCache.Builder().directory(File(Paths.cache, "coil").toOkioPath()).maxSizeBytes(256L shl 20).build() }
                 .build()
         }
-        PalimpsestDesktopTheme(style, theme, colors.first, colors.second) {
+        val settings by graph.settings.state.collectAsState()
+        PalimpsestDesktopTheme(settings.style, settings.theme, colors.first, colors.second) {
             CompositionLocalProvider(LocalGraph provides graph, LocalNav provides nav) { Shell() }
         }
         // The pointer, drawn: a plain arrow with a dark edge, readable on any background.
@@ -109,10 +110,7 @@ fun main(args: Array<String>) {
 
     fun frame() {
         clock += 1_000_000_000L / fps
-        if (playing) {
-            positionMs += 1000L / fps
-            engine.value = AudioEngine.State(playing = true, positionMs = positionMs)
-        }
+        engine.value = AudioEngine.State(playing = true, positionMs = startMs + frames * 1000L / fps)
         val img = scene.render(clock)
         img.readPixels(bitmap)
         sink.write(bitmap.readPixels()!!)
@@ -159,21 +157,46 @@ fun main(args: Array<String>) {
         hold(0.1)
     }
 
-    // Where things are in each version (1280 × 820).
+    // Where things are: found on screen by their words (or icon labels) in the semantics tree, so
+    // every step is a visible click and the same script runs on any version. A few icons in the old
+    // player bar have no label: those few by position.
+    fun nodes(): List<List<androidx.compose.ui.semantics.SemanticsNode>> = scene.semanticsOwners.map { o ->
+        val out = mutableListOf<androidx.compose.ui.semantics.SemanticsNode>()
+        fun walk(n: androidx.compose.ui.semantics.SemanticsNode) { out += n; n.children.forEach(::walk) }
+        walk(o.unmergedRootSemanticsNode)
+        out
+    }
+    fun words(n: androidx.compose.ui.semantics.SemanticsNode): List<String> {
+        val c = n.config
+        return c.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.Text).orEmpty().map { it.text } +
+            c.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.ContentDescription).orEmpty()
+    }
+    /** Where [text] is: in the topmost layer that has it (a menu or dialog over the window), the first or [lowest] match inside [where]. */
+    fun find(text: String, lowest: Boolean = false, where: (androidx.compose.ui.geometry.Rect) -> Boolean = { true }): Offset? {
+        for (layer in nodes().reversed()) {
+            val hits = layer.filter { n -> words(n).any { it.equals(text, ignoreCase = true) } }.map { it.boundsInWindow }
+                .filter { it.width > 0f && it.height > 0f && where(it) && it.center.y in 0f..h.toFloat() }
+            if (hits.isNotEmpty()) return (if (lowest) hits.maxBy { it.top } else hits.minBy { it.top }).center
+        }
+        return null
+    }
+    fun clickOn(text: String, seconds: Double = 0.6, button: PointerButton = PointerButton.Primary, lowest: Boolean = false, where: (androidx.compose.ui.geometry.Rect) -> Boolean = { true }) {
+        val p = find(text, lowest, where)
+        if (p == null) { System.err.println("demo: no «$text» on screen"); return }
+        move(p.x, p.y, seconds); hold(0.15); click(button)
+    }
+    val sidebar = { r: androidx.compose.ui.geometry.Rect -> r.center.x < 240f }
+    val page = { r: androidx.compose.ui.geometry.Rect -> r.center.x > 240f && r.center.y < 730f }
+    val top = { r: androidx.compose.ui.geometry.Rect -> r.center.x > 240f && r.center.y < 220f }
+    val bar = { r: androidx.compose.ui.geometry.Rect -> r.center.y > 735f }
     val old = variant == "old"
     fun at(oldXY: Pair<Int, Int>, newXY: Pair<Int, Int>) = if (old) oldXY else newXY
-    val tabAlbums = at(380 to 116, 795 to 41)
-    val tabArtists = at(495 to 116, 891 to 41)
-    val tabTracks = at(292 to 116, 723 to 41)
-    val sortArtist = at(478 to 217, 504 to 130)
-    val sortTitle = at(385 to 217, 390 to 130)
     val barHeart = at(359 to 773, 145 to 781)
     val barCover = at(46 to 773, 40 to 781)
     val barLyrics = at(993 to 773, 1052 to 781)
     val barQueue = at(1040 to 773, 1086 to 781)
-    val setSound = at(330 to 250, 340 to 190)
-    val setKeys = at(380 to 440, 366 to 360)
     fun move(p: Pair<Int, Int>, seconds: Double = 0.5) = move(p.first, p.second, seconds)
+    fun press(p: Pair<Int, Int>, seconds: Double = 0.6) { move(p, seconds); hold(0.15); click() }
 
     // --- The tour ---
     hold(0.8)
@@ -181,75 +204,77 @@ fun main(args: Array<String>) {
     move(700, 300, 0.7); move(700, 360, 0.5); move(700, 470, 0.6); hold(0.4)
     wheel(3f, 6); hold(0.5); wheel(-3f, 6); hold(0.4)
     say("Сортировка по колонкам")
-    move(sortArtist, 0.7); click(); hold(1.4)
-    move(sortTitle, 0.5); click(); hold(1.0)
+    clickOn("Исполнитель", where = { page(it) && it.center.y < 260f }); hold(1.4)
+    clickOn("Название", where = { page(it) && it.center.y < 260f }); hold(1.0)
     say("Вкладки: альбомы и исполнители")
-    move(tabAlbums, 0.7); click(); hold(0.8)
+    clickOn("Альбомы", where = top); hold(0.8)
     move(420, 330, 0.6); hold(0.6); move(620, 330, 0.5); hold(0.6)
-    move(tabArtists, 0.7); click(); hold(1.2)
-    move(tabTracks, 0.6); click(); hold(0.8)
+    clickOn("Исполнители", where = top); hold(1.2)
+    clickOn("Треки", where = top); hold(0.8)
     say("Меню трека по правому клику")
-    move(620, 335, 0.6); click(PointerButton.Secondary); hold(0.4)
+    move(620, 335, 0.6); hold(0.2); click(PointerButton.Secondary); hold(0.5)
     move(cursor.x + 60, cursor.y + 70, 0.5); move(cursor.x, cursor.y + 120, 0.6); hold(0.6)
-    nav.menu = emptyList(); hold(0.4)
+    clickOn("Медиатека", where = top); hold(0.5)
     say("Лайк")
-    move(barHeart, 0.8); click(); hold(0.8); click(); hold(1.0)
+    press(barHeart, 0.8); hold(0.8); click(); hold(1.0)
     say("Большой плеер: синхронный текст")
-    playing = true
-    move(barCover, 0.8); click(); hold(5.5)
+    press(barCover, 0.8); hold(5.5)
     say("Только обложка")
-    move(barLyrics, 0.7); click(); hold(2.2); click(); hold(1.0)
+    press(barLyrics, 0.7); hold(2.2); click(); hold(1.0)
     say("Назад в медиатеку")
-    move(barCover, 0.6); click(); hold(1.4)
+    press(barCover, 0.6); hold(1.4)
     say("Боковая панель: текст и очередь")
-    move(barLyrics, 0.6); click(); hold(2.8)
-    move(barQueue, 0.5); click(); hold(2.2)
-    nav.rightPanel = null; hold(0.5)
+    press(barLyrics, 0.6); hold(2.8)
+    press(barQueue, 0.5); hold(2.2)
+    click(); hold(0.6)
     say("Поиск по медиатеке")
-    nav.root(Screen.Search); nav.searchFocus++; hold(0.8)
-    type("оля ля"); hold(1.8)
-    move(640, 500, 0.6); wheel(3f, 5); hold(1.0)
-    current?.artists?.firstOrNull()?.let { a ->
-        say("Страница исполнителя")
-        nav.go(Screen.Artist(a)); hold(2.6)
-        move(640, 450, 0.5); wheel(4f, 8); hold(1.0)
-        move(380, 420, 0.6); hold(1.0)
-    }
-    current?.album?.let { al ->
-        say("Альбом")
-        nav.go(Screen.LocalAlbum(al, current.albumArtist ?: current.artist)); hold(2.2)
-    }
+    clickOn("Поиск", where = sidebar); hold(0.6)
+    clickOn("Исполнитель, альбом, трек", where = page); hold(0.2)
+    type("оля ля"); hold(1.6)
+    say("Страница исполнителя")
+    current?.artists?.firstOrNull()?.let { a -> clickOn(a, where = { page(it) && it.center.y > 120f }); hold(2.6) }
+    move(640, 450, 0.5); wheel(4f, 8); hold(1.0)
+    say("Альбом — из меню играющего трека")
+    clickOn("Действия", where = bar); hold(0.6)
+    current?.album?.let { al -> clickOn(al, lowest = true); hold(2.2) }
     say("Сервисы и «Моя волна»")
-    nav.root(Screen.Services); hold(1.8)
-    nav.waveTuning = true; hold(2.4); nav.waveTuning = false; hold(0.5)
+    clickOn("Сервисы", where = sidebar); hold(1.6)
+    clickOn("Настроить волну", where = sidebar); hold(2.2)
+    clickOn("Готово"); hold(0.5)
     say("История прослушиваний")
-    nav.root(Screen.History); hold(1.5); move(700, 500, 0.5); wheel(4f, 6); hold(0.8)
+    clickOn("История", where = sidebar); hold(1.2); move(700, 500, 0.5); wheel(4f, 6); hold(0.8)
     say("Настройки")
-    nav.root(Screen.Settings); hold(1.2)
-    move(setSound, 0.7); click(); hold(1.4)
-    move(setKeys, 0.6); click(); hold(1.6)
+    clickOn("Настройки", where = sidebar); hold(1.0)
+    clickOn("Звук", where = page); hold(1.4)
+    clickOn("Горячие клавиши", where = page); hold(1.6)
     if (current?.path != null) {
-        say("Теги файла")
-        nav.dialog = TrackDialog.EditTags(listOf(current)); hold(2.4); nav.dialog = null; hold(0.3)
+        say("Теги файла — из меню трека")
+        clickOn("Действия", where = bar); hold(0.5)
+        clickOn("Изменить теги…"); hold(2.4)
+        clickOn("Отмена"); hold(0.4)
     }
-    if (current != null) {
-        say("Видео из трека")
-        nav.dialog = TrackDialog.Video(current); hold(2.2); nav.dialog = null; hold(0.3)
-    }
-    say("Светлая тема")
-    theme = DesktopTheme.LIGHT; nav.root(Screen.Library); hold(1.6)
-    nav.nowPlaying = true; hold(2.4); nav.nowPlaying = false; hold(0.8)
+    say("Видео из трека — из меню трека")
+    clickOn("Действия", where = bar); hold(0.5)
+    clickOn("Видео из трека…"); hold(2.2)
+    clickOn("Отмена"); hold(0.4)
+    say("Светлая тема — в настройках")
+    clickOn("Оформление", where = page); hold(0.8)
+    clickOn("Светлая", where = page); hold(1.4)
+    press(barCover, 0.7); hold(2.2); press(barCover, 0.5); hold(0.8)
     say("Стиль Lane")
-    theme = DesktopTheme.DARK; style = DesktopStyle.LANE; hold(1.6)
-    nav.nowPlaying = true; hold(2.8); nav.nowPlaying = false; hold(1.0)
+    clickOn("Тёмная", where = page); hold(0.6)
+    clickOn("Lane", where = page); hold(1.4)
+    press(barCover, 0.7); hold(2.8); press(barCover, 0.5); hold(1.0)
     say("")
-    style = DesktopStyle.PALIMPSEST; hold(0.6)
+    hold(0.4)
 
     caption?.let { if (it.isNotEmpty()) captions += Triple(captionStart, frames.toDouble() / fps, it) }
     sink.flush(); sink.close()
     ffmpeg.waitFor()
     scene.close()
     fun ts(s: Double) = "%02d:%02d:%02d,%03d".format((s / 3600).toInt(), (s / 60 % 60).toInt(), (s % 60).toInt(), ((s * 1000) % 1000).toInt())
+    // For the sound: which file, from where.
+    File(out.path.substringBeforeLast('.') + ".audio").writeText("${current?.path.orEmpty()}\n${startMs / 1000.0}\n")
     File(out.path.substringBeforeLast('.') + ".srt").writeText(
         captions.filter { it.third.isNotEmpty() }.mapIndexed { i, (a, b, text) -> "${i + 1}\n${ts(a)} --> ${ts(b)}\n$text\n" }.joinToString("\n"),
     )

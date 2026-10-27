@@ -1,5 +1,7 @@
 package dev.xvin.palimpsest.desktop.ui
 
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.scrollBy
 
@@ -449,7 +451,6 @@ fun NowPlayingView() {
         val w = maxWidth
         val h = maxHeight
         val wide = w > h * 1.15f && w >= 820.dp
-        val lyrics = nav.bigLyrics
         val scale = (w.value / 1400f).coerceIn(0.7f, 1.3f)
         val titleStyle = MaterialTheme.typography.displayLarge.copy(fontSize = (40 * scale).coerceAtLeast(26f).sp, lineHeight = (46 * scale).coerceAtLeast(31f).sp)
         // Backdrop.
@@ -467,11 +468,16 @@ fun NowPlayingView() {
                 style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp),
             )
         }
+        // Lyrics on and off cross-fade, and the cover flies between its two places (see CoverFlight).
+        androidx.compose.animation.AnimatedContent(
+            nav.bigLyrics,
+            transitionSpec = { androidx.compose.animation.fadeIn(tween(300, delayMillis = 60)) togetherWith androidx.compose.animation.fadeOut(tween(220)) },
+        ) { lyrics ->
         when {
             // Wide, Lane: the cover fills the left part edge to edge.
             wide && lane && lyrics -> Row(Modifier.fillMaxSize()) {
                 Box(Modifier.fillMaxHeight().widthIn(max = w * 0.55f).aspectRatio(1f, matchHeightConstraintsFirst = true)) {
-                    if (model != null) AsyncImage(model, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().coverSpot(big = true, corner = 0.dp))
+                    if (model != null) AsyncImage(model, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().coverSpot(big = true, corner = 0.dp, lyrics = lyrics))
                     Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0.55f to Color.Transparent, 1f to deep)))
                     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.6f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.6f))))
                     Column(Modifier.align(Alignment.BottomStart).padding(32.dp)) { Titles(Color.White) }
@@ -479,7 +485,7 @@ fun NowPlayingView() {
                 LyricsView(Modifier.weight(1f).fillMaxHeight().padding(40.dp), big = true, scale = scale)
             }
             wide && lyrics -> Row(Modifier.fillMaxSize().padding(start = 56.dp, end = 48.dp, top = 64.dp, bottom = 40.dp), horizontalArrangement = Arrangement.spacedBy(56.dp)) {
-                CoverWithInfo(Modifier.weight(1f).fillMaxHeight(), w, centered = false, cover = { androidx.compose.animation.Crossfade(t.id to model, Modifier.coverSpot(big = true, corner = 18.dp), animationSpec = androidx.compose.animation.core.tween(450)) { (_, m) -> Artwork(m, t.album ?: t.title, Modifier.fillMaxSize(), 18.dp, artist = t.albumArtist ?: t.artist) } }) {
+                CoverWithInfo(Modifier.weight(1f).fillMaxHeight(), w, centered = false, cover = { androidx.compose.animation.Crossfade(t.id to model, Modifier.coverSpot(big = true, corner = 18.dp, lyrics = lyrics), animationSpec = androidx.compose.animation.core.tween(450)) { (_, m) -> Artwork(m, t.album ?: t.title, Modifier.fillMaxSize(), 18.dp, artist = t.albumArtist ?: t.artist) } }) {
                     Titles()
                     Spacer(Modifier.height(16.dp))
                     Spectrum(Modifier.fillMaxWidth().height(44.dp), pal.text.copy(alpha = 0.32f))
@@ -489,7 +495,7 @@ fun NowPlayingView() {
             // Narrow or tall with lyrics: a compact header, the lyrics below it.
             lyrics -> Column(Modifier.fillMaxSize().padding(horizontal = 28.dp, vertical = 20.dp)) {
                 Row(Modifier.padding(start = 40.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Artwork(model, t.album ?: t.title, Modifier.size(minOf(w * 0.22f, 120.dp)).coverSpot(big = true, corner = 12.dp), 12.dp, artist = t.albumArtist ?: t.artist)
+                    Artwork(model, t.album ?: t.title, Modifier.size(minOf(w * 0.22f, 120.dp)).coverSpot(big = true, corner = 12.dp, lyrics = lyrics), 12.dp, artist = t.albumArtist ?: t.artist)
                     Spacer(Modifier.width(18.dp))
                     Column(Modifier.weight(1f, fill = false)) {
                         Titles()
@@ -500,10 +506,11 @@ fun NowPlayingView() {
                 LyricsView(Modifier.weight(1f).fillMaxWidth(), big = true, scale = scale)
             }
             // Lyrics off: the cover as big as the window allows.
-            else -> CoverWithInfo(Modifier.fillMaxSize().padding(32.dp), minOf(w * 0.8f, h * 0.68f), centered = true, cover = { androidx.compose.animation.Crossfade(t.id to model, Modifier.coverSpot(big = true, corner = if (lane) 6.dp else 18.dp), animationSpec = androidx.compose.animation.core.tween(450)) { (_, m) -> Artwork(m, t.album ?: t.title, Modifier.fillMaxSize(), if (lane) 6.dp else 18.dp, artist = t.albumArtist ?: t.artist) } }) {
+            else -> CoverWithInfo(Modifier.fillMaxSize().padding(32.dp), minOf(w * 0.8f, h * 0.68f), centered = true, cover = { androidx.compose.animation.Crossfade(t.id to model, Modifier.coverSpot(big = true, corner = if (lane) 6.dp else 18.dp, lyrics = lyrics), animationSpec = androidx.compose.animation.core.tween(450)) { (_, m) -> Artwork(m, t.album ?: t.title, Modifier.fillMaxSize(), if (lane) 6.dp else 18.dp, artist = t.albumArtist ?: t.artist) } }) {
                 Titles()
                 if (!lane) { Spacer(Modifier.height(12.dp)); Spectrum(Modifier.fillMaxWidth().height(40.dp), pal.text.copy(alpha = 0.32f)) }
             }
+        }
         }
         // On a soft disc, so they read over any cover.
         val onArt = if (lane || !pal.light) Color.White else pal.text

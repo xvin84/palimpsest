@@ -376,7 +376,7 @@ internal fun Shell() {
         val st by graph.player.state.collectAsState()
         val cur = st.current
         val coverModel by produceState<Any?>(null, cur?.id, cur?.coverUrl) { value = graph.covers.model(cur) }
-        CoverFlight(nav.nowPlaying, coverModel, cur?.album ?: cur?.title ?: "?", cur?.albumArtist ?: cur?.artist)
+        CoverFlight(nav.nowPlaying, nav.bigLyrics, coverModel, cur?.album ?: cur?.title ?: "?", cur?.albumArtist ?: cur?.artist)
         if (nav.menu.isNotEmpty()) TrackMenu(nav.menu) { nav.menu = emptyList() }
         TrackDialogs()
         if (nav.waveTuning) WaveTuningDialog { nav.waveTuning = false }
