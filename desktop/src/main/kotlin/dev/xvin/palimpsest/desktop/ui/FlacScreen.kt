@@ -149,7 +149,7 @@ fun FlacScreen() {
         }
         items(candidates, key = { it.flacPath }) { c -> CandidateRow(c) }
         if (candidates.isEmpty() && !search.running) item {
-            EmptyState(t("Пока ничего не ждёт проверки", "Nothing waiting for review"), t("Найденные FLAC появятся здесь.", "The FLACs found will appear here."))
+            EmptyState(t("Пока ничего не ждёт проверки", "Nothing waiting for review"), t("Найденные FLAC появятся здесь.", "The FLACs found will appear here."), "empty-flac")
         }
     }
     if (confirmAll) PDialog(

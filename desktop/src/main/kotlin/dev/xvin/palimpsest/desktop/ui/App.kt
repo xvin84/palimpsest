@@ -337,6 +337,9 @@ internal fun Shell() {
     val pal = LocalPal.current
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(nav.message) { nav.message?.let { snackbar.showSnackbar(it); nav.message = null } }
+    val graph = LocalGraph.current
+    val spots = remember { CoverSpots() }
+    CompositionLocalProvider(LocalCoverSpots provides spots) {
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize().background(pal.paper)) {
         // Narrow windows (half a screen, a tiling WM): icons-only sidebar, the side panel floats over the content.
         val compact = maxWidth < 1000.dp
@@ -369,20 +372,29 @@ internal fun Shell() {
             }
             PlayerBar(compact)
         }
+        // Above the bar and the big player: the cover on its way between them.
+        val st by graph.player.state.collectAsState()
+        val cur = st.current
+        val coverModel by produceState<Any?>(null, cur?.id, cur?.coverUrl) { value = graph.covers.model(cur) }
+        CoverFlight(nav.nowPlaying, coverModel, cur?.album ?: cur?.title ?: "?", cur?.albumArtist ?: cur?.artist)
         if (nav.menu.isNotEmpty()) TrackMenu(nav.menu) { nav.menu = emptyList() }
         TrackDialogs()
         if (nav.waveTuning) WaveTuningDialog { nav.waveTuning = false }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = 100.dp))
     }
+    }
 }
 
-/** The full player sliding over the content on a soft spring (a function of its own: no Column scope around it). */
+/**
+ * The full player fading in over the content while the cover flies up from the bar into its place
+ * (see [CoverFlight]); it stays put so the cover has somewhere to land.
+ */
 @Composable
 private fun BigPlayer(visible: Boolean) {
     AnimatedVisibility(
         visible,
-        enter = slideInVertically(androidx.compose.animation.core.spring(dampingRatio = 0.92f, stiffness = 320f)) { it } + fadeIn(tween(220)),
-        exit = slideOutVertically(tween(280, easing = androidx.compose.animation.core.FastOutLinearInEasing)) { it } + fadeOut(tween(240)),
+        enter = fadeIn(tween(320)),
+        exit = fadeOut(tween(260)),
     ) {
         NowPlayingView()
     }
@@ -430,8 +442,11 @@ private fun Sidebar(compact: Boolean) {
     val playlists by graph.playlists.lists.collectAsState()
     val scan by graph.library.progress.collectAsState()
     Column(Modifier.width(if (compact) 64.dp else 232.dp).fillMaxHeight().background(pal.paper2).padding(horizontal = if (compact) 8.dp else 12.dp, vertical = 12.dp)) {
-        if (compact) Text("P", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(start = 14.dp, top = 2.dp, bottom = 16.dp))
-        else Text("Palimpsest", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(start = 10.dp, top = 2.dp, bottom = 18.dp))
+        // The mark: a P written over a fainter one, the way a palimpsest is.
+        Row(Modifier.padding(start = if (compact) 12.dp else 8.dp, top = 2.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Art("logo", Modifier.size(26.dp), LocalAccent.current)
+            if (!compact) Text("Palimpsest", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(start = 10.dp))
+        }
         // Listening, then what you've kept, then your playlists; the settings wait at the bottom.
         NavItem(Icons.Rounded.LibraryMusic, t("Медиатека", "Library"), nav.current == Screen.Library, compact) { nav.root(Screen.Library) }
         WaveItem(compact)
@@ -483,11 +498,11 @@ private fun WaveItem(compact: Boolean) {
     val st by graph.player.state.collectAsState()
     val on = st.radio == t("Моя волна", "My Wave")
     val tune = @Composable { PIconButton(Icons.Rounded.Tune, t("Настроить волну", "Tune the wave"), { nav.waveTuning = true }, size = 26.dp, iconSize = 16.dp, tint = LocalPal.current.faint) }
-    NavItem(Icons.Rounded.Waves, t("Моя волна", "My Wave"), on, compact, tune) { if (on) graph.player.toggle() else startMyWave(graph, nav) }
+    NavItem(null, t("Моя волна", "My Wave"), on, compact, tune, art = "wave") { if (on) graph.player.toggle() else startMyWave(graph, nav) }
 }
 
 @Composable
-private fun NavItem(icon: ImageVector, label: String, selected: Boolean, compact: Boolean = false, trailing: (@Composable () -> Unit)? = null, onClick: () -> Unit) {
+private fun NavItem(icon: ImageVector?, label: String, selected: Boolean, compact: Boolean = false, trailing: (@Composable () -> Unit)? = null, art: String? = null, onClick: () -> Unit) {
     val pal = LocalPal.current
     val accent = LocalAccent.current
     val hover = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
@@ -498,7 +513,9 @@ private fun NavItem(icon: ImageVector, label: String, selected: Boolean, compact
             .hoverable(hover).clickable(onClick = onClick).padding(start = if (compact) 12.dp else 10.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, label, tint = if (selected) accent else pal.muted, modifier = Modifier.size(if (compact) 22.dp else 18.dp))
+        val tint = if (selected) accent else pal.muted
+        val size = Modifier.size(if (compact) 22.dp else 18.dp)
+        if (art != null) Art(art, size, tint) else if (icon != null) Icon(icon, label, size, tint = tint)
         if (!compact) {
             Spacer(Modifier.width(12.dp))
             Text(label, color = if (selected || hovered) pal.text else pal.muted, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
@@ -528,7 +545,7 @@ private fun PlayerBar(compact: Boolean) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-            Crossfade(t, Modifier.size(52.dp), animationSpec = tween(350)) { tr -> TrackArt(tr, Modifier.fillMaxSize().clickable { if (tr != null) nav.nowPlaying = !nav.nowPlaying }, Radius.sm) }
+            Crossfade(t, Modifier.size(52.dp).coverSpot(big = false), animationSpec = tween(350)) { tr -> TrackArt(tr, Modifier.fillMaxSize().clickable { if (tr != null) nav.nowPlaying = !nav.nowPlaying }, Radius.sm) }
             Spacer(Modifier.width(12.dp))
             // The next track's name slides up into place.
             androidx.compose.animation.AnimatedContent(
@@ -542,7 +559,7 @@ private fun PlayerBar(compact: Boolean) {
                         modifier = Modifier.clickable(enabled = tr != null) { tr?.artists?.firstOrNull()?.let { nav.go(Screen.Artist(it)) } })
                     st.radio?.let {
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
-                            Icon(Icons.Rounded.Waves, null, tint = pal.faint, modifier = Modifier.size(12.dp))
+                            Art("wave", Modifier.size(12.dp), pal.faint)
                             Spacer(Modifier.width(4.dp))
                             Text(it, style = Type.meta, color = pal.faint, maxLines = 1)
                         }
@@ -552,9 +569,7 @@ private fun PlayerBar(compact: Boolean) {
             if (t != null) {
                 Spacer(Modifier.width(6.dp))
                 val on = t.id in liked
-                PIconButton(if (on) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, t("Любимое", "Favourite"), {
-                    graph.library.setLiked(t.id, !on); likeRemote(graph, t, !on)
-                }, iconSize = 18.dp, tint = if (on) pal.text else null)
+                HeartButton(on, { graph.library.setLiked(t.id, !on); likeRemote(graph, t, !on) }, iconSize = 18.dp, likedTint = pal.text)
             }
         }
         Column(Modifier.weight(if (compact) 1.3f else 1.3f).padding(horizontal = if (compact) 8.dp else 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {

@@ -1,5 +1,9 @@
 package dev.xvin.palimpsest.desktop.ui
 
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.togetherWith
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.foundation.background
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -109,6 +113,14 @@ fun LibraryScreen() {
         val words = filter.lowercase().replace('ё', 'е').split(' ').filter { it.isNotBlank() }
         fun Track.hit() = words.isEmpty() || "$title $artist ${album.orEmpty()}".lowercase().replace('ё', 'е').let { h -> words.all { it in h } }
         val visible = remember(all, filter) { all.filter { it.hit() } }
+        // A view changes with a short fade and a small rise, like the screens do.
+        androidx.compose.animation.AnimatedContent(
+            tab,
+            transitionSpec = {
+                (androidx.compose.animation.fadeIn(tween(240, delayMillis = 40)) + androidx.compose.animation.slideInVertically(tween(320, easing = Emphasized)) { it / 40 }) togetherWith
+                    androidx.compose.animation.fadeOut(tween(120))
+            },
+        ) { tab ->
         when (tab) {
             LibTab.TRACKS -> TrackTable(visible, liked, showAdded = true)
             LibTab.ALBUMS -> {
@@ -145,6 +157,7 @@ fun LibraryScreen() {
                 }
             }
         }
+        }
     }
     }
 }
@@ -175,7 +188,16 @@ fun Tile(cover: @Composable () -> Unit, title: String, subtitle: String, modifie
     val hover = remember { MutableInteractionSource() }
     val hovered by hover.collectIsHoveredAsState()
     Column(modifier.hoverable(hover).clickable(onClick = onClick), horizontalAlignment = if (round) Alignment.CenterHorizontally else Alignment.Start) {
-        Box(Modifier.fillMaxWidth().aspectRatio(1f)) {
+        // On hover the cover lifts a little off the page.
+        val lift by androidx.compose.animation.core.animateFloatAsState(if (hovered) 1f else 0f, androidx.compose.animation.core.spring(dampingRatio = 0.7f, stiffness = 420f))
+        Box(
+            Modifier.fillMaxWidth().aspectRatio(1f).graphicsLayer {
+                translationY = -4.dp.toPx() * lift
+                shadowElevation = 18.dp.toPx() * lift
+                shape = if (round) CircleShape else RoundedCornerShape(Radius.md)
+                clip = false
+            },
+        ) {
             cover()
             if (onPlay != null) androidx.compose.animation.AnimatedVisibility(
                 hovered, Modifier.align(Alignment.BottomEnd).padding(10.dp),
@@ -251,6 +273,7 @@ fun TrackTable(tracks: List<Track>, liked: Set<String>, numbered: Boolean = fals
         nav.selection = hooks
         onDispose { if (nav.selection === hooks) nav.selection = null }
     }
+    val unique = remember(sorted) { sorted.mapTo(HashSet()) { it.id }.size == sorted.size }
     BoxWithConstraints(Modifier.fillMaxSize()) {
     // Narrow windows drop the album column, and the date before it.
     val showAlbum = maxWidth >= 720.dp
@@ -288,8 +311,16 @@ fun TrackTable(tracks: List<Track>, liked: Set<String>, numbered: Boolean = fals
             }
         }
         item { Spacer(Modifier.height(4.dp)) }
-        itemsIndexed(sorted, key = { i, t -> "$i:${t.id}" }) { i, t ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        // Keyed by the track when each is there once, so a new sort or filter slides the rows to
+        // their places instead of redrawing the list (a playlist may hold a track twice: then by place).
+        itemsIndexed(sorted, key = { i, t -> if (unique) t.id else "$i:${t.id}" }) { i, t ->
+            Row(
+                Modifier.animateItem(
+                    fadeInSpec = tween(220), fadeOutSpec = tween(120),
+                    placementSpec = androidx.compose.animation.core.spring(dampingRatio = 0.9f, stiffness = 380f, visibilityThreshold = androidx.compose.ui.unit.IntOffset.VisibilityThreshold),
+                ),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Box(Modifier.weight(1f)) {
                     TrackLine(t, if (numbered) (t.trackNumber ?: (i + 1)) else i + 1, st.current?.id == t.id, t.id in liked,
                         onPlay = { graph.player.play(sorted, i) },
@@ -376,7 +407,7 @@ fun LikedScreen() {
     val tracks = remember(all, liked) { all.filter { it.id in liked } }
     Column(Modifier.fillMaxSize().padding(start = 28.dp, end = 20.dp, top = 22.dp)) {
         Text(t("Любимые", "Favourites"), style = MaterialTheme.typography.displayMedium, modifier = Modifier.padding(bottom = 14.dp))
-        if (tracks.isEmpty()) EmptyState(t("Пока пусто", "Nothing yet"), t("Отмечай треки сердечком — они соберутся здесь. Лайки Яндекса подтягиваются в «Сервисах».", "Heart the tracks you love and they gather here. Yandex likes sync in Services."))
+        if (tracks.isEmpty()) EmptyState(t("Пока пусто", "Nothing yet"), t("Отмечай треки сердечком — они соберутся здесь. Лайки Яндекса подтягиваются в «Сервисах».", "Heart the tracks you love and they gather here. Yandex likes sync in Services."), "empty-liked")
         else TrackTable(tracks, liked, showAdded = true)
     }
 }
@@ -404,7 +435,7 @@ fun PlaylistScreen(id: Long) {
             PButton(t("Удалить плейлист", "Delete playlist"), { graph.playlists.delete(p.id); nav.root(Screen.Library) }, icon = Icons.Rounded.DeleteOutline, kind = Kind.GHOST)
         }
         Text(tracksCount(tracks.size) + " · " + fmtTotal(tracks.sumOf { it.durationMs }), style = Type.meta, color = pal.faint, modifier = Modifier.padding(top = 2.dp, bottom = 14.dp))
-        if (tracks.isEmpty()) EmptyState(t("Плейлист пуст", "Empty playlist"), t("Правый клик или ⋯ у трека → «В плейлист…»", "Right-click or ⋯ on a track → «Add to playlist…»"))
+        if (tracks.isEmpty()) EmptyState(t("Плейлист пуст", "Empty playlist"), t("Правый клик или ⋯ у трека → «В плейлист…»", "Right-click or ⋯ on a track → «Add to playlist…»"), "empty-playlist")
         else TrackTable(tracks, liked, numbered = true, onRemove = { i -> graph.playlists.removeAt(p.id, i) })
     }
 }

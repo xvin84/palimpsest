@@ -38,6 +38,17 @@ tasks.register<JavaExec>("shots") {
     )
 }
 
+// A recorded tour of the app without a window (see src/test/.../Demo.kt); needs ffmpeg.
+tasks.register<JavaExec>("demo") {
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass = "dev.xvin.palimpsest.desktop.DemoKt"
+    jvmArgs("-Dfile.encoding=UTF-8", "-Xmx2g")
+    args(
+        providers.gradleProperty("out").getOrElse(layout.buildDirectory.file("demo.mp4").get().asFile.path),
+        providers.gradleProperty("variant").getOrElse("new"),
+    )
+}
+
 val appVersion = providers.provider {
     // One version for the whole app: taken from the Android build.
     Regex("""versionName = "([^"]+)"""").find(rootProject.file("app/build.gradle.kts").readText())!!.groupValues[1]

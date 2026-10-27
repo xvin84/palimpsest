@@ -96,7 +96,12 @@ fun SearchScreen() {
         Spacer(Modifier.height(8.dp))
         if (source == Service.YANDEX && settings.yandexToken == null) { EmptyState(t("Яндекс не подключён", "Yandex isn’t connected"), t("Войди в «Сервисах».", "Sign in under Services.")); return@Column }
         if (query.isBlank()) {
-            if (settings.recentSearches.isNotEmpty()) {
+            if (settings.recentSearches.isEmpty()) EmptyState(
+                t("Что послушаем?", "What shall we play?"),
+                t("Исполнитель, альбом или трек — в медиатеке или в сервисах. Ctrl+F открывает поиск откуда угодно.", "An artist, album or track — in your library or the services. Ctrl+F opens Search from anywhere."),
+                "empty-search",
+            )
+            else {
                 SectionHeader(t("Недавние запросы", "Recent searches"))
                 settings.recentSearches.forEach { r ->
                     ListRow({
@@ -165,7 +170,7 @@ private fun LibraryResults(all: List<Track>, liked: Set<String>, query: String, 
                 TrackLine(tr, null, st.current?.id == tr.id, tr.id in liked, onPlay = { graph.player.play(tracks, tracks.indexOf(tr)) }, onMenu = { nav.openMenu(tr) })
             }
         }
-        if (tracks.isEmpty() && artists.isEmpty()) item { EmptyState(t("Ничего не нашлось", "Nothing found"), t("Попробуй поискать в сервисах", "Try a service")) }
+        if (tracks.isEmpty() && artists.isEmpty()) item { EmptyState(t("Ничего не нашлось", "Nothing found"), t("Попробуй поискать в сервисах", "Try a service"), "empty-search") }
     }
 }
 
@@ -205,7 +210,7 @@ private fun RemoteResults(r: SearchResults, kind: SearchType, switchTo: (SearchT
             item { SectionHeader(t("Плейлисты", "Playlists")) }
             item { LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp)) { items(r.playlists, key = { it.id }) { p -> AlbumTile(p.coverUrl, p.title, p.owner.orEmpty()) { nav.go(Screen.RemotePlaylist(p.service, p.id, p.title)) } } } }
         }
-        if (r.isEmpty) item { EmptyState(t("Ничего не нашлось", "Nothing found"), "") }
+        if (r.isEmpty) item { EmptyState(t("Ничего не нашлось", "Nothing found"), t("Попробуй другие слова или другой сервис", "Try other words or another service"), "empty-search") }
     }
 }
 

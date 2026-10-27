@@ -123,7 +123,7 @@ fun ServicesScreen() {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(Modifier.size(56.dp).clip(CircleShape).background(accent.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.Waves, null, tint = accent, modifier = Modifier.size(28.dp))
+                        Art("wave", Modifier.size(28.dp), accent)
                     }
                     Spacer(Modifier.width(18.dp))
                     Column(Modifier.weight(1f)) {

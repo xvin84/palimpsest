@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- A palimpsest: the earlier letter still shows through the one written over it. -->
+  <path fill="#000" fill-opacity="0.32" fill-rule="evenodd" d="M4 2h9.5a7.5 7.5 0 0 1 0 15H9v8H4z M9 7v5h4.5a2.5 2.5 0 0 0 0-5z"/>
+  <path fill="#000" fill-rule="evenodd" d="M11 8h9.5a7.5 7.5 0 0 1 0 15H16v7h-5z M16 13v5h4.5a2.5 2.5 0 0 0 0-5z"/>
+</svg>

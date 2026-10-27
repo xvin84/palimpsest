@@ -90,9 +90,16 @@ fun SectionHeader(text: String, modifier: Modifier = Modifier, action: (@Composa
     }
 }
 
+/** One of the drawings in resources/svg, in one colour (its lighter strokes keep their transparency). */
 @Composable
-fun EmptyState(title: String, body: String) {
+fun Art(name: String, modifier: Modifier = Modifier, tint: Color = LocalPal.current.muted) =
+    Icon(androidx.compose.ui.res.painterResource("svg/$name.svg"), null, modifier, tint = tint)
+
+/** Nothing to show: a small drawing of what would be here, a title and what to do. */
+@Composable
+fun EmptyState(title: String, body: String, art: String? = null) {
     Column(Modifier.fillMaxWidth().padding(48.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        art?.let { Art(it, Modifier.size(120.dp, 96.dp).padding(bottom = 16.dp), LocalPal.current.faint) }
         Text(title, style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(6.dp))
         Text(body, style = MaterialTheme.typography.bodyMedium, color = LocalPal.current.muted, textAlign = TextAlign.Center)
@@ -190,10 +197,7 @@ fun TrackLine(
         if (showAlbum) Text(t.album.orEmpty(), style = Type.rowSub, color = pal.muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(horizontal = 12.dp))
         if (showAdded) Text(fmtDay(t.addedAt), style = Type.meta, color = pal.faint, maxLines = 1, modifier = Modifier.width(Cols.added))
         Box(Modifier.width(Cols.like), contentAlignment = Alignment.Center) {
-            if (liked || hovered) PIconButton(
-                if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, t("Любимое", "Favourite"),
-                { graph.library.setLiked(t.id, !liked); likeRemote(graph, t, !liked) }, size = 28.dp, iconSize = 16.dp, tint = if (liked) pal.muted else pal.faint,
-            )
+            if (liked || hovered) HeartButton(liked, { graph.library.setLiked(t.id, !liked); likeRemote(graph, t, !liked) }, size = 28.dp, iconSize = 16.dp, likedTint = pal.muted, idleTint = pal.faint)
         }
         Box(Modifier.width(Cols.cloud), contentAlignment = Alignment.Center) {
             if (t.path == null) Icon(Icons.Rounded.Cloud, t("Не скачан", "Not downloaded"), tint = pal.faint.copy(alpha = 0.7f), modifier = Modifier.size(14.dp))

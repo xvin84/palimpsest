@@ -96,7 +96,7 @@ fun HistoryScreen() {
         items(plays.takeLast(100).reversed()) { p ->
             HistoryRow(graph.library.get(p.trackId), p.title, p.artist, fmtDate.format(Date(p.at)), null) { graph.library.get(p.trackId)?.let { graph.player.play(listOf(it)) } }
         }
-        if (plays.isEmpty()) item { EmptyState(t("Пока пусто", "Nothing yet"), t("Трек попадает в историю после 30 секунд прослушивания.", "A track counts after 30 seconds of listening.")) }
+        if (plays.isEmpty()) item { EmptyState(t("Пока пусто", "Nothing yet"), t("Трек попадает в историю после 30 секунд прослушивания.", "A track counts after 30 seconds of listening."), "empty-history") }
     }
 }
 

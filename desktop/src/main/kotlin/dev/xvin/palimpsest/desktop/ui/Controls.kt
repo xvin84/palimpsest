@@ -1,5 +1,6 @@
 package dev.xvin.palimpsest.desktop.ui
 
+import kotlinx.coroutines.launch
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -33,6 +34,8 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -101,7 +104,7 @@ fun PButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, ic
 
 /** A round icon button with a soft circle on hover; [active] lights the icon in the accent. */
 @Composable
-fun PIconButton(icon: ImageVector, description: String?, onClick: () -> Unit, modifier: Modifier = Modifier, size: Dp = 32.dp, iconSize: Dp = 20.dp, tint: Color? = null, active: Boolean = false) {
+fun PIconButton(icon: ImageVector, description: String?, onClick: () -> Unit, modifier: Modifier = Modifier, size: Dp = 32.dp, iconSize: Dp = 20.dp, tint: Color? = null, active: Boolean = false, iconModifier: Modifier = Modifier) {
     val pal = LocalPal.current
     val hover = remember { MutableInteractionSource() }
     val hovered by hover.collectIsHoveredAsState()
@@ -110,7 +113,36 @@ fun PIconButton(icon: ImageVector, description: String?, onClick: () -> Unit, mo
             .hoverable(hover).clickable(onClick = onClick).pointerHoverIcon(PointerIcon.Hand),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, description, tint = tint ?: if (active) LocalAccent.current else if (hovered) pal.text else pal.muted, modifier = Modifier.size(iconSize))
+        Icon(icon, description, tint = tint ?: if (active) LocalAccent.current else if (hovered) pal.text else pal.muted, modifier = iconModifier.size(iconSize))
+    }
+}
+
+/** The like button: liking makes the heart jump (and a ring breathe out of it); unliking just empties it. */
+@Composable
+fun HeartButton(liked: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier, size: Dp = 32.dp, iconSize: Dp = 20.dp, likedTint: Color? = null, idleTint: Color? = null) {
+    val scale = remember { androidx.compose.animation.core.Animatable(1f) }
+    val ring = remember { androidx.compose.animation.core.Animatable(1f) }
+    var was by remember { mutableStateOf(liked) }
+    androidx.compose.runtime.LaunchedEffect(liked) {
+        if (liked && !was) {
+            kotlinx.coroutines.coroutineScope {
+                launch { ring.snapTo(0f); ring.animateTo(1f, tween(520, easing = androidx.compose.animation.core.FastOutSlowInEasing)) }
+                scale.snapTo(0.55f)
+                scale.animateTo(1f, androidx.compose.animation.core.spring(dampingRatio = 0.32f, stiffness = 520f))
+            }
+        }
+        was = liked
+    }
+    val ringColor = likedTint ?: LocalPal.current.text
+    Box(modifier, contentAlignment = Alignment.Center) {
+        if (ring.value < 1f) Canvas(Modifier.size(size)) {
+            drawCircle(ringColor.copy(alpha = 0.35f * (1f - ring.value)), radius = this.size.minDimension / 2 * (0.4f + 0.6f * ring.value), style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx()))
+        }
+        PIconButton(
+            if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+            if (liked) t("Убрать из любимых", "Unlike") else t("В любимые", "Like"), onToggle, size = size, iconSize = iconSize,
+            tint = if (liked) likedTint else idleTint, iconModifier = Modifier.graphicsLayer { scaleX = scale.value; scaleY = scale.value },
+        )
     }
 }
 
@@ -303,17 +335,24 @@ fun LineSlider(fraction: Float, onChange: (Float) -> Unit, modifier: Modifier = 
     }
 }
 
-/** Three bars bouncing next to what's playing (still while paused). */
+/**
+ * Three bars by what's playing, moving with the music: lows, mids and highs from the analyser.
+ * When it hears nothing (a stream still buffering), they bounce on their own; paused, they rest.
+ */
 @Composable
 fun PlayingBars(playing: Boolean, modifier: Modifier = Modifier, color: Color = LocalAccent.current) {
     val pulse = rememberInfiniteTransition()
-    val levels = listOf(0 to 520, 1 to 380, 2 to 610).map { (k, ms) ->
+    val idle = listOf(0 to 520, 1 to 380, 2 to 610).map { (k, ms) ->
         pulse.animateFloat(0.25f, 1f, infiniteRepeatable(tween(ms, delayMillis = k * 90), RepeatMode.Reverse))
     }
+    val spectrum by rememberLevels()
+    val bands = listOf(0 until 8, 8 until 22, 22 until 40).map { r -> r.map { spectrum.getOrElse(it) { 0f } }.average().toFloat() }
+    val heard = bands.any { it > 0.02f }
     Canvas(modifier.size(14.dp)) {
         val bar = size.width / 5
-        levels.forEachIndexed { k, v ->
-            val hh = size.height * (if (playing) v.value else listOf(0.5f, 0.8f, 0.35f)[k])
+        idle.forEachIndexed { k, v ->
+            val level = when { !playing -> listOf(0.5f, 0.8f, 0.35f)[k]; heard -> (0.2f + bands[k] * 1.6f).coerceIn(0.2f, 1f); else -> v.value }
+            val hh = size.height * level
             drawRoundRect(color, Offset(k * bar * 2f, size.height - hh), Size(bar, hh), CornerRadius(bar / 2))
         }
     }

@@ -167,7 +167,8 @@ fun LyricsView(modifier: Modifier, big: Boolean, scale: Float = 1f) {
         p == null -> Box(modifier, contentAlignment = Alignment.Center) { Spinner(size = 24.dp) }
         p.lines.isEmpty() -> Box(modifier, contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(t("Текста не нашлось", "No lyrics found"), color = pal.muted)
+                Art("empty-lyrics", Modifier.size(120.dp, 96.dp).padding(bottom = 12.dp), pal.faint)
+                Text(t("Текста не нашлось", "No lyrics found"), style = MaterialTheme.typography.bodyLarge, color = pal.muted)
                 LyricsSourceButton(track, shown) { picked = it }
             }
         }
@@ -203,6 +204,9 @@ private fun LyricsBody(p: ParsedLyrics, track: Track, shown: Lyrics?, big: Boole
         try {
             // The first time, the list may not be laid out yet: wait until it has a height.
             androidx.compose.runtime.snapshotFlow { list.layoutInfo.viewportSize.height }.first { it > 0 }
+            // That height arrives while the list is being measured; scrolling from there throws
+            // («measure during measure»), so the jump waits for the next frame.
+            androidx.compose.runtime.withFrameNanos { }
             val info = list.layoutInfo
             val anchor = ((info.viewportEndOffset - info.viewportStartOffset) * 0.3f).toInt()
             val visible = info.visibleItemsInfo.firstOrNull { it.index == active }
@@ -467,7 +471,7 @@ fun NowPlayingView() {
             // Wide, Lane: the cover fills the left part edge to edge.
             wide && lane && lyrics -> Row(Modifier.fillMaxSize()) {
                 Box(Modifier.fillMaxHeight().widthIn(max = w * 0.55f).aspectRatio(1f, matchHeightConstraintsFirst = true)) {
-                    if (model != null) AsyncImage(model, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                    if (model != null) AsyncImage(model, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().coverSpot(big = true, corner = 0.dp))
                     Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0.55f to Color.Transparent, 1f to deep)))
                     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.6f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.6f))))
                     Column(Modifier.align(Alignment.BottomStart).padding(32.dp)) { Titles(Color.White) }
@@ -475,7 +479,7 @@ fun NowPlayingView() {
                 LyricsView(Modifier.weight(1f).fillMaxHeight().padding(40.dp), big = true, scale = scale)
             }
             wide && lyrics -> Row(Modifier.fillMaxSize().padding(start = 56.dp, end = 48.dp, top = 64.dp, bottom = 40.dp), horizontalArrangement = Arrangement.spacedBy(56.dp)) {
-                CoverWithInfo(Modifier.weight(1f).fillMaxHeight(), w, centered = false, cover = { androidx.compose.animation.Crossfade(t.id to model, animationSpec = androidx.compose.animation.core.tween(450)) { (_, m) -> Artwork(m, t.album ?: t.title, Modifier.fillMaxSize(), 18.dp, artist = t.albumArtist ?: t.artist) } }) {
+                CoverWithInfo(Modifier.weight(1f).fillMaxHeight(), w, centered = false, cover = { androidx.compose.animation.Crossfade(t.id to model, Modifier.coverSpot(big = true, corner = 18.dp), animationSpec = androidx.compose.animation.core.tween(450)) { (_, m) -> Artwork(m, t.album ?: t.title, Modifier.fillMaxSize(), 18.dp, artist = t.albumArtist ?: t.artist) } }) {
                     Titles()
                     Spacer(Modifier.height(16.dp))
                     Spectrum(Modifier.fillMaxWidth().height(44.dp), pal.text.copy(alpha = 0.32f))
@@ -485,7 +489,7 @@ fun NowPlayingView() {
             // Narrow or tall with lyrics: a compact header, the lyrics below it.
             lyrics -> Column(Modifier.fillMaxSize().padding(horizontal = 28.dp, vertical = 20.dp)) {
                 Row(Modifier.padding(start = 40.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Artwork(model, t.album ?: t.title, Modifier.size(minOf(w * 0.22f, 120.dp)), 12.dp, artist = t.albumArtist ?: t.artist)
+                    Artwork(model, t.album ?: t.title, Modifier.size(minOf(w * 0.22f, 120.dp)).coverSpot(big = true, corner = 12.dp), 12.dp, artist = t.albumArtist ?: t.artist)
                     Spacer(Modifier.width(18.dp))
                     Column(Modifier.weight(1f, fill = false)) {
                         Titles()
@@ -496,7 +500,7 @@ fun NowPlayingView() {
                 LyricsView(Modifier.weight(1f).fillMaxWidth(), big = true, scale = scale)
             }
             // Lyrics off: the cover as big as the window allows.
-            else -> CoverWithInfo(Modifier.fillMaxSize().padding(32.dp), minOf(w * 0.8f, h * 0.68f), centered = true, cover = { androidx.compose.animation.Crossfade(t.id to model, animationSpec = androidx.compose.animation.core.tween(450)) { (_, m) -> Artwork(m, t.album ?: t.title, Modifier.fillMaxSize(), if (lane) 6.dp else 18.dp, artist = t.albumArtist ?: t.artist) } }) {
+            else -> CoverWithInfo(Modifier.fillMaxSize().padding(32.dp), minOf(w * 0.8f, h * 0.68f), centered = true, cover = { androidx.compose.animation.Crossfade(t.id to model, Modifier.coverSpot(big = true, corner = if (lane) 6.dp else 18.dp), animationSpec = androidx.compose.animation.core.tween(450)) { (_, m) -> Artwork(m, t.album ?: t.title, Modifier.fillMaxSize(), if (lane) 6.dp else 18.dp, artist = t.albumArtist ?: t.artist) } }) {
                 Titles()
                 if (!lane) { Spacer(Modifier.height(12.dp)); Spectrum(Modifier.fillMaxWidth().height(40.dp), pal.text.copy(alpha = 0.32f)) }
             }
@@ -548,16 +552,7 @@ private fun CoverWithInfo(modifier: Modifier, maxSide: Dp, centered: Boolean, co
 /** The spectrum of what's playing, straight from the shared analyser. */
 @Composable
 fun Spectrum(modifier: Modifier, color: Color = LocalAccent.current) {
-    val graph = LocalGraph.current
-    val st by graph.player.state.collectAsState()
-    var levels by remember { mutableStateOf(FloatArray(48)) }
-    LaunchedEffect(st.playing) {
-        while (st.playing) {
-            androidx.compose.runtime.withFrameNanos { }
-            val raw = graph.player.engine.spectrum.compute()
-            levels = FloatArray(raw.size) { i -> levels.getOrElse(i) { 0f } * 0.6f + raw[i] * 0.4f }
-        }
-    }
+    val levels by rememberLevels()
     androidx.compose.foundation.Canvas(modifier) {
         val n = levels.size
         val slot = size.width / n
