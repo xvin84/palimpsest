@@ -98,10 +98,27 @@ object FileOps {
     }
 
     /** Opens the folder of [f] in the file manager. */
+    /**
+     * Opens the file manager on [f] with the file selected where the system can do that. Each OS
+     * by its own tool: Java's Desktop.open often does nothing on Linux without GNOME's libraries.
+     * A folder is opened as itself.
+     */
     fun showInFolder(f: File) {
-        val desktop = runCatching { java.awt.Desktop.getDesktop() }.getOrNull() ?: return
-        // Windows and macOS can select the file itself; elsewhere the folder opens.
-        if (runCatching { desktop.isSupported(java.awt.Desktop.Action.BROWSE_FILE_DIR) && run { desktop.browseFileDirectory(f); true } }.getOrDefault(false)) return
-        runCatching { desktop.open(f.parentFile) }
+        val path = f.absolutePath
+        fun run(vararg cmd: String): Boolean = runCatching { ProcessBuilder(*cmd).redirectErrorStream(true).start().waitFor(5, java.util.concurrent.TimeUnit.SECONDS) && true }.getOrDefault(false)
+        fun runOk(vararg cmd: String): Boolean = runCatching { ProcessBuilder(*cmd).redirectErrorStream(true).start().let { it.waitFor(5, java.util.concurrent.TimeUnit.SECONDS) && it.exitValue() == 0 } }.getOrDefault(false)
+        // The freedesktop file-manager interface (Dolphin, Nautilus, Nemo, Thunar…): it opens folders and
+        // selects files, and unlike xdg-open it can't land in whatever app claimed «folders» (a music player).
+        fun fileManager(method: String) = runOk(
+            "dbus-send", "--session", "--print-reply", "--dest=org.freedesktop.FileManager1", "--type=method_call",
+            "/org/freedesktop/FileManager1", "org.freedesktop.FileManager1.$method", "array:string:${f.toURI()}", "string:",
+        )
+        val ok = when {
+            Paths.isWindows -> if (f.isDirectory) run("explorer", path) else run("explorer", "/select,", path)
+            Paths.isMac -> if (f.isDirectory) runOk("open", path) else runOk("open", "-R", path)
+            f.isDirectory -> fileManager("ShowFolders") || runOk("xdg-open", path)
+            else -> fileManager("ShowItems") || runOk("xdg-open", f.parent ?: path)
+        }
+        if (!ok) runCatching { java.awt.Desktop.getDesktop().open(if (f.isDirectory) f else f.parentFile) }
     }
 }

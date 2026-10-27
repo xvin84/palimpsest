@@ -110,7 +110,7 @@ private enum class Category(val icon: ImageVector) {
         APPEARANCE -> t("Стиль, тема, цвет из обложки, язык", "Style, theme, colour from the cover, language")
         SOUND -> t("Выравнивание громкости, эквалайзер", "Volume levelling, equalizer")
         LIBRARY -> t("Папки с музыкой, теги и тексты", "Music folders, tags and lyrics")
-        DOWNLOADS -> t("Куда и в каком качестве", "Where to and in what quality")
+        DOWNLOADS -> t("Куда сохранять музыку и видео, качество", "Where music and videos go, quality")
         KEYS -> t("Как в Яндекс Музыке; любую можно поменять", "As in Yandex Music; change any of them")
         WINDOW -> t("Иконка в трее и что делает крестик", "The tray icon and what closing the window does")
         NETWORK -> t("Прокси для YouTube и Bandcamp", "A proxy for YouTube and Bandcamp")
@@ -505,6 +505,22 @@ private fun settingItems(s: DesktopSettings): List<Item> {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PInput(dir, { dir = it }, modifier = Modifier.weight(1f), leading = Icons.Rounded.Folder)
                 PButton(t("Сохранить", "Save"), { graph.settings.update { it.copy(downloadDir = dir.trim()) } }, kind = Kind.PRIMARY, enabled = dir != s.downloadDir)
+            }
+        }
+    }
+    val videoTitle = t("Папка для видео", "Folder for videos")
+    val videoHint = t("Куда сохраняется «Видео из трека».", "Where «Video from the track» is saved.")
+    add(Category.DOWNLOADS, videoTitle, videoHint, "video render видео папка путь mp4 reels shorts") {
+        Setting(videoTitle, videoHint) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.weight(1f).height(34.dp).clip(RoundedCornerShape(Radius.md)).background(pal.paper3).padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.Folder, null, tint = pal.faint, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(graph.videos.folder.absolutePath, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                PButton(t("Выбрать…", "Browse…"), { pickVideoFolder(graph) }, icon = Icons.Rounded.FolderOpen)
+                if (s.videoDir != null) PButton(t("Как было", "Default"), { graph.settings.update { it.copy(videoDir = null) } }, kind = Kind.GHOST)
+                PIconButton(Icons.Rounded.FolderOpen, t("Открыть папку", "Open the folder"), { dev.xvin.palimpsest.desktop.data.FileOps.showInFolder(graph.videos.folder.apply { mkdirs() }) }, iconSize = 18.dp)
             }
         }
     }

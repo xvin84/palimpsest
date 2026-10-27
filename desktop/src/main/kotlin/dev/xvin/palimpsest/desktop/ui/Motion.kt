@@ -5,7 +5,6 @@ import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -21,15 +20,14 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.lerp
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -103,22 +101,42 @@ fun CoverFlight(open: Boolean, lyrics: Boolean, model: Any?, seed: String, artis
             spots.flying = false
         }
     }
-    if (!spots.flying) return
-    val from = spots.from ?: return
-    val to = spots.to ?: return
-    val p = spots.progress.value
-    val r = lerp(from, to, p)
-    val density = LocalDensity.current
-    val corner = lerp(spots.fromCorner, spots.toCorner, p)
-    // A shadow that grows mid-flight: the cover lifts off and lands.
-    val lift = (1f - kotlin.math.abs(p * 2f - 1f))
-    with(density) {
-        Box(
-            Modifier.offset { IntOffset(r.left.roundToInt(), r.top.roundToInt()) }
-                .size(r.width.toDp(), r.height.toDp())
-                .shadow((24 * lift).dp, RoundedCornerShape(corner)),
-        ) { Artwork(model, seed, Modifier.fillMaxSize(), corner, artist = artist) }
-    }
+    // The copy is always there, unseen at rest, and always laid out large so its picture is loaded
+    // sharp; the layer moves and scales it onto the cover's place. Its place, corners and visibility
+    // are read while drawing — the same moment the real covers hide — so no frame is without a cover.
+    Box(
+        Modifier.layout { m, _ ->
+            val side = FlightSide.roundToPx()
+            val placeable = m.measure(Constraints.fixed(side, side))
+            layout(0, 0) {
+                placeable.placeWithLayer(0, 0) {
+                    val r = spots.rectNow() ?: spots.bar ?: Rect(0f, 0f, 1f, 1f)
+                    val p = spots.progress.value
+                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f)
+                    translationX = r.left
+                    translationY = r.top
+                    scaleX = r.width / side
+                    scaleY = r.height / side
+                    alpha = if (spots.flying) 1f else 0f
+                    // A shadow that grows mid-flight: the cover lifts off and lands.
+                    shadowElevation = 24.dp.toPx() * (1f - kotlin.math.abs(p * 2f - 1f)) / scaleX.coerceAtLeast(0.05f)
+                    shape = RoundedCornerShape(lerp(spots.fromCorner, spots.toCorner, p).toPx() / scaleX.coerceAtLeast(0.05f))
+                    clip = true
+                }
+            }
+        },
+    ) { Artwork(model, seed, Modifier.fillMaxSize(), 0.dp, artist = artist) }
+}
+
+/** The flying copy's own size before it's scaled onto a cover: big enough for the big player's. */
+private val FlightSide = 640.dp
+
+/** Where the flying cover is right now, or null when nothing flies. */
+private fun CoverSpots.rectNow(): Rect? {
+    if (!flying) return null
+    val f = from ?: return null
+    val t = to ?: return null
+    return lerp(f, t, progress.value)
 }
 
 /**

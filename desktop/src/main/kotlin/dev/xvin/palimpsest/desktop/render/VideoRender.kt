@@ -82,7 +82,8 @@ class VideoRenders(private val graph: Graph) {
     val job: StateFlow<RenderJob?> = _job
     private var running: Job? = null
 
-    val folder: File get() = File(System.getProperty("user.home"), if (Paths.isMac) "Movies/Palimpsest" else "Videos/Palimpsest")
+    /** The folder picked in Settings, or the system's videos folder. */
+    val folder: File get() = graph.settings.value.videoDir?.let(::File) ?: defaultFolder
 
     /** Synced lyrics for a lyrics video, or null (then it's the cover). */
     suspend fun syncedLyrics(t: Track): ParsedLyrics? =
@@ -245,6 +246,9 @@ class VideoRenders(private val graph: Graph) {
     }.getOrDefault(180_000L)
 
     companion object {
+        /** The system's videos folder, in «Palimpsest». */
+        val defaultFolder: File get() = File(System.getProperty("user.home"), if (Paths.isMac) "Movies/Palimpsest" else "Videos/Palimpsest")
+
         const val RATE = 44_100
     }
 }

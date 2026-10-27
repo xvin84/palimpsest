@@ -171,13 +171,16 @@ class Nav {
     var bigLyrics by mutableStateOf(true)
     var rightPanel by mutableStateOf<String?>(null)
     var message by mutableStateOf<String?>(null)
+    /** A button on the message («Show»), when there's something to do about it. */
+    var messageAction: Pair<String, () -> Unit>? = null
     var searchFocus by mutableStateOf(0)
     var waveTuning by mutableStateOf(false)
 
     fun go(s: Screen) { nowPlaying = false; if (current != s) stack.add(s) }
     fun root(s: Screen) { nowPlaying = false; stack.clear(); stack.add(s) }
     fun back() { if (nowPlaying) nowPlaying = false else if (stack.size > 1) stack.removeLast() }
-    fun toast(m: String) { message = m }
+    fun toast(m: String) { messageAction = null; message = m }
+    fun toast(m: String, actionLabel: String, action: () -> Unit) { messageAction = actionLabel to action; message = m }
     fun openMenu(t: Track) { menu = listOf(t) }
     fun openMenu(ts: List<Track>) { menu = ts }
 }
@@ -336,7 +339,15 @@ internal fun Shell() {
     val nav = LocalNav.current
     val pal = LocalPal.current
     val snackbar = remember { SnackbarHostState() }
-    LaunchedEffect(nav.message) { nav.message?.let { snackbar.showSnackbar(it); nav.message = null } }
+    LaunchedEffect(nav.message) {
+        val m = nav.message ?: return@LaunchedEffect
+        val action = nav.messageAction
+        nav.message = null
+        // A message with a button stays a while, so there's time to press it.
+        val r = snackbar.showSnackbar(m, actionLabel = action?.first, withDismissAction = action != null,
+            duration = if (action != null) androidx.compose.material3.SnackbarDuration.Long else androidx.compose.material3.SnackbarDuration.Short)
+        if (r == androidx.compose.material3.SnackbarResult.ActionPerformed) action?.second?.invoke()
+    }
     val graph = LocalGraph.current
     val spots = remember { CoverSpots() }
     CompositionLocalProvider(LocalCoverSpots provides spots) {

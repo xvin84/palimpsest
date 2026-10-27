@@ -37,7 +37,8 @@ fun main(args: Array<String>) {
     val out = File(args.getOrElse(0) { "build/shots" }).apply { mkdirs() }
     val w = args.getOrNull(1)?.toInt() ?: 1280
     val h = args.getOrNull(2)?.toInt() ?: 820
-    val graph = Graph().also { language = it.settings.value.language }
+    // SHOTS_LANG=ru|en overrides the language from the settings (for the README in both languages).
+    val graph = Graph().also { language = System.getenv("SHOTS_LANG") ?: it.settings.value.language }
     val current = graph.player.state.value.current
     // Stand still part way into the track (SHOTS_POS, ms), so the lyrics have a sung line (the player reads the engine's position).
     @Suppress("UNCHECKED_CAST")
@@ -95,6 +96,9 @@ fun main(args: Array<String>) {
                 CompositionLocalProvider(LocalGraph provides graph, LocalNav provides nav) { Shell() }
             }
         }
+        // The pointer over a row, so the menu opens there and the row shows its hover.
+        scene.render(0)
+        scene.sendPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Move, androidx.compose.ui.geometry.Offset(w * 0.45f, h * 0.36f))
         // Real time for covers, lyrics and service pages to arrive; frame time for the animations to settle.
         var t = 0L
         repeat(40) { scene.render(t); t += 100_000_000; Thread.sleep(120) }

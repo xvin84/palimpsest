@@ -630,7 +630,7 @@ private fun VideoDialog(track: Track, onDismiss: () -> Unit) {
     fun make() {
         graph.settings.update { it.copy(renderChoice = listOf(mode.name, aspect.name, quality.name, viz.name)) }
         graph.videos.start(track, effective, aspect, quality, viz) { r ->
-            r.onSuccess { f -> nav.toast(t("Видео готово: ${f.name}", "The video is ready: ${f.name}")); FileOps.showInFolder(f) }
+            r.onSuccess { f -> nav.toast(t("Видео готово: ${f.name}", "The video is ready: ${f.name}"), t("Показать", "Show")) { FileOps.showInFolder(f) } }
                 .onFailure { nav.toast(t("Видео не получилось: ", "The video failed: ") + (it.message ?: it.javaClass.simpleName)) }
         }
         nav.toast(t("Делаю видео — прогресс слева внизу", "Making the video — progress at the bottom left"))
@@ -638,13 +638,28 @@ private fun VideoDialog(track: Track, onDismiss: () -> Unit) {
     }
     PDialog(
         t("Видео из трека", "Video from the track"), onDismiss, width = 600.dp,
-        subtitle = t("Трек целиком, звук прямо из файла через твой эквалайзер. Спектр — как в плеере. Видео сохранится в ", "The whole track, the sound straight from the file through your equalizer. The spectrum moves as in the player. The video is saved to ") + graph.videos.folder.absolutePath + ".",
+        subtitle = t("Трек целиком, звук прямо из файла через твой эквалайзер. Спектр — как в плеере.", "The whole track, the sound straight from the file through your equalizer. The spectrum moves as in the player."),
         buttons = {
             PButton(t("Отмена", "Cancel"), onDismiss, kind = Kind.GHOST)
             PButton(t("Сделать видео", "Make the video"), ::make, icon = Icons.Rounded.Movie, kind = Kind.PRIMARY, enabled = busy == null && hasLyrics != null)
         },
     ) {
         Column {
+                // Where it will be saved, in plain sight, with a way to change it.
+                val settings by graph.settings.state.collectAsState()
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.md)).background(pal.paper3).padding(start = 12.dp, end = 4.dp).height(40.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Rounded.Folder, null, Modifier.size(17.dp), tint = pal.muted)
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(t("Сохранится в", "Saved to"), style = Type.meta, color = pal.faint)
+                        Text((settings.videoDir?.let(::File) ?: dev.xvin.palimpsest.desktop.render.VideoRenders.defaultFolder).absolutePath, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    PButton(t("Изменить…", "Change…"), { pickVideoFolder(graph) }, kind = Kind.GHOST)
+                    PIconButton(Icons.Rounded.FolderOpen, t("Открыть папку", "Open the folder"), { graph.videos.folder.apply { mkdirs() }.let(FileOps::showInFolder) }, iconSize = 18.dp)
+                }
                 Group(t("Что в кадре", "What's in it")) {
                     Pill(t("Обложка", "Cover"), effective == dev.xvin.palimpsest.desktop.render.RenderMode.COVER, { mode = dev.xvin.palimpsest.desktop.render.RenderMode.COVER })
                     if (hasLyrics == true) Pill(t("Текст", "Lyrics"), effective == dev.xvin.palimpsest.desktop.render.RenderMode.LYRICS, { mode = dev.xvin.palimpsest.desktop.render.RenderMode.LYRICS })
@@ -671,4 +686,11 @@ private fun VideoDialog(track: Track, onDismiss: () -> Unit) {
                 if (busy != null) Text(t("Сейчас уже делается видео «${busy!!.title}» — дождись его.", "A video of «${busy!!.title}» is being made — wait for it."), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 12.dp))
         }
     }
+}
+
+/** Picks the folder for videos (Settings and the video window share it). */
+fun pickVideoFolder(graph: Graph) {
+    val chooser = javax.swing.JFileChooser(graph.videos.folder.takeIf { it.isDirectory } ?: dev.xvin.palimpsest.desktop.render.VideoRenders.defaultFolder.parentFile)
+        .apply { fileSelectionMode = javax.swing.JFileChooser.DIRECTORIES_ONLY; dialogTitle = t("Папка для видео", "Folder for videos") }
+    if (chooser.showOpenDialog(null) == javax.swing.JFileChooser.APPROVE_OPTION) graph.settings.update { it.copy(videoDir = chooser.selectedFile.absolutePath) }
 }

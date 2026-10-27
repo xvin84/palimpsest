@@ -26,6 +26,8 @@ data class WavePrefs(val diversity: String = "", val mood: String = "", val lang
 data class DesktopSettings(
     val musicRoots: List<String> = listOf(Paths.music.absolutePath),
     val downloadDir: String = java.io.File(Paths.music, "Palimpsest").absolutePath,
+    /** Where «Video from the track» saves; null — the system's videos folder, in «Palimpsest». */
+    val videoDir: String? = null,
     val quality: Quality = Quality.LOSSLESS,
     val yandexToken: String? = null,
     val yandexRefresh: String? = null,
