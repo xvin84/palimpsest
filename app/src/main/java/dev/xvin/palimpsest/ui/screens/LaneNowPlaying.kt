@@ -364,9 +364,7 @@ fun LaneNowPlaying(onClose: () -> Unit) {
 
             Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 track?.let { t ->
-                    IconButton(onClick = { scope.launch { graph.setLiked(t, !t.liked).onFailure { nav.toast(tr(R.string.like_not_saved_yandex, it.message)) } } }) {
-                        Icon(if (t.liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, tr(R.string.favorite), tint = fg, modifier = Modifier.size(28.dp))
-                    }
+                    dev.xvin.palimpsest.ui.components.HeartButton(t.liked, { scope.launch { graph.setLiked(t, !t.liked).onFailure { nav.toast(tr(R.string.like_not_saved_yandex, it.message)) } } }, likedTint = fg, idleTint = fg, iconSize = 28.dp)
                 }
                 IconButton(onClick = { showSleep = true }) {
                     Icon(Icons.Rounded.Bedtime, tr(R.string.sleep_timer), tint = if (sleep.endsAt != null || sleep.endOfTrack) fg else muted, modifier = Modifier.size(26.dp))

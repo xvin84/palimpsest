@@ -199,8 +199,9 @@ fun SettingsScreen() {
 private fun CategoryRow(c: SettingsCategory, onClick: () -> Unit) {
     val accent = LocalAccent.current
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(42.dp).clip(CircleShape).background(accent.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
-            Icon(c.icon, null, tint = accent, modifier = Modifier.size(22.dp))
+        // A quiet tile: the accent stays for what plays.
+        Box(Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)).background(Ink.Paper3), contentAlignment = Alignment.Center) {
+            Icon(c.icon, null, tint = Ink.Muted, modifier = Modifier.size(21.dp))
         }
         Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f)) {
@@ -298,8 +299,8 @@ private fun StylePicker(current: UiStyle) {
             val selected = style == current
             Column(
                 Modifier.width(158.dp).clip(RoundedCornerShape(16.dp))
-                    .background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.14f) else Ink.Paper2)
-                    .border(2.dp, if (selected) MaterialTheme.colorScheme.primary else Color.Transparent, RoundedCornerShape(16.dp))
+                    .background(if (selected) Ink.Paper3 else Ink.Paper2)
+                    .border(if (selected) 1.5.dp else 1.dp, if (selected) Ink.Muted else Ink.Line.copy(alpha = 0.7f), RoundedCornerShape(16.dp))
                     .clickable { graph.appScope.launch { graph.settings.setUiStyle(style) } }
                     .padding(10.dp),
             ) {

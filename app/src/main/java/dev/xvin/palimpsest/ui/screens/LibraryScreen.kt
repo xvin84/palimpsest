@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -172,6 +173,7 @@ private fun TracksTab() {
         EmptyState(
             tr(R.string.lib_empty_title),
             tr(R.string.lib_empty_hint),
+            art = R.drawable.art_empty_playlist,
         )
         return
     }
@@ -237,7 +239,7 @@ private fun AlbumsTab() {
     val graph = LocalGraph.current
     val nav = LocalNav.current
     val albums by graph.db.tracks().observeAlbums().collectAsStateWithLifecycle(emptyList())
-    if (albums.isEmpty()) { EmptyState(tr(R.string.lib_no_albums), tr(R.string.lib_no_albums_hint)); return }
+    if (albums.isEmpty()) { EmptyState(tr(R.string.lib_no_albums), tr(R.string.lib_no_albums_hint), art = R.drawable.art_empty_playlist); return }
     LazyVerticalGrid(
         GridCells.Adaptive(150.dp),
         contentPadding = PaddingValues(16.dp),
@@ -479,11 +481,16 @@ private fun OfflineWaveRow() {
             Modifier.fillMaxWidth().clickable { start(dev.xvin.palimpsest.playback.WaveMood.ANY) }.padding(horizontal = 18.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_my_wave), null, Modifier.size(22.dp), tint = Ink.Muted)
+            Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 Text(tr(R.string.offline_wave), style = MaterialTheme.typography.titleMedium)
                 Text(tr(R.string.offline_wave_subtitle), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
             }
-            Text("▶", color = LocalAccent.current, style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.width(10.dp))
+            Box(Modifier.size(40.dp).clip(androidx.compose.foundation.shape.CircleShape).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.PlayArrow, tr(R.string.play), Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onPrimary)
+            }
         }
         // Moods need the audio analysed (Library health → Analyse audio).
         if (analysed > 0) {

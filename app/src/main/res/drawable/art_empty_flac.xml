@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Drawn from desktop/src/main/resources/svg/empty-flac.svg: the same drawing on both apps. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="96dp"
+    android:viewportWidth="120"
+    android:viewportHeight="96">
+    <path
+        android:pathData="M10 48h6l4-12 5 24 5-32 5 40 5-26 5 14 3-8h6"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeAlpha="0.3" />
+    <path
+        android:pathData="M62 48h4l3-14 5 28 5-38 5 46 5-30 5 16 3-8h9"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Drawn from desktop/src/main/resources/svg/empty-liked.svg: the same drawing on both apps. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="96dp"
+    android:viewportWidth="120"
+    android:viewportHeight="96">
+    <path
+        android:pathData="M20.0,48.0a40.0,40.0 0 1,0 80.0,0a40.0,40.0 0 1,0 -80.0,0"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeAlpha="0.14" />
+    <path
+        android:pathData="M32.0,48.0a28.0,28.0 0 1,0 56.0,0a28.0,28.0 0 1,0 -56.0,0"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeAlpha="0.1" />
+    <path
+        android:pathData="M60 72C40 58 32 47 32 37a12 12 0 0 1 28-6a12 12 0 0 1 28 6C88 47 80 58 60 72z"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M98 16v8M94 20h8"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeAlpha="0.5" />
+    <path
+        android:pathData="M20 66v6M17 69h6"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeAlpha="0.4" />
+</vector>

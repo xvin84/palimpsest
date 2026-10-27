@@ -1,6 +1,13 @@
 package dev.xvin.palimpsest.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -86,28 +93,32 @@ fun TrackRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (index != null) {
-            Text(
-                "$index",
-                style = MaterialTheme.typography.labelMedium,
-                color = if (playing) accent else Ink.Faint,
-                modifier = Modifier.width(28.dp),
-            )
+            Box(Modifier.width(28.dp)) {
+                if (playing) PlayingBars(Modifier.size(14.dp))
+                else Text("$index", style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"), color = Ink.Faint)
+            }
         } else {
-            TrackArtwork(track, Modifier.size(48.dp), corner = 6.dp)
+            // What's playing shows bars over its cover, not only a coloured title.
+            Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                TrackArtwork(track, Modifier.size(48.dp), corner = 6.dp)
+                if (playing) Box(Modifier.size(48.dp).clip(RoundedCornerShape(6.dp)).background(Color.Black.copy(alpha = 0.45f)), contentAlignment = Alignment.Center) {
+                    PlayingBars(Modifier.size(16.dp), color = Color.White)
+                }
+            }
             Spacer(Modifier.width(14.dp))
         }
         Column(Modifier.weight(1f)) {
             Text(
                 track.title,
                 style = MaterialTheme.typography.bodyLarge,
-                fontWeight = if (playing) FontWeight.SemiBold else FontWeight.Normal,
+                fontWeight = FontWeight.SemiBold,
                 color = if (playing) accent else MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (track.liked) {
-                    Icon(Icons.Rounded.Favorite, null, Modifier.size(12.dp), tint = accent.copy(alpha = 0.8f))
+                    Icon(Icons.Rounded.Favorite, null, Modifier.size(12.dp), tint = Ink.Muted)
                     Spacer(Modifier.width(4.dp))
                 }
                 if (track.path == null && track.service != Service.LOCAL) {
@@ -127,7 +138,7 @@ fun TrackRow(
                 )
             }
         }
-        Text(formatDuration(track.durationMs), style = MaterialTheme.typography.labelSmall, color = Ink.Faint)
+        Text(formatDuration(track.durationMs), style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum", letterSpacing = 0.sp), color = Ink.Faint)
         IconButton(onClick = onMore) { Icon(Icons.Rounded.MoreVert, tr(R.string.more), tint = Ink.Muted) }
     }
 }
@@ -224,28 +235,38 @@ fun Pill(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifie
     val uiStyle = dev.xvin.palimpsest.ui.theme.LocalUiStyle.current
     val accent = if (uiStyle != dev.xvin.palimpsest.data.settings.UiStyle.PALIMPSEST) MaterialTheme.colorScheme.primary else LocalAccent.current
     val mono = uiStyle == dev.xvin.palimpsest.data.settings.UiStyle.MONO
-    val bg by androidx.compose.animation.animateColorAsState(if (selected) accent else Ink.Paper3, androidx.compose.animation.core.tween(220), label = "pill")
+    // Palimpsest and Vinyl: a quiet choice — the picked one outlined and bright, the rest muted;
+    // the accent is kept for what plays. The other styles keep their filled pills.
+    val quiet = uiStyle == dev.xvin.palimpsest.data.settings.UiStyle.PALIMPSEST || uiStyle == dev.xvin.palimpsest.data.settings.UiStyle.VINYL
+    val bg by androidx.compose.animation.animateColorAsState(
+        if (quiet) (if (selected) Ink.Paper3 else Ink.Paper3.copy(alpha = 0f)) else if (selected) accent else Ink.Paper3,
+        androidx.compose.animation.core.tween(220), label = "pill",
+    )
+    val shape = if (mono) RoundedCornerShape(0.dp) else RoundedCornerShape(50)
     Box(
         modifier
-            .clip(if (mono) RoundedCornerShape(0.dp) else RoundedCornerShape(50))
+            .clip(shape)
             .background(bg)
+            .then(if (quiet) Modifier.border(1.dp, if (selected) Ink.Muted.copy(alpha = 0.6f) else Ink.Line, shape) else Modifier)
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 7.dp),
     ) {
         Text(
             text,
             style = MaterialTheme.typography.labelLarge,
-            color = if (selected) MaterialTheme.colorScheme.onPrimary else Ink.Text,
+            color = when { quiet -> if (selected) Ink.Text else Ink.Muted; selected -> MaterialTheme.colorScheme.onPrimary; else -> Ink.Text },
         )
     }
 }
 
 @Composable
-fun EmptyState(title: String, body: String, modifier: Modifier = Modifier, action: (@Composable () -> Unit)? = null) {
+fun EmptyState(title: String, body: String, modifier: Modifier = Modifier, art: Int? = null, action: (@Composable () -> Unit)? = null) {
     Column(modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(title, style = MaterialTheme.typography.headlineSmall, color = Ink.Text)
+        // A small drawing of what would be here (the same ones as on the computer).
+        art?.let { Icon(androidx.compose.ui.res.painterResource(it), null, Modifier.size(120.dp, 96.dp).padding(bottom = 16.dp), tint = Ink.Faint) }
+        Text(title, style = MaterialTheme.typography.headlineSmall, color = Ink.Text, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         Spacer(Modifier.height(8.dp))
-        Text(body, style = MaterialTheme.typography.bodyMedium, color = Ink.Muted)
+        Text(body, style = MaterialTheme.typography.bodyMedium, color = Ink.Muted, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         if (action != null) {
             Spacer(Modifier.height(16.dp))
             action()
@@ -298,6 +319,56 @@ fun WaveSeekBar(
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(formatDuration(dragFraction?.let { (it * durationMs).toLong() } ?: positionMs), style = MaterialTheme.typography.labelSmall, color = Ink.Muted)
             Text(formatDuration(durationMs), style = MaterialTheme.typography.labelSmall, color = Ink.Muted)
+        }
+    }
+}
+
+/**
+ * Three bars by what's playing: they bounce while it plays and rest while paused (the phone's
+ * analyser runs only on the player screen, so they keep their own rhythm here).
+ */
+@Composable
+fun PlayingBars(modifier: Modifier = Modifier, color: Color = LocalAccent.current) {
+    val graph = LocalGraph.current
+    val state by graph.player.state.collectAsStateWithLifecycle()
+    val pulse = androidx.compose.animation.core.rememberInfiniteTransition(label = "bars")
+    val levels = listOf(0 to 520, 1 to 380, 2 to 610).map { (k, ms) ->
+        pulse.animateFloat(0.25f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(ms, delayMillis = k * 90), androidx.compose.animation.core.RepeatMode.Reverse), label = "bar$k")
+    }
+    androidx.compose.foundation.Canvas(modifier) {
+        val bar = size.width / 5
+        levels.forEachIndexed { k, v ->
+            val hh = size.height * (if (state.isPlaying) v.value else listOf(0.5f, 0.8f, 0.35f)[k])
+            drawRoundRect(color, androidx.compose.ui.geometry.Offset(k * bar * 2f, size.height - hh), androidx.compose.ui.geometry.Size(bar, hh), androidx.compose.ui.geometry.CornerRadius(bar / 2))
+        }
+    }
+}
+
+/** The like button: liking makes the heart jump with a ring breathing out of it; unliking just empties it. */
+@Composable
+fun HeartButton(liked: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier, likedTint: Color = LocalAccent.current, idleTint: Color = Ink.Muted, iconSize: androidx.compose.ui.unit.Dp = 26.dp) {
+    val scale = remember { androidx.compose.animation.core.Animatable(1f) }
+    val ring = remember { androidx.compose.animation.core.Animatable(1f) }
+    var was by remember { mutableStateOf(liked) }
+    androidx.compose.runtime.LaunchedEffect(liked) {
+        if (liked && !was) kotlinx.coroutines.coroutineScope {
+            launch { ring.snapTo(0f); ring.animateTo(1f, androidx.compose.animation.core.tween(520)) }
+            scale.snapTo(0.55f)
+            scale.animateTo(1f, androidx.compose.animation.core.spring(dampingRatio = 0.32f, stiffness = 520f))
+        }
+        was = liked
+    }
+    Box(modifier, contentAlignment = Alignment.Center) {
+        if (ring.value < 1f) androidx.compose.foundation.Canvas(Modifier.size(iconSize * 1.9f)) {
+            drawCircle(likedTint.copy(alpha = 0.4f * (1f - ring.value)), radius = size.minDimension / 2 * (0.4f + 0.6f * ring.value), style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx()))
+        }
+        IconButton(onClick = onToggle) {
+            Icon(
+                if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                tr(if (liked) R.string.action_unlike else R.string.action_like),
+                Modifier.size(iconSize).graphicsLayer { scaleX = scale.value; scaleY = scale.value },
+                tint = if (liked) likedTint else idleTint,
+            )
         }
     }
 }

@@ -102,7 +102,7 @@ fun StatsScreen() {
             val totalPlays = days.sumOf { it.plays }
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 Column(Modifier.weight(1f)) {
-                    Text(formatListening(totalMs), style = MaterialTheme.typography.headlineLarge, color = accent)
+                    Text(formatListening(totalMs), style = MaterialTheme.typography.headlineLarge, color = Ink.Text)
                     Text(tr(R.string.stats_of_music), color = Ink.Muted, style = MaterialTheme.typography.labelMedium)
                 }
                 Column(Modifier.weight(1f)) {
@@ -126,7 +126,7 @@ fun StatsScreen() {
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("${i + 1}", style = MaterialTheme.typography.headlineSmall, color = if (i < 3) accent else Ink.Faint, modifier = Modifier.width(36.dp))
+                    Text("${i + 1}", style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = "tnum"), color = Ink.Faint, modifier = Modifier.width(36.dp))
                     Text(row.label, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text("${row.plays}×", style = MaterialTheme.typography.labelMedium, color = Ink.Muted)
                 }

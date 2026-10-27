@@ -347,7 +347,7 @@ fun SearchScreen() {
         val nothing = !loading && error == null && if (source == null) local.isEmpty else remote.isEmpty
         LazyColumn(contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp)) {
             if (loading && page == 0) item { Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
-            if (nothing) item { EmptyState(tr(R.string.search_nothing), tr(R.string.search_nothing_hint)) }
+            if (nothing) item { EmptyState(tr(R.string.search_nothing), tr(R.string.search_nothing_hint), art = R.drawable.art_empty_search) }
             if (!loading || page > 0) {
                 if (source == null) libraryResults(local, localTracks, kind, playing.nowPlaying?.trackId, graph, nav, { kind = it }, ::saveQuery)
                 else remoteResults(
@@ -663,10 +663,10 @@ private fun KindChip(text: String, selected: Boolean, onClick: () -> Unit) {
     val accent = LocalAccent.current
     Box(
         Modifier.clip(RoundedCornerShape(50))
-            .background(if (selected) accent.copy(alpha = 0.22f) else androidx.compose.ui.graphics.Color.Transparent)
+            .background(if (selected) Ink.Text.copy(alpha = 0.08f) else androidx.compose.ui.graphics.Color.Transparent)
             .clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
-        Text(text, style = MaterialTheme.typography.labelLarge, color = if (selected) accent else Ink.Muted)
+        Text(text, style = MaterialTheme.typography.labelLarge, color = if (selected) Ink.Text else Ink.Muted)
     }
 }
 
@@ -689,7 +689,7 @@ private fun SortButton(sort: TrackSort, onPick: (TrackSort) -> Unit) {
 @Composable
 private fun RecentSearches(recent: List<String>, onPick: (String) -> Unit, onClear: () -> Unit) {
     if (recent.isEmpty()) {
-        EmptyState(tr(R.string.search_empty_title), tr(R.string.search_empty_hint))
+        EmptyState(tr(R.string.search_empty_title), tr(R.string.search_empty_hint), art = R.drawable.art_empty_search)
         return
     }
     SectionHeader(tr(R.string.search_recent)) { TextButton(onClick = onClear) { Text(tr(R.string.clear)) } }

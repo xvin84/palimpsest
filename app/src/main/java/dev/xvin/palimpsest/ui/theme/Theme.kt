@@ -141,17 +141,27 @@ private fun sans(weight: Int) = Font(
 /** Lane's display face: a tight geometric sans (Manrope, OFL). */
 val Sans = FontFamily(sans(400), sans(500), sans(600), sans(700), sans(800))
 
+/**
+ * Everything that's read or tapped in Manrope, as on the computer (it used to be the system's
+ * Roboto under serif titles); the serif stays where a page or a song is named.
+ */
+private fun Typography.inManrope(): Typography {
+    fun TextStyle.m(w: FontWeight) = copy(fontFamily = Sans, fontWeight = w)
+    return copy(
+        titleLarge = titleLarge.m(FontWeight.Bold), titleMedium = titleMedium.m(FontWeight.SemiBold), titleSmall = titleSmall.m(FontWeight.SemiBold),
+        bodyLarge = bodyLarge.m(FontWeight.Medium), bodyMedium = bodyMedium.m(FontWeight.Medium), bodySmall = bodySmall.m(FontWeight.Medium),
+        labelLarge = labelLarge.m(FontWeight.SemiBold), labelMedium = labelMedium.m(FontWeight.SemiBold), labelSmall = labelSmall.m(FontWeight.Bold).copy(letterSpacing = 0.8.sp),
+    )
+}
+
 private val typography = Typography().let { t ->
     t.copy(
         displayLarge = TextStyle(fontFamily = Serif, fontWeight = FontWeight(700), fontSize = 44.sp, lineHeight = 48.sp, letterSpacing = (-0.5).sp),
-        displayMedium = TextStyle(fontFamily = Serif, fontWeight = FontWeight(700), fontSize = 36.sp, lineHeight = 40.sp, letterSpacing = (-0.3).sp),
+        displayMedium = TextStyle(fontFamily = Serif, fontWeight = FontWeight(700), fontSize = 34.sp, lineHeight = 40.sp, letterSpacing = (-0.3).sp),
         headlineLarge = TextStyle(fontFamily = Serif, fontWeight = FontWeight(700), fontSize = 30.sp, lineHeight = 36.sp),
         headlineMedium = TextStyle(fontFamily = Serif, fontWeight = FontWeight(700), fontSize = 26.sp, lineHeight = 32.sp),
-        headlineSmall = TextStyle(fontFamily = Serif, fontWeight = FontWeight(600), fontSize = 22.sp, lineHeight = 28.sp),
-        titleLarge = t.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-        titleMedium = t.titleMedium.copy(fontWeight = FontWeight.Medium),
-        labelSmall = t.labelSmall.copy(letterSpacing = 0.8.sp),
-    )
+        headlineSmall = TextStyle(fontFamily = Sans, fontWeight = FontWeight(700), fontSize = 20.sp, lineHeight = 26.sp),
+    ).inManrope()
 }
 
 private val laneTypography = Typography().let { t ->
@@ -161,11 +171,7 @@ private val laneTypography = Typography().let { t ->
         headlineLarge = TextStyle(fontFamily = Sans, fontWeight = FontWeight(800), fontSize = 30.sp, lineHeight = 34.sp, letterSpacing = (-0.8).sp),
         headlineMedium = TextStyle(fontFamily = Sans, fontWeight = FontWeight(800), fontSize = 26.sp, lineHeight = 30.sp, letterSpacing = (-0.6).sp),
         headlineSmall = TextStyle(fontFamily = Sans, fontWeight = FontWeight(700), fontSize = 22.sp, lineHeight = 27.sp, letterSpacing = (-0.4).sp),
-        titleLarge = t.titleLarge.copy(fontFamily = Sans, fontWeight = FontWeight.Bold),
-        titleMedium = t.titleMedium.copy(fontFamily = Sans, fontWeight = FontWeight.SemiBold),
-        titleSmall = t.titleSmall.copy(fontFamily = Sans, fontWeight = FontWeight.SemiBold),
-        labelSmall = t.labelSmall.copy(letterSpacing = 0.8.sp),
-    )
+    ).inManrope()
 }
 
 private val glassTypography = Typography().let { t ->

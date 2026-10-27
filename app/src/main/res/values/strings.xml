@@ -210,7 +210,7 @@
     <string name="file_not_found">File not found</string>
     <string name="filter_all">All</string>
     <string name="filter_downloaded">Downloaded</string>
-    <string name="filter_favorites">♥ Favorites</string>
+    <string name="filter_favorites">Favorites</string>
     <string name="find_online">Find online</string>
     <string name="flac_upgrade">Replace with FLAC</string>
     <string name="flac_upgrade_hint">Better quality: %1$s downloaded MP3/AAC tracks can be replaced with FLAC. The old files stay in version history.</string>

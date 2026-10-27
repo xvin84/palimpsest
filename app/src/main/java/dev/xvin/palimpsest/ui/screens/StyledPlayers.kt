@@ -215,9 +215,7 @@ private fun LikeButton(track: TrackEntity?, tint: Color, likedTint: Color = tint
     val nav = LocalNav.current
     val scope = rememberCoroutineScope()
     val t = track ?: return
-    IconButton(onClick = { scope.launch { graph.setLiked(t, !t.liked).onFailure { nav.toast(tr(R.string.like_not_saved_yandex, it.message)) } } }) {
-        Icon(if (t.liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, tr(R.string.favorite), tint = if (t.liked) likedTint else tint)
-    }
+    dev.xvin.palimpsest.ui.components.HeartButton(t.liked, { scope.launch { graph.setLiked(t, !t.liked).onFailure { nav.toast(tr(R.string.like_not_saved_yandex, it.message)) } } }, likedTint = likedTint, idleTint = tint, iconSize = 24.dp)
 }
 
 /** A seek line any style can colour: track, played part and a round thumb. */

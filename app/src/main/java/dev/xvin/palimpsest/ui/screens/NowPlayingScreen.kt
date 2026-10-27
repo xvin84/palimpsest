@@ -306,11 +306,9 @@ fun NowPlayingScreen(onClose: () -> Unit) {
                     }
                 }
                 track?.let { t ->
-                    IconButton(onClick = {
+                    dev.xvin.palimpsest.ui.components.HeartButton(t.liked, {
                         scope.launch { graph.setLiked(t, !t.liked).onFailure { nav.toast(tr(R.string.like_not_saved_yandex, it.message)) } }
-                    }) {
-                        Icon(if (t.liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, tr(R.string.favorite), tint = if (t.liked) accent else Ink.Muted)
-                    }
+                    }, likedTint = accent, iconSize = 24.dp)
                 }
             }
             val ab by graph.player.ab.collectAsStateWithLifecycle()

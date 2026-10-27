@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Drawn from desktop/src/main/resources/svg/logo.svg: the same drawing on both apps. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="32"
+    android:viewportHeight="32">
+    <path
+        android:pathData="M4 2h9.5a7.5 7.5 0 0 1 0 15H9v8H4z M9 7v5h4.5a2.5 2.5 0 0 0 0-5z"
+        android:fillColor="#FF000000"
+        android:fillAlpha="0.32"
+        android:fillType="evenOdd" />
+    <path
+        android:pathData="M11 8h9.5a7.5 7.5 0 0 1 0 15H16v7h-5z M16 13v5h4.5a2.5 2.5 0 0 0 0-5z"
+        android:fillColor="#FF000000"
+        android:fillType="evenOdd" />
+</vector>

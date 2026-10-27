@@ -209,7 +209,7 @@
     <string name="file_not_found">Файл не найден</string>
     <string name="filter_all">Все</string>
     <string name="filter_downloaded">Скачанные</string>
-    <string name="filter_favorites">♥ Любимые</string>
+    <string name="filter_favorites">Любимые</string>
     <string name="find_online">Найти онлайн</string>
     <string name="flac_upgrade">Заменить на FLAC</string>
     <string name="flac_upgrade_hint">Улучшить качество: %1$s скачанных треков в MP3/AAC можно заменить на FLAC. Старые файлы останутся в истории версий.</string>

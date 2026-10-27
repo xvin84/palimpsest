@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Drawn from desktop/src/main/resources/svg/empty-playlist.svg: the same drawing on both apps. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="96dp"
+    android:viewportWidth="120"
+    android:viewportHeight="96">
+    <path
+        android:pathData="M36.0,24.0h36.0a8.0,8.0 0 0 1 8.0,8.0v40.0a8.0,8.0 0 0 1 -8.0,8.0h-36.0a8.0,8.0 0 0 1 -8.0,-8.0v-40.0a8.0,8.0 0 0 1 8.0,-8.0z"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeAlpha="0.22" />
+    <path
+        android:pathData="M46.0,14.0h36.0a8.0,8.0 0 0 1 8.0,8.0v40.0a8.0,8.0 0 0 1 -8.0,8.0h-36.0a8.0,8.0 0 0 1 -8.0,-8.0v-40.0a8.0,8.0 0 0 1 8.0,-8.0z"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M50 32h28M50 42h28M50 52h16"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeAlpha="0.5" />
+    <path
+        android:pathData="M80.0,76.0a12.0,12.0 0 1,0 24.0,0a12.0,12.0 0 1,0 -24.0,0"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M92 70v12M86 76h12"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>
