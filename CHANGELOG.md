@@ -2,6 +2,23 @@
 
 **English** | [Русский](CHANGELOG.ru.md)
 
+## 0.4.10 — 2026-10-27
+
+### New
+- **The sung line: by line or word by word** (Settings → Lyrics on the phone, Settings → Library on the computer).
+  By line is the default now: the whole line lights up at once; word by word is the karaoke of 0.4.9.
+- Computer: **when something breaks, it says so.** Errors go to `crash.log` (Settings → About → Error log), and an
+  error the app can't go on after shows a window with what happened and where the log is, instead of the app just
+  vanishing. A crash of Java itself (a graphics driver, say) is picked up into the same log on the next start.
+- Computer: **drawing without the video card** — turns itself on when the last start died before its window was up,
+  and can be switched in Settings → About.
+
+### Fixed
+- Computer: **a launch could vanish without a trace** — the process appeared and was gone. Two ways that could happen
+  are closed: an error inside the window used to hide it to the tray and leave a process with no working window, and
+  every later launch handed over to that process and quit. Now such an error ends the app with a message, and a
+  launch waits for the running one to actually show its window — if it doesn't, it's ended and the new one starts.
+
 ## 0.4.9 — 2026-10-26
 
 ### New

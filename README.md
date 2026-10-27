@@ -119,6 +119,11 @@ SigLevel = Optional TrustAll
 Server = https://github.com/xvin84/palimpsest/releases/latest/download
 ```
 
+**If the computer app doesn't open:** it writes what went wrong to `crash.log` — on Windows in `%APPDATA%\Palimpsest`,
+on macOS in `~/Library/Application Support/Palimpsest`, on Linux in `~/.config/palimpsest-desktop` — and shows the
+error in a window. Send that file along with the report. When a start dies before the window is drawn (a graphics
+driver, say), the next one draws without the video card on its own; Settings → About turns that back off.
+
 **If the phone refuses to install it:**
 - *«Blocked by Play Protect» / «unsafe app»*: tap «More details» → «Install anyway». Builds before 0.4.1 were signed
   with a development certificate that Play Protect distrusts; later ones use a proper key (and still update the old ones).
