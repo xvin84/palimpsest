@@ -66,7 +66,7 @@ enum class Kind { PRIMARY, SECONDARY, GHOST }
 
 /** A 32dp button: the screen's main action (accent), an ordinary one, or one that only shows on hover. */
 @Composable
-fun PButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, icon: ImageVector? = null, kind: Kind = Kind.SECONDARY, enabled: Boolean = true) {
+fun PButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, icon: ImageVector? = null, kind: Kind = Kind.SECONDARY, enabled: Boolean = true, trailingIcon: ImageVector? = null) {
     val pal = LocalPal.current
     val hover = remember { MutableInteractionSource() }
     val hovered by hover.collectIsHoveredAsState()
@@ -86,12 +86,13 @@ fun PButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, ic
         modifier.height(32.dp).clip(RoundedCornerShape(Radius.md)).background(bg)
             .hoverable(hover).clickable(enabled = enabled, onClick = onClick).pointerHoverIcon(PointerIcon.Hand)
             .graphicsLayer { alpha = if (enabled) 1f else 0.45f }
-            .padding(start = if (icon != null) 10.dp else 14.dp, end = 14.dp),
+            .padding(start = if (icon != null) 10.dp else 14.dp, end = if (trailingIcon != null) 8.dp else 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         icon?.let { Icon(it, null, tint = fg, modifier = Modifier.size(18.dp)) }
         Text(text, style = MaterialTheme.typography.labelLarge, color = fg, maxLines = 1)
+        trailingIcon?.let { Icon(it, null, tint = fg, modifier = Modifier.size(16.dp)) }
     }
 }
 

@@ -6,6 +6,14 @@ import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.automirrored.rounded.Notes
+import androidx.compose.material.icons.rounded.Translate
+import androidx.compose.material.icons.rounded.VerticalAlignCenter
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -81,15 +89,13 @@ import kotlinx.coroutines.launch
 fun RightPanel(panel: String, modifier: Modifier) {
     val pal = LocalPal.current
     val nav = LocalNav.current
-    Column(modifier.background(pal.paper2).padding(16.dp)) {
+    Column(modifier.background(pal.paper2).drawBehind { drawLine(pal.line, Offset(0f, 0f), Offset(0f, size.height), 1.dp.toPx()) }.padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Pill(t("Текст", "Lyrics"), panel == "lyrics", { nav.rightPanel = "lyrics" })
-            Spacer(Modifier.width(8.dp))
-            Pill(t("Очередь", "Queue"), panel == "queue", { nav.rightPanel = "queue" })
+            Tabs(listOf("lyrics" to t("Текст", "Lyrics"), "queue" to t("Очередь", "Queue")), panel, { nav.rightPanel = it })
             Spacer(Modifier.weight(1f))
-            IconButton(onClick = { nav.rightPanel = null }) { Icon(Icons.Rounded.Close, null, tint = pal.muted) }
+            PIconButton(Icons.Rounded.Close, t("Закрыть", "Close"), { nav.rightPanel = null }, iconSize = 18.dp)
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(12.dp))
         if (panel == "queue") QueueList() else LyricsView(Modifier.fillMaxSize(), big = false)
     }
 }
@@ -104,18 +110,27 @@ private fun QueueList() {
     LaunchedEffect(st.index) { if (st.index > 2) list.animateScrollToItem(st.index - 2) }
     LazyColumn(state = list) {
         itemsIndexed(st.queue, key = { i, t -> "$i:${t.id}" }) { i, t ->
+            val now = i == st.index
+            val hover = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+            val hovered by hover.collectIsHoveredAsState()
             Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(if (i == st.index) accent.copy(alpha = 0.14f) else Color.Transparent)
-                    .clickable { graph.player.skipTo(i) }.padding(6.dp),
+                Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(Radius.md))
+                    .background(if (hovered) pal.text.copy(alpha = 0.05f) else Color.Transparent)
+                    .hoverable(hover).clickable { graph.player.skipTo(i) }.padding(horizontal = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TrackArt(t, Modifier.size(36.dp), 4.dp)
+                Box {
+                    TrackArt(t, Modifier.size(36.dp), Radius.xs)
+                    if (now) Box(Modifier.size(36.dp).clip(RoundedCornerShape(Radius.xs)).background(Color.Black.copy(alpha = 0.45f)), contentAlignment = Alignment.Center) {
+                        PlayingBars(st.playing, color = Color.White)
+                    }
+                }
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(t.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp, color = if (i == st.index) accent else pal.text)
-                    Text(t.artist, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 11.sp, color = pal.muted)
+                    Text(t.title, style = Type.rowTitle.copy(fontSize = 13.sp), maxLines = 1, overflow = TextOverflow.Ellipsis, color = if (now) accent else if (i < st.index) pal.muted else pal.text)
+                    Text(t.artist, style = Type.rowSub.copy(fontSize = 12.sp), maxLines = 1, overflow = TextOverflow.Ellipsis, color = pal.muted)
                 }
-                if (i != st.index) Icon(Icons.Rounded.Close, null, tint = pal.faint, modifier = Modifier.size(16.dp).clickable { graph.player.removeAt(i) })
+                if (!now && hovered) PIconButton(Icons.Rounded.Close, t("Убрать из очереди", "Remove from the queue"), { graph.player.removeAt(i) }, size = 26.dp, iconSize = 15.dp)
             }
         }
     }
@@ -195,20 +210,26 @@ private fun LyricsBody(p: ParsedLyrics, track: Track, shown: Lyrics?, big: Boole
             else { list.scrollToItem(active); list.scrollBy(-anchor.toFloat()) }
         } finally { gliding = false }
     }
-    val lineSize = if (big) (30 * scale).sp else 18.sp
-    val lineHeight = if (big) (38 * scale).sp else 25.sp
+    val lineSize = if (big) (32 * scale).sp else 18.sp
+    val lineHeight = if (big) (40 * scale).sp else 25.sp
     Box(modifier) {
         Column(Modifier.fillMaxSize()) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.offset(x = (-8).dp)) {
                 LyricsSourceButton(track, shown, onPick)
-                TextButton(enabled = !translating, onClick = {
-                    if (translated != null) { translated = null; return@TextButton }
-                    translating = true
-                    scope.launch {
-                        translated = runCatching { graph.translator.translate(p.lines.map { it.text }, if (ru) "ru" else "en").lines }.getOrNull()
-                        translating = false
-                    }
-                }) { Text(if (translated != null) t("Оригинал", "Original") else if (translating) t("Перевожу…", "Translating…") else t("Перевести", "Translate"), color = pal.muted, fontSize = 13.sp) }
+                PButton(
+                    if (translated != null) t("Оригинал", "Original") else if (translating) t("Перевожу…", "Translating…") else t("Перевести", "Translate"),
+                    {
+                        if (translated != null) translated = null
+                        else {
+                            translating = true
+                            scope.launch {
+                                translated = runCatching { graph.translator.translate(p.lines.map { it.text }, if (ru) "ru" else "en").lines }.getOrNull()
+                                translating = false
+                            }
+                        }
+                    },
+                    icon = Icons.Rounded.Translate, kind = Kind.GHOST, enabled = !translating,
+                )
             }
             LazyColumn(
                 state = list,
@@ -225,21 +246,24 @@ private fun LyricsBody(p: ParsedLyrics, track: Track, shown: Lyrics?, big: Boole
                     val isActive = i == active
                     val distance = if (active < 0) 3 else kotlin.math.abs(i - active)
                     val alpha by animateFloatAsState(
-                        when { !p.isSynced -> 0.92f; isActive -> 1f; distance == 1 -> 0.52f; distance == 2 -> 0.4f; else -> 0.3f },
+                        when { !p.isSynced -> 0.92f; isActive -> 1f; distance == 1 -> 0.42f; distance == 2 -> 0.3f; else -> 0.22f },
                         androidx.compose.animation.core.tween(500),
                     )
                     val grow by animateFloatAsState(if (isActive || !p.isSynced) 1f else 0.965f, androidx.compose.animation.core.spring(dampingRatio = 0.8f, stiffness = 200f))
                     val hover = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                     val hovered by hover.collectIsHoveredAsState()
+                    // Lines further from the sung one go a little out of focus (on the big player).
+                    val soft by animateFloatAsState(if (!big || !p.isSynced || distance < 2) 0f else if (distance == 2) 1f else 2f, androidx.compose.animation.core.tween(500))
                     Column(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.lg))
                             .background(if (hovered && p.isSynced) pal.text.copy(alpha = 0.05f) else Color.Transparent)
                             .hoverable(hover)
                             .clickable(enabled = p.isSynced) { follow = true; graph.player.seek(line.timeMs) }
                             .graphicsLayer { this.alpha = alpha; scaleX = grow; scaleY = grow; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0.5f) }
+                            .then(if (soft > 0.05f) Modifier.blur(soft.dp, androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded) else Modifier)
                             .padding(horizontal = 10.dp, vertical = if (big) 9.dp else 6.dp),
                     ) {
-                        val style = MaterialTheme.typography.bodyLarge.copy(fontSize = lineSize, lineHeight = lineHeight, fontWeight = FontWeight.Bold)
+                        val style = Type.lyric.copy(fontSize = lineSize, lineHeight = lineHeight)
                         val end = p.lines.getOrNull(i + 1)?.timeMs ?: (line.timeMs + 5000)
                         when {
                             line.text.isBlank() -> PauseDots(isActive, if (big) 10.dp else 7.dp, pal.text)
@@ -247,7 +271,7 @@ private fun LyricsBody(p: ParsedLyrics, track: Track, shown: Lyrics?, big: Boole
                             else -> Text(line.text, style = style, color = pal.text)
                         }
                         translated?.getOrNull(i)?.takeIf { it.isNotBlank() && it != line.text }?.let {
-                            Text(it, color = accent.copy(alpha = 0.85f), fontSize = if (big) (19 * scale).sp else 13.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 2.dp))
+                            Text(it, color = pal.text.copy(alpha = 0.6f), style = MaterialTheme.typography.bodyLarge.copy(fontSize = if (big) (19 * scale).sp else 13.sp, lineHeight = if (big) (25 * scale).sp else 18.sp), modifier = Modifier.padding(top = 2.dp))
                         }
                     }
                 }
@@ -257,7 +281,13 @@ private fun LyricsBody(p: ParsedLyrics, track: Track, shown: Lyrics?, big: Boole
             androidx.compose.material3.Surface(
                 onClick = { follow = true }, shape = RoundedCornerShape(50), color = pal.paper3, shadowElevation = 6.dp,
                 modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp),
-            ) { Text(t("↧ К текущей строке", "↧ Back to the line"), Modifier.padding(horizontal = 16.dp, vertical = 8.dp), fontSize = 13.sp) }
+            ) {
+                Row(Modifier.padding(start = 12.dp, end = 16.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.VerticalAlignCenter, null, tint = pal.muted, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(t("К текущей строке", "Back to the line"), style = MaterialTheme.typography.labelLarge)
+                }
+            }
         }
     }
 }
@@ -358,9 +388,10 @@ private fun LyricsSourceButton(track: Track, shown: Lyrics?, onPick: (Lyrics) ->
     val pal = LocalPal.current
     var open by remember { mutableStateOf(false) }
     Box {
-        TextButton(onClick = { open = true }) {
-            Text(t("Источник", "Source") + (shown?.let { ": " + lyricsSourceName(it.source) } ?: "") + " ▾", color = pal.muted)
-        }
+        PButton(
+            shown?.let { lyricsSourceName(it.source).replaceFirstChar(Char::uppercase) } ?: t("Источник", "Source"), { open = true },
+            icon = Icons.AutoMirrored.Rounded.Notes, kind = Kind.GHOST, trailingIcon = Icons.Rounded.ExpandMore,
+        )
         if (open) {
             val variants by produceState<List<Lyrics>?>(null, track.id) { value = runCatching { graph.lyrics.variants(track) }.getOrDefault(emptyList()) }
             androidx.compose.material3.DropdownMenu(true, onDismissRequest = { open = false }, modifier = Modifier.widthIn(min = 300.dp, max = 420.dp)) {
@@ -377,11 +408,12 @@ private fun LyricsSourceButton(track: Track, shown: Lyrics?, onPick: (Lyrics) ->
                         androidx.compose.material3.DropdownMenuItem(
                             text = {
                                 Column {
-                                    Text((if (same) "✓ " else "") + lyricsSourceName(l.source) + " · " + (if (l.synced != null) t("по времени", "timed") else t("без времени", "untimed")), fontSize = 14.sp)
-                                    Text(first, color = pal.muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(lyricsSourceName(l.source).replaceFirstChar(Char::uppercase) + " · " + (if (l.synced != null) t("по времени", "timed") else t("без времени", "untimed")), style = Type.rowTitle)
+                                    Text(first, color = pal.muted, style = Type.rowSub, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                             },
                             onClick = { open = false; graph.lyrics.save(track, l); onPick(l) },
+                            trailingIcon = if (same) { { Icon(Icons.Rounded.Check, null, tint = pal.text, modifier = Modifier.size(18.dp)) } } else null,
                         )
                     }
                 }
@@ -412,7 +444,7 @@ fun NowPlayingView() {
         val wide = w > h * 1.15f && w >= 820.dp
         val lyrics = nav.bigLyrics
         val scale = (w.value / 1400f).coerceIn(0.7f, 1.3f)
-        val titleStyle = MaterialTheme.typography.displayMedium.copy(fontSize = (34 * scale).coerceAtLeast(24f).sp, lineHeight = (40 * scale).coerceAtLeast(28f).sp)
+        val titleStyle = MaterialTheme.typography.displayLarge.copy(fontSize = (40 * scale).coerceAtLeast(26f).sp, lineHeight = (46 * scale).coerceAtLeast(31f).sp)
         // Backdrop.
         if (lane) {
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(deep, pal.paper))))
@@ -423,7 +455,10 @@ fun NowPlayingView() {
         @Composable
         fun Titles(color: Color = pal.text) {
             Text(t.title, style = titleStyle, color = color, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text(listOfNotNull(t.artist, t.album).joinToString(" · "), color = color.copy(alpha = 0.75f), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                listOfNotNull(t.artist, t.album?.takeIf { it != t.title }).joinToString(" · "), color = color.copy(alpha = 0.7f),
+                style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp),
+            )
         }
         when {
             // Wide, Lane: the cover fills the left part edge to edge.
@@ -436,11 +471,11 @@ fun NowPlayingView() {
                 }
                 LyricsView(Modifier.weight(1f).fillMaxHeight().padding(40.dp), big = true, scale = scale)
             }
-            wide && lyrics -> Row(Modifier.fillMaxSize().padding(48.dp), horizontalArrangement = Arrangement.spacedBy(48.dp)) {
+            wide && lyrics -> Row(Modifier.fillMaxSize().padding(start = 56.dp, end = 48.dp, top = 64.dp, bottom = 40.dp), horizontalArrangement = Arrangement.spacedBy(56.dp)) {
                 CoverWithInfo(Modifier.weight(1f).fillMaxHeight(), w, centered = false, cover = { androidx.compose.animation.Crossfade(t.id to model, animationSpec = androidx.compose.animation.core.tween(450)) { (_, m) -> Artwork(m, t.album ?: t.title, Modifier.fillMaxSize(), 18.dp, artist = t.albumArtist ?: t.artist) } }) {
                     Titles()
-                    Spacer(Modifier.height(12.dp))
-                    Spectrum(Modifier.fillMaxWidth().height(60.dp))
+                    Spacer(Modifier.height(16.dp))
+                    Spectrum(Modifier.fillMaxWidth().height(44.dp), pal.text.copy(alpha = 0.32f))
                 }
                 LyricsView(Modifier.weight(1.2f).fillMaxHeight(), big = true, scale = scale)
             }
@@ -451,7 +486,7 @@ fun NowPlayingView() {
                     Spacer(Modifier.width(18.dp))
                     Column(Modifier.weight(1f, fill = false)) {
                         Titles()
-                        if (!lane) { Spacer(Modifier.height(10.dp)); Spectrum(Modifier.widthIn(max = 360.dp).fillMaxWidth().height(32.dp)) }
+                        if (!lane) { Spacer(Modifier.height(10.dp)); Spectrum(Modifier.widthIn(max = 360.dp).fillMaxWidth().height(28.dp), pal.text.copy(alpha = 0.32f)) }
                     }
                 }
                 Spacer(Modifier.height(16.dp))
@@ -460,13 +495,19 @@ fun NowPlayingView() {
             // Lyrics off: the cover as big as the window allows.
             else -> CoverWithInfo(Modifier.fillMaxSize().padding(32.dp), minOf(w * 0.8f, h * 0.68f), centered = true, cover = { androidx.compose.animation.Crossfade(t.id to model, animationSpec = androidx.compose.animation.core.tween(450)) { (_, m) -> Artwork(m, t.album ?: t.title, Modifier.fillMaxSize(), if (lane) 6.dp else 18.dp, artist = t.albumArtist ?: t.artist) } }) {
                 Titles()
-                if (!lane) { Spacer(Modifier.height(12.dp)); Spectrum(Modifier.fillMaxWidth().height(48.dp)) }
+                if (!lane) { Spacer(Modifier.height(12.dp)); Spectrum(Modifier.fillMaxWidth().height(40.dp), pal.text.copy(alpha = 0.32f)) }
             }
         }
-        IconButton(onClick = { nav.openMenu(graph.library.get(t.id) ?: t) }, modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)) {
-            Icon(Icons.Rounded.MoreHoriz, t("Действия", "Actions"), Modifier.size(28.dp), tint = if (lane || !pal.light) Color.White else pal.text)
+        // On a soft disc, so they read over any cover.
+        val onArt = if (lane || !pal.light) Color.White else pal.text
+        @Composable
+        fun Corner(icon: androidx.compose.ui.graphics.vector.ImageVector, description: String, align: Alignment, onClick: () -> Unit) {
+            Box(Modifier.align(align).padding(12.dp).clip(CircleShape).background(if (lane || !pal.light) Color.Black.copy(alpha = 0.28f) else pal.paper.copy(alpha = 0.6f))) {
+                PIconButton(icon, description, onClick, size = 36.dp, iconSize = 22.dp, tint = onArt)
+            }
         }
-        IconButton(onClick = { nav.nowPlaying = false }, modifier = Modifier.padding(8.dp)) { Icon(Icons.Rounded.KeyboardArrowDown, null, Modifier.size(32.dp), tint = if (lane || !pal.light) Color.White else pal.text) }
+        Corner(Icons.Rounded.MoreHoriz, t("Действия", "Actions"), Alignment.TopEnd) { nav.openMenu(graph.library.get(t.id) ?: t) }
+        Corner(Icons.Rounded.KeyboardArrowDown, t("Свернуть", "Collapse"), Alignment.TopStart) { nav.nowPlaying = false }
     }
 }
 
@@ -503,9 +544,8 @@ private fun CoverWithInfo(modifier: Modifier, maxSide: Dp, centered: Boolean, co
 
 /** The spectrum of what's playing, straight from the shared analyser. */
 @Composable
-fun Spectrum(modifier: Modifier) {
+fun Spectrum(modifier: Modifier, color: Color = LocalAccent.current) {
     val graph = LocalGraph.current
-    val accent = LocalAccent.current
     val st by graph.player.state.collectAsState()
     var levels by remember { mutableStateOf(FloatArray(48)) }
     LaunchedEffect(st.playing) {
@@ -520,7 +560,7 @@ fun Spectrum(modifier: Modifier) {
         val slot = size.width / n
         levels.forEachIndexed { i, v ->
             val h = (v.coerceIn(0f, 1f) * size.height).coerceAtLeast(2f)
-            drawRoundRect(accent, androidx.compose.ui.geometry.Offset(i * slot + slot * 0.15f, size.height - h), androidx.compose.ui.geometry.Size(slot * 0.7f, h), androidx.compose.ui.geometry.CornerRadius(slot * 0.35f))
+            drawRoundRect(color, androidx.compose.ui.geometry.Offset(i * slot + slot * 0.15f, size.height - h), androidx.compose.ui.geometry.Size(slot * 0.7f, h), androidx.compose.ui.geometry.CornerRadius(slot * 0.35f))
         }
     }
 }
