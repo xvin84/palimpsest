@@ -75,7 +75,8 @@ object Lrc {
      * «instrumental» / «no lyrics yet» notes.
      */
     private val junk = listOf(
-        Regex("""^\{"t":-?\d+,"c":\[.*]}$"""),
+        // Every brace and bracket escaped: Android's regex engine (ICU) rejects a bare «}», which Java accepts.
+        Regex("""^\{"t":-?\d+,"c":\[.*\]\}$"""),
         Regex("""подключите подписку на плюс|subscribe to (?:yandex )?plus""", RegexOption.IGNORE_CASE),
         Regex("""^(?:作词|作曲|编曲|制作人|混音|母带|和声|吉他|贝斯|鼓|弦乐|录音|监制|出品|Lyricist|Composer|Arranger|Producer)\s*[:：]""", RegexOption.IGNORE_CASE),
         Regex("""^(?:纯音乐，?请欣赏|暂无歌词|此歌曲为没有填词的纯音乐)"""),

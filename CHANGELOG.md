@@ -2,6 +2,12 @@
 
 **English** | [Русский](CHANGELOG.ru.md)
 
+## 0.5.1 — 2026-10-28
+
+### Fixed
+- Phone: **the app crashed as soon as it got to a song's lyrics** (0.5.0). The new check for stand-in lyrics was
+  written in a way Java on the computer accepts and Android doesn't.
+
 ## 0.5.0 — 2026-10-28
 
 ### New
