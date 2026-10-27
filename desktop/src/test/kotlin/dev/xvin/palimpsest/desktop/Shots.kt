@@ -9,7 +9,9 @@ import coil3.compose.setSingletonImageLoaderFactory
 import coil3.disk.DiskCache
 import coil3.disk.directory
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import dev.xvin.palimpsest.desktop.data.DesktopStyle
 import dev.xvin.palimpsest.desktop.data.DesktopTheme
+import dev.xvin.palimpsest.desktop.ui.TrackDialog
 import dev.xvin.palimpsest.desktop.data.Graph
 import dev.xvin.palimpsest.desktop.data.Paths
 import dev.xvin.palimpsest.desktop.ui.CoverColors
@@ -43,25 +45,45 @@ fun main(args: Array<String>) {
         dev.xvin.palimpsest.desktop.playback.AudioEngine.State(positionMs = System.getenv("SHOTS_POS")?.toLongOrNull() ?: 40_000)
     val colors = runBlocking { current?.let { CoverColors.of(graph, it) } } ?: (Vermilion to Color(0xFF2A2A30))
     val artist = current?.artists?.firstOrNull()
-    val shots = buildList<Triple<String, DesktopTheme, (Nav) -> Unit>> {
-        add(Triple("library", DesktopTheme.DARK) { it.root(Screen.Library) })
-        add(Triple("now", DesktopTheme.DARK) { it.nowPlaying = true })
-        add(Triple("now-cover", DesktopTheme.DARK) { it.nowPlaying = true; it.bigLyrics = false })
-        add(Triple("lyrics-panel", DesktopTheme.DARK) { it.rightPanel = "lyrics" })
-        add(Triple("queue-panel", DesktopTheme.DARK) { it.rightPanel = "queue" })
-        add(Triple("search", DesktopTheme.DARK) { it.root(Screen.Search) })
-        add(Triple("services", DesktopTheme.DARK) { it.root(Screen.Services) })
-        add(Triple("liked", DesktopTheme.DARK) { it.root(Screen.Liked) })
-        if (artist != null) add(Triple("artist", DesktopTheme.DARK) { it.go(Screen.Artist(artist)) })
-        if (current?.album != null) add(Triple("album", DesktopTheme.DARK) { it.go(Screen.LocalAlbum(current.album!!, current.albumArtist ?: current.artist)) })
-        add(Triple("settings", DesktopTheme.DARK) { it.root(Screen.Settings) })
-        add(Triple("library-light", DesktopTheme.LIGHT) { it.root(Screen.Library) })
-        add(Triple("now-light", DesktopTheme.LIGHT) { it.nowPlaying = true })
+    class Shot(val name: String, val theme: DesktopTheme = DesktopTheme.DARK, val style: DesktopStyle? = null, val setup: (Nav) -> Unit)
+    val shots = buildList {
+        add(Shot("library") { it.root(Screen.Library) })
+        add(Shot("now") { it.nowPlaying = true })
+        add(Shot("now-cover") { it.nowPlaying = true; it.bigLyrics = false })
+        add(Shot("lyrics-panel") { it.rightPanel = "lyrics" })
+        add(Shot("queue-panel") { it.rightPanel = "queue" })
+        add(Shot("search") { it.root(Screen.Search) })
+        add(Shot("services") { it.root(Screen.Services) })
+        add(Shot("liked") { it.root(Screen.Liked) })
+        add(Shot("history") { it.root(Screen.History) })
+        add(Shot("flac") { it.go(Screen.Flac) })
+        if (artist != null) add(Shot("artist") { it.go(Screen.Artist(artist)) })
+        if (current?.album != null) add(Shot("album") { it.go(Screen.LocalAlbum(current.album!!, current.albumArtist ?: current.artist)) })
+        add(Shot("settings") { it.root(Screen.Settings) })
+        if (current != null) {
+            add(Shot("menu") { it.menu = listOf(current) })
+            if (current.path != null) {
+                add(Shot("tags") { it.dialog = TrackDialog.EditTags(listOf(current)) })
+                add(Shot("delete") { it.dialog = TrackDialog.Delete(listOf(current)) })
+                add(Shot("move") { it.dialog = TrackDialog.Move(listOf(current)) })
+            }
+            add(Shot("video") { it.dialog = TrackDialog.Video(current) })
+        }
+        add(Shot("wave") { it.waveTuning = true })
+        add(Shot("library-light", DesktopTheme.LIGHT) { it.root(Screen.Library) })
+        add(Shot("now-light", DesktopTheme.LIGHT) { it.nowPlaying = true })
+        add(Shot("library-lane", style = DesktopStyle.LANE) { it.root(Screen.Library) })
+        add(Shot("now-lane", style = DesktopStyle.LANE) { it.nowPlaying = true })
+        add(Shot("now-cover-lane", style = DesktopStyle.LANE) { it.nowPlaying = true; it.bigLyrics = false })
+        add(Shot("artist-lane", style = DesktopStyle.LANE) { if (artist != null) it.go(Screen.Artist(artist)) })
+        add(Shot("settings-lane", style = DesktopStyle.LANE) { it.root(Screen.Settings) })
+        add(Shot("library-lane-light", DesktopTheme.LIGHT, DesktopStyle.LANE) { it.root(Screen.Library) })
     }
     val only = System.getenv("SHOTS_ONLY")?.split(',')
-    for ((name, theme, setup) in shots) {
+    for (shot in shots) {
+        val name = shot.name
         if (only != null && name !in only) continue
-        val nav = Nav().also(setup)
+        val nav = Nav().also(shot.setup)
         val scene = ImageComposeScene(w, h, Density(1f)) {
             setSingletonImageLoaderFactory { ctx ->
                 ImageLoader.Builder(ctx)
@@ -69,7 +91,7 @@ fun main(args: Array<String>) {
                     .diskCache { DiskCache.Builder().directory(File(Paths.cache, "coil").toOkioPath()).maxSizeBytes(256L shl 20).build() }
                     .build()
             }
-            PalimpsestDesktopTheme(graph.settings.value.style, theme, colors.first, colors.second) {
+            PalimpsestDesktopTheme(shot.style ?: graph.settings.value.style, shot.theme, colors.first, colors.second) {
                 CompositionLocalProvider(LocalGraph provides graph, LocalNav provides nav) { Shell() }
             }
         }

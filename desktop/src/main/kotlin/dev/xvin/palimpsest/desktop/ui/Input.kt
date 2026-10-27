@@ -1,6 +1,8 @@
 package dev.xvin.palimpsest.desktop.ui
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
@@ -60,4 +62,33 @@ fun Modifier.rowClicks(onPress: (PointerKeyboardModifiers) -> Unit, onDouble: ()
             }
         }
     }
+}
+
+/**
+ * Who has the keyboard: a text field or the shortcut catcher. While one has it, shortcuts without
+ * Ctrl/Alt/⌘ stay with it (typing «k» in Search mustn't pause), and so do the usual editing keys.
+ */
+object KeyboardOwner {
+    private var owner by androidx.compose.runtime.mutableStateOf<Any?>(null)
+    val busy: Boolean get() = owner != null
+
+    fun take(key: Any) { owner = key }
+    fun release(key: Any) { if (owner === key) owner = null }
+
+    /** What a field keeps while focused even with Ctrl: select all, copy, paste, undo, word jumps… */
+    private val editing = setOf("A", "C", "V", "X", "Z", "Y", "Left", "Right", "Up", "Down", "Backspace", "Delete", "Home", "End")
+
+    /** Whether a [stroke] like «Ctrl+Shift+K» should go to the shortcuts rather than the field. */
+    fun letThrough(stroke: String): Boolean {
+        if (!busy) return true
+        val parts = stroke.split('+')
+        return parts.size > 1 && parts.dropLast(1).any { it == "Ctrl" || it == "Alt" || it == "Meta" || it == "Cmd" } && parts.last() !in editing
+    }
+}
+
+/** Marks a text field (or anything that reads keys) as owning the keyboard while it has focus. */
+fun Modifier.ownsKeys(): Modifier = composed {
+    val key = remember { Any() }
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { KeyboardOwner.release(key) } }
+    onFocusChanged { if (it.isFocused) KeyboardOwner.take(key) else KeyboardOwner.release(key) }
 }

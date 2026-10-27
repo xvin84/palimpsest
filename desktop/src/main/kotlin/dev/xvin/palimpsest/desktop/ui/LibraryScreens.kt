@@ -398,7 +398,7 @@ fun PlaylistScreen(id: Long) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             // The name is edited in place, set in the page title's own type.
             androidx.compose.foundation.text.BasicTextField(
-                name, { name = it; graph.playlists.rename(p.id, it) }, Modifier.weight(1f), singleLine = true,
+                name, { name = it; graph.playlists.rename(p.id, it) }, Modifier.weight(1f).ownsKeys(), singleLine = true,
                 textStyle = MaterialTheme.typography.displayMedium.copy(color = pal.text), cursorBrush = androidx.compose.ui.graphics.SolidColor(pal.text),
             )
             PButton(t("Удалить плейлист", "Delete playlist"), { graph.playlists.delete(p.id); nav.root(Screen.Library) }, icon = Icons.Rounded.DeleteOutline, kind = Kind.GHOST)

@@ -10,10 +10,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -56,36 +56,35 @@ fun WaveTuningDialog(onDismiss: () -> Unit) {
 
     @Composable
     fun Group(title: String, value: String, options: List<Pair<String, String>>, onPick: (String) -> Unit) {
-        Spacer(Modifier.height(14.dp))
-        Text(title.uppercase(), style = MaterialTheme.typography.labelSmall, color = pal.muted)
+        Spacer(Modifier.height(16.dp))
+        Caption(title)
         Spacer(Modifier.height(8.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             options.forEach { (v, label) -> Pill(label, value == v, { onPick(v) }) }
         }
     }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        modifier = Modifier.widthIn(min = 520.dp, max = 680.dp),
-        title = { Text(t("Моя волна", "My Wave")) },
-        text = {
-            Column(Modifier.heightIn(max = 560.dp).verticalScroll(rememberScrollState())) {
-                Text(t("Что выберешь, то и будет в волне — с этого запуска и дальше.", "What you pick goes into the wave, from this start on."), color = pal.muted, fontSize = 13.sp)
-                Group(t("Характер", "Character"), w.diversity, listOf("" to t("Любой", "Any"), "favorite" to t("Любимое", "Favourite"), "discover" to t("Незнакомое", "Unfamiliar"), "popular" to t("Популярное", "Popular"))) { set(w.copy(diversity = it)) }
-                Group(t("Настроение", "Mood"), w.mood, listOf("" to t("Любое", "Any"), "active" to t("Бодрое", "Upbeat"), "fun" to t("Весёлое", "Fun"), "calm" to t("Спокойное", "Calm"), "sad" to t("Грустное", "Sad"))) { set(w.copy(mood = it)) }
-                Group(t("Язык", "Language"), w.language, listOf("" to t("Любой", "Any"), "russian" to t("Русский", "Russian"), "not-russian" to t("Иностранный", "Foreign"), "without-words" to t("Без слов", "Instrumental"))) { set(w.copy(language = it)) }
-                val list = stations
-                if (!list.isNullOrEmpty()) {
-                    Spacer(Modifier.height(18.dp))
-                    Text(t("Занятия и настроения".uppercase(), "Activities and moods".uppercase()), style = MaterialTheme.typography.labelSmall, color = pal.muted)
-                    Spacer(Modifier.height(8.dp))
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        list.take(40).forEach { st -> Pill(st.name, false, { startMyWave(graph, nav, st); onDismiss() }) }
-                    }
+    PDialog(
+        t("Моя волна", "My Wave"), onDismiss, width = 600.dp,
+        subtitle = t("Что выберешь, то и будет в волне — с этого запуска и дальше.", "What you pick goes into the wave, from this start on."),
+        buttons = {
+            PButton(t("Готово", "Done"), onDismiss, kind = Kind.GHOST)
+            PButton(t("Запустить волну", "Start the wave"), { startMyWave(graph, nav); onDismiss() }, icon = Icons.Rounded.PlayArrow, kind = Kind.PRIMARY)
+        },
+    ) {
+        Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState())) {
+            Group(t("Характер", "Character"), w.diversity, listOf("" to t("Любой", "Any"), "favorite" to t("Любимое", "Favourite"), "discover" to t("Незнакомое", "Unfamiliar"), "popular" to t("Популярное", "Popular"))) { set(w.copy(diversity = it)) }
+            Group(t("Настроение", "Mood"), w.mood, listOf("" to t("Любое", "Any"), "active" to t("Бодрое", "Upbeat"), "fun" to t("Весёлое", "Fun"), "calm" to t("Спокойное", "Calm"), "sad" to t("Грустное", "Sad"))) { set(w.copy(mood = it)) }
+            Group(t("Язык", "Language"), w.language, listOf("" to t("Любой", "Any"), "russian" to t("Русский", "Russian"), "not-russian" to t("Иностранный", "Foreign"), "without-words" to t("Без слов", "Instrumental"))) { set(w.copy(language = it)) }
+            val list = stations
+            if (!list.isNullOrEmpty()) {
+                Spacer(Modifier.height(20.dp))
+                Caption(t("Занятия и настроения — запускаются сразу", "Activities and moods — start right away"))
+                Spacer(Modifier.height(8.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    list.take(40).forEach { st -> Pill(st.name, false, { startMyWave(graph, nav, st); onDismiss() }) }
                 }
             }
-        },
-        confirmButton = { TextButton(onClick = { startMyWave(graph, nav); onDismiss() }) { Text(t("Запустить волну", "Start the wave")) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(t("Готово", "Done")) } },
-    )
+        }
+    }
 }

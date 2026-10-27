@@ -1,6 +1,17 @@
 package dev.xvin.palimpsest.desktop.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.offset
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.DoneAll
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -61,29 +72,31 @@ fun FlacScreen() {
     // Every folder that can be picked: the music folders and whatever was added here.
     val choices = (settings.musicRoots + folders).distinct()
 
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 28.dp, vertical = 20.dp)) {
+    LazyColumn(Modifier.fillMaxSize().padding(start = 28.dp, end = 20.dp), contentPadding = PaddingValues(top = 16.dp, bottom = 32.dp)) {
         item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { nav.back() }) { Text("←", fontSize = 22.sp) }
-                Text(t("Перевести в FLAC", "Upgrade to FLAC"), style = MaterialTheme.typography.displayMedium)
-            }
+            PIconButton(Icons.AutoMirrored.Rounded.ArrowBack, t("Назад", "Back"), nav::back, Modifier.padding(bottom = 8.dp).offset(x = (-6).dp), iconSize = 20.dp)
+            Text(t("Перевести в FLAC", "Upgrade to FLAC"), style = MaterialTheme.typography.displayMedium)
             Text(
                 t(
                     "Для MP3, AAC и других сжатых файлов ищет ту же песню в FLAC в Яндекс Музыке и скачивает её с тегами и обложкой файла. Ничего не заменяется, пока не послушаешь и не скажешь «Это он»; старый файл уходит в папку .palimpsest/replaced рядом с ним.",
                     "For MP3, AAC and other lossy files, looks for the same song in FLAC on Yandex Music and downloads it with the file’s tags and cover. Nothing is replaced until you listen and say «It’s the one»; the old file goes to .palimpsest/replaced next to it.",
                 ),
-                color = pal.muted, modifier = Modifier.widthIn(max = 760.dp).padding(vertical = 8.dp),
+                color = pal.muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.widthIn(max = 760.dp).padding(vertical = 8.dp),
             )
         }
         item { SectionHeader(t("Папки", "Folders")) }
         items(choices) { f ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(f in folders, { on -> up.setFolders(if (on) folders + f else folders - f) }, enabled = !search.running)
-                Text(f, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(
+                Modifier.fillMaxWidth().height(36.dp).clip(RoundedCornerShape(Radius.md)).clickable(enabled = !search.running) { up.setFolders(if (f in folders) folders - f else folders + f) }.padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                PCheckbox(f in folders, { on -> up.setFolders(if (on) folders + f else folders - f) }, enabled = !search.running)
+                Spacer(Modifier.width(12.dp))
+                Text(f, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
         item {
-            TextButton(enabled = !search.running, onClick = {
+            PButton(t("Добавить папку…", "Add a folder…"), enabled = !search.running, kind = Kind.GHOST, icon = Icons.Rounded.Add, modifier = Modifier.padding(top = 4.dp), onClick = {
                 val chooser = javax.swing.JFileChooser().apply { fileSelectionMode = javax.swing.JFileChooser.DIRECTORIES_ONLY }
                 if (chooser.showOpenDialog(null) == javax.swing.JFileChooser.APPROVE_OPTION) {
                     val f = chooser.selectedFile.absolutePath
@@ -94,17 +107,17 @@ fun FlacScreen() {
                         graph.scope.launch { graph.library.scan() }
                     }
                 }
-            }) { Text(t("Добавить папку…", "Add a folder…")) }
+            })
         }
         item {
-            Column(Modifier.padding(vertical = 12.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(pal.paper2).padding(16.dp)) {
+            Column(Modifier.padding(vertical = 12.dp).fillMaxWidth().clip(RoundedCornerShape(Radius.xl)).background(pal.paper2).border(1.dp, pal.line.copy(alpha = 0.7f), RoundedCornerShape(Radius.xl)).padding(18.dp)) {
                 when {
                     search.running -> {
                         Text(t("Ищу: ${search.checked} из ${search.total} · FLAC нашёлся для ${search.found} · только MP3/AAC: ${search.lossyOnly}",
-                            "Searching: ${search.checked} of ${search.total} · FLAC found for ${search.found} · only MP3/AAC: ${search.lossyOnly}"))
-                        search.current?.let { Text(it, color = pal.muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                        LinearProgressIndicator(progress = { if (search.total > 0) search.checked.toFloat() / search.total else 0f }, Modifier.fillMaxWidth().padding(vertical = 8.dp))
-                        OutlinedButton(onClick = { up.stop() }) { Text(t("Остановить", "Stop")) }
+                            "Searching: ${search.checked} of ${search.total} · FLAC found for ${search.found} · only MP3/AAC: ${search.lossyOnly}"), style = MaterialTheme.typography.bodyMedium)
+                        search.current?.let { Text(it, color = pal.muted, style = Type.meta, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                        PProgress(if (search.total > 0) search.checked.toFloat() / search.total else 0f, Modifier.fillMaxWidth().padding(vertical = 10.dp), color = MaterialTheme.colorScheme.primary)
+                        PButton(t("Остановить", "Stop"), { up.stop() }, icon = Icons.Rounded.Stop)
                     }
                     else -> {
                         when (search.error) {
@@ -121,16 +134,17 @@ fun FlacScreen() {
                             )
                         }
                         Spacer(Modifier.width(8.dp))
-                        Button(onClick = { up.start() }, enabled = lossy > 0 && folders.isNotEmpty(), modifier = Modifier.padding(top = 8.dp)) {
-                            Text(if (lossy > 0) t("Искать FLAC (файлов: $lossy)", "Look for FLAC ($lossy files)") else t("Сжатых файлов здесь нет", "No lossy files here"))
-                        }
+                        PButton(
+                            if (lossy > 0) t("Искать FLAC (файлов: $lossy)", "Look for FLAC ($lossy files)") else t("Сжатых файлов здесь нет", "No lossy files here"),
+                            { up.start() }, icon = Icons.Rounded.Search, kind = Kind.PRIMARY, enabled = lossy > 0 && folders.isNotEmpty(), modifier = Modifier.padding(top = 10.dp),
+                        )
                     }
                 }
             }
         }
         if (candidates.isNotEmpty()) item {
             SectionHeader(t("На проверку: ${candidates.size}", "To review: ${candidates.size}")) {
-                TextButton(onClick = { confirmAll = true }) { Text(t("Принять все", "Accept all"), color = accent) }
+                PButton(t("Принять все", "Accept all"), { confirmAll = true }, icon = Icons.Rounded.DoneAll, kind = Kind.GHOST)
             }
         }
         items(candidates, key = { it.flacPath }) { c -> CandidateRow(c) }
@@ -138,19 +152,19 @@ fun FlacScreen() {
             EmptyState(t("Пока ничего не ждёт проверки", "Nothing waiting for review"), t("Найденные FLAC появятся здесь.", "The FLACs found will appear here."))
         }
     }
-    if (confirmAll) AlertDialog(
-        onDismissRequest = { confirmAll = false },
-        title = { Text(t("Заменить все ${candidates.size}?", "Replace all ${candidates.size}?")) },
-        text = { Text(t("Каждый FLAC встанет на место своего файла без прослушивания. Старые файлы останутся в .palimpsest/replaced.", "Every FLAC takes its file’s place without listening. The old files stay in .palimpsest/replaced.")) },
-        confirmButton = {
-            TextButton(onClick = {
+    if (confirmAll) PDialog(
+        t("Заменить все ${candidates.size}?", "Replace all ${candidates.size}?"), { confirmAll = false }, width = 460.dp,
+        buttons = {
+            PButton(t("Отмена", "Cancel"), { confirmAll = false }, kind = Kind.GHOST)
+            PButton(t("Заменить", "Replace"), {
                 confirmAll = false
                 val all = candidates
                 scope.launch { all.forEach { up.accept(it) }; nav.toast(t("Заменено: ${all.size}", "Replaced: ${all.size}")) }
-            }) { Text(t("Заменить", "Replace")) }
+            }, kind = Kind.PRIMARY)
         },
-        dismissButton = { TextButton(onClick = { confirmAll = false }) { Text(t("Отмена", "Cancel")) } },
-    )
+    ) {
+        Text(t("Каждый FLAC встанет на место своего файла без прослушивания. Старые файлы останутся в .palimpsest/replaced.", "Every FLAC takes its file’s place without listening. The old files stay in .palimpsest/replaced."), style = MaterialTheme.typography.bodyMedium, color = pal.muted)
+    }
 }
 
 @Composable
@@ -169,30 +183,30 @@ private fun CandidateRow(c: FlacCandidate) {
         val at = if (playingPath == c.trackPath || playingPath == c.flacPath) player.positionMs else 0L
         graph.player.playAlone(base.copy(path = path), at)
     }
-    Column(Modifier.padding(vertical = 5.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(pal.paper2).padding(12.dp)) {
+    Column(Modifier.padding(vertical = 4.dp).fillMaxWidth().clip(RoundedCornerShape(Radius.lg)).background(pal.paper2).border(1.dp, pal.line.copy(alpha = 0.6f), RoundedCornerShape(Radius.lg)).padding(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            TrackArt(track, Modifier.size(44.dp))
+            TrackArt(track, Modifier.size(44.dp), Radius.sm)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(c.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(c.artist, color = pal.muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(c.title, style = Type.rowTitle, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(c.artist, color = pal.muted, style = Type.rowSub, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
                     "${listOfNotNull(c.oldCodec?.uppercase(), c.oldBitrateKbps?.let { "$it kbps" }).joinToString(" ")} · ${mb(c.oldSize)}  →  FLAC · ${mb(c.newSize)}",
-                    color = pal.faint, fontSize = 12.sp,
+                    color = pal.faint, style = Type.meta, modifier = Modifier.padding(top = 2.dp),
                 )
-                Text(File(c.trackPath).parent ?: "", color = pal.faint, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(File(c.trackPath).parent ?: "", color = pal.faint, style = Type.meta.copy(fontSize = 11.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Pill(t("Было", "Old"), playingPath == c.trackPath, { listen(c.trackPath) })
-                Pill("FLAC", playingPath == c.flacPath, { listen(c.flacPath) })
-                TextButton(onClick = { graph.flacUpgrade.reject(c) }) { Text(t("Не то", "Not it"), color = pal.muted) }
-                Button(onClick = {
+                // Old and new side by side, as one switch: flick between them at the same second.
+                Tabs(listOf(c.trackPath to t("Было", "Old"), c.flacPath to "FLAC"), playingPath.takeIf { it == c.trackPath || it == c.flacPath } ?: "", { listen(it) })
+                PButton(t("Не то", "Not it"), { graph.flacUpgrade.reject(c) }, kind = Kind.GHOST)
+                PButton(t("Это он", "It’s the one"), kind = Kind.PRIMARY, onClick = {
                     scope.launch {
                         if (playingPath == c.trackPath || playingPath == c.flacPath) graph.player.engine.stop()
                         graph.flacUpgrade.accept(c)
                         nav.toast(t("«${c.title}» теперь во FLAC", "«${c.title}» is FLAC now"))
                     }
-                }) { Text(t("Это он", "It’s the one")) }
+                })
             }
         }
     }

@@ -136,7 +136,7 @@ fun ArtistScreen(s: Screen.Artist) {
             }
         }
         a?.description?.let { item { Text(it, style = MaterialTheme.typography.bodyMedium, color = pal.muted, maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 20.dp).widthIn(max = 760.dp)) } }
-        if (info is Load.Loading) item { CircularProgressIndicator(Modifier.padding(24.dp).size(24.dp), strokeWidth = 2.dp, color = pal.muted) }
+        if (info is Load.Loading) item { Spinner(Modifier.padding(24.dp)) }
         if (local.isNotEmpty()) {
             item { SectionHeader(t("В медиатеке", "In your library")) }
             items(local.take(30), key = { "l" + it.id }) { tr ->
@@ -187,7 +187,7 @@ private fun <T> RemoteList(data: Load<T>, kind: String, title: (T) -> String, su
             is Load.Loading -> item {
                 Column {
                     PIconButton(Icons.AutoMirrored.Rounded.ArrowBack, t("Назад", "Back"), nav::back, Modifier.offset(x = (-6).dp), iconSize = 20.dp)
-                    CircularProgressIndicator(Modifier.padding(24.dp).size(24.dp), strokeWidth = 2.dp, color = pal.muted)
+                    Spinner(Modifier.padding(24.dp))
                 }
             }
             is Load.Failed -> item {

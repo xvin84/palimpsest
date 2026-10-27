@@ -1,6 +1,17 @@
 package dev.xvin.palimpsest.desktop.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -43,46 +54,70 @@ fun HistoryScreen() {
     val artists = recent.flatMap { p -> dev.xvin.palimpsest.core.library.ArtistNames.split(p.artist).map { it to p.listenedMs } }
         .groupBy({ it.first }, { it.second }).map { it.key to it.value.sum() }.sortedByDescending { it.second }.take(10)
     val fmtDate = remember { SimpleDateFormat("d MMM, HH:mm") }
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 28.dp, vertical = 20.dp)) {
-        item { Text(t("История", "History"), style = MaterialTheme.typography.displayMedium) }
+    LazyColumn(Modifier.fillMaxSize().padding(start = 28.dp, end = 20.dp), contentPadding = PaddingValues(top = 22.dp, bottom = 32.dp)) {
         item {
-            Row(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(7 to t("Неделя", "Week"), 30 to t("Месяц", "Month"), 365 to t("Год", "Year"), 100_000 to t("Всё время", "All time")).forEach { (d, l) -> Pill(l, days == d, { days = d }) }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(t("История", "History"), style = MaterialTheme.typography.displayMedium, modifier = Modifier.weight(1f))
+                Tabs(listOf(7 to t("Неделя", "Week"), 30 to t("Месяц", "Month"), 365 to t("Год", "Year"), 100_000 to t("Всё время", "All time")), days, { days = it })
             }
         }
         item {
-            Row {
-                Column(Modifier.weight(1f)) { Text(fmt(recent.sumOf { it.listenedMs }), style = MaterialTheme.typography.displayMedium, color = accent); Text(t("музыки", "of music"), color = pal.muted) }
-                Column(Modifier.weight(1f)) { Text("${recent.size}", style = MaterialTheme.typography.displayMedium); Text(t("прослушиваний", "plays"), color = pal.muted) }
+            // Two figures for the period, on quiet cards.
+            Row(Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                @Composable
+                fun Stat(value: String, label: String, modifier: Modifier) {
+                    Column(modifier.clip(RoundedCornerShape(Radius.xl)).background(pal.paper2).border(1.dp, pal.line.copy(alpha = 0.7f), RoundedCornerShape(Radius.xl)).padding(horizontal = 20.dp, vertical = 16.dp)) {
+                        Text(value, style = MaterialTheme.typography.displayMedium)
+                        Text(label, style = MaterialTheme.typography.bodyMedium, color = pal.muted)
+                    }
+                }
+                Stat(fmtTotal(recent.sumOf { it.listenedMs }), t("музыки", "of music"), Modifier.weight(1f))
+                Stat("${recent.size}", count(recent.size, "прослушивание", "прослушивания", "прослушиваний", "play", "plays").substringAfter(' '), Modifier.weight(1f))
             }
         }
         if (top.isNotEmpty()) {
             item { SectionHeader(t("Чаще всего", "Most played")) }
             itemsIndexed(top) { i, (id, p) ->
-                Row(Modifier.fillMaxWidth().clickable {
+                val track = graph.library.get(id)
+                HistoryRow(track, p.first().title, p.first().artist, "${p.size}×", "${i + 1}") {
                     val tracks = top.mapNotNull { graph.library.get(it.first) }
-                    graph.library.get(id)?.let { tr -> graph.player.play(tracks, tracks.indexOf(tr).coerceAtLeast(0)) }
-                }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("${i + 1}", color = if (i < 3) accent else pal.faint, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.width(40.dp))
-                    Text("${p.first().title} — ${p.first().artist}", Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text("${p.size}×", color = pal.muted)
+                    track?.let { tr -> graph.player.play(tracks, tracks.indexOf(tr).coerceAtLeast(0)) }
                 }
             }
         }
         if (artists.isNotEmpty()) {
             item { SectionHeader(t("Исполнители", "Artists")) }
             items(artists) { (a, ms) ->
-                Row(Modifier.fillMaxWidth().clickable { nav.go(Screen.Artist(a)) }.padding(vertical = 6.dp)) { Text(a, Modifier.weight(1f)); Text(fmt(ms), color = pal.muted) }
+                val any = remember(a) { graph.library.tracks.value.firstOrNull { tr -> tr.artists.any { it == a } } }
+                ListRow({ TrackArt(any, Modifier.size(40.dp), 20.dp) }, a, fmtTotal(ms)) { nav.go(Screen.Artist(a)) }
             }
         }
         item { SectionHeader(t("Недавно", "Recently")) }
         items(plays.takeLast(100).reversed()) { p ->
-            Row(Modifier.fillMaxWidth().clickable { graph.library.get(p.trackId)?.let { graph.player.play(listOf(it)) } }.padding(vertical = 5.dp)) {
-                Column(Modifier.weight(1f)) { Text(p.title, maxLines = 1); Text(p.artist, color = pal.muted, fontSize = 12.sp, maxLines = 1) }
-                Text(fmtDate.format(Date(p.at)), color = pal.faint, fontSize = 12.sp)
-            }
+            HistoryRow(graph.library.get(p.trackId), p.title, p.artist, fmtDate.format(Date(p.at)), null) { graph.library.get(p.trackId)?.let { graph.player.play(listOf(it)) } }
         }
         if (plays.isEmpty()) item { EmptyState(t("Пока пусто", "Nothing yet"), t("Трек попадает в историю после 30 секунд прослушивания.", "A track counts after 30 seconds of listening.")) }
     }
 }
 
+/** A played track: its place (for the top), cover, title and artist, and a figure on the right. */
+@Composable
+private fun HistoryRow(track: dev.xvin.palimpsest.desktop.data.Track?, title: String, artist: String, meta: String, rank: String?, onClick: () -> Unit) {
+    val pal = LocalPal.current
+    val hover = remember { MutableInteractionSource() }
+    val hovered by hover.collectIsHoveredAsState()
+    Row(
+        Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(Radius.md)).background(if (hovered) pal.text.copy(alpha = 0.05f) else Color.Transparent)
+            .hoverable(hover).clickable(onClick = onClick).padding(horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        rank?.let { Text(it, style = Type.meta, color = pal.faint, textAlign = TextAlign.Center, modifier = Modifier.width(Cols.lead)) }
+        TrackArt(track, Modifier.size(36.dp), Radius.xs)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = Type.rowTitle, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(artist, style = Type.rowSub, color = pal.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Text(meta, style = Type.meta, color = pal.faint)
+    }
+}

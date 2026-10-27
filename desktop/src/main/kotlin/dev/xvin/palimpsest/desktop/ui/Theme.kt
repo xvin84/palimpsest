@@ -137,9 +137,17 @@ fun PalimpsestDesktopTheme(style: DesktopStyle, theme: DesktopTheme, accent: Col
         surface = pal.paper2, onSurface = pal.text, surfaceVariant = pal.paper3, onSurfaceVariant = pal.muted,
         surfaceContainer = pal.paper2, surfaceContainerHigh = pal.paper3, surfaceContainerHighest = pal.paper3, surfaceContainerLow = pal.paper2,
         outline = pal.line, outlineVariant = pal.line, tertiary = a, primaryContainer = a.copy(alpha = 0.22f),
+        // Snackbars: the page's colours turned over, not Material's lilac grey.
+        inverseSurface = pal.text, inverseOnSurface = pal.paper, inversePrimary = a,
+    )
+    // What's still Material (menus, snackbars) gets the same corners as the rest.
+    val shapes = androidx.compose.material3.Shapes(
+        extraSmall = androidx.compose.foundation.shape.RoundedCornerShape(Radius.md), small = androidx.compose.foundation.shape.RoundedCornerShape(Radius.md),
+        medium = androidx.compose.foundation.shape.RoundedCornerShape(Radius.lg), large = androidx.compose.foundation.shape.RoundedCornerShape(Radius.xl),
+        extraLarge = androidx.compose.foundation.shape.RoundedCornerShape(Radius.xl),
     )
     CompositionLocalProvider(LocalPal provides pal, LocalAccent provides a, LocalTint provides animTint, LocalStyle provides style) {
-        MaterialTheme(colorScheme = scheme, typography = typography(style)) {
+        MaterialTheme(colorScheme = scheme, typography = typography(style), shapes = shapes) {
             CompositionLocalProvider(androidx.compose.material3.LocalContentColor provides pal.text, content = content)
         }
     }

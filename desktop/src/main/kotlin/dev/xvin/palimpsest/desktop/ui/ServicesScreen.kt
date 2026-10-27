@@ -154,7 +154,7 @@ fun ServicesScreen() {
                 val lists by produceState<Load<List<RemotePlaylist>>>(Load.Loading, settings.yandexToken) { value = load { graph.yandex.playlists() } }
                 SectionHeader(t("Плейлисты Яндекса", "Yandex playlists"))
                 when (val l = lists) {
-                    is Load.Loading -> CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp, color = pal.muted)
+                    is Load.Loading -> Spinner()
                     is Load.Failed -> Text(l.error.message.orEmpty(), color = MaterialTheme.colorScheme.error)
                     is Load.Ok -> LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                         items(l.value, key = { it.id }) { p -> AlbumTile(p.coverUrl, p.title, tracksCount(p.trackCount)) { nav.go(Screen.RemotePlaylist(Service.YANDEX, p.id, p.title)) } }

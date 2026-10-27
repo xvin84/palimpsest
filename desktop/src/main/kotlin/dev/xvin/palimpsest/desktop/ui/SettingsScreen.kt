@@ -30,6 +30,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.FolderOpen
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.foundation.layout.offset
+import kotlin.math.roundToInt
 import androidx.compose.material.icons.rounded.DesktopWindows
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.GraphicEq
@@ -224,19 +229,22 @@ private fun CategoryRow(c: Category, selected: Boolean, arrow: Boolean, onClick:
 
 @Composable
 private fun Setting(title: String, hint: String?, content: @Composable () -> Unit = {}) {
-    Column(Modifier.fillMaxWidth().widthIn(max = 680.dp).padding(vertical = 8.dp)) {
-        Text(title, style = MaterialTheme.typography.titleMedium)
-        hint?.let { Text(it, color = LocalPal.current.muted, fontSize = 13.sp) }
-        Spacer(Modifier.height(6.dp))
+    Column(Modifier.fillMaxWidth().widthIn(max = 680.dp).padding(vertical = 10.dp)) {
+        Text(title, style = Type.rowTitle)
+        hint?.let { Text(it, color = LocalPal.current.muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 2.dp)) }
+        Spacer(Modifier.height(10.dp))
         content()
     }
 }
 
 @Composable
 private fun Toggle(title: String, hint: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(Modifier.widthIn(max = 680.dp).fillMaxWidth().clickable { onChange(!checked) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) { Text(title, style = MaterialTheme.typography.titleMedium); Text(hint, color = LocalPal.current.muted, fontSize = 13.sp) }
-        Switch(checked, onChange)
+    Row(Modifier.widthIn(max = 680.dp).fillMaxWidth().clickable { onChange(!checked) }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f).padding(end = 24.dp)) {
+            Text(title, style = Type.rowTitle)
+            Text(hint, color = LocalPal.current.muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 2.dp))
+        }
+        PSwitch(checked, onChange)
     }
 }
 
@@ -249,19 +257,19 @@ private fun StylePicker(current: DesktopStyle, onPick: (DesktopStyle) -> Unit) {
         DesktopStyle.entries.forEach { style ->
             val selected = style == current
             Column(
-                Modifier.width(190.dp).clip(RoundedCornerShape(16.dp))
-                    .background(if (selected) primary.copy(alpha = 0.14f) else pal.paper2)
-                    .border(2.dp, if (selected) primary else Color.Transparent, RoundedCornerShape(16.dp))
+                Modifier.width(190.dp).clip(RoundedCornerShape(Radius.xl))
+                    .background(if (selected) pal.paper3 else pal.paper2)
+                    .border(if (selected) 1.5.dp else 1.dp, if (selected) pal.muted else pal.line.copy(alpha = 0.7f), RoundedCornerShape(Radius.xl))
                     .clickable { onPick(style) }
                     .padding(10.dp),
             ) {
                 StylePreview(style, Modifier.fillMaxWidth().aspectRatio(1.4f))
                 Spacer(Modifier.height(8.dp))
-                Text(if (style == DesktopStyle.LANE) "Lane" else "Palimpsest", style = MaterialTheme.typography.titleSmall)
+                Text(if (style == DesktopStyle.LANE) "Lane" else "Palimpsest", style = Type.rowTitle)
                 Text(
                     if (style == DesktopStyle.LANE) t("Фон в цвете обложки, жирный гротеск, белые кнопки", "Backgrounds in the cover’s colour, a bold sans, white buttons")
                     else t("Чернила и бумага, засечки, акцент из обложки", "Ink and paper, a serif, the accent from the cover"),
-                    color = pal.muted, fontSize = 12.sp,
+                    color = pal.muted, style = Type.rowSub.copy(fontSize = 12.sp),
                 )
             }
         }
@@ -287,19 +295,19 @@ private fun TrayStylePicker(current: TrayStyle, onPick: (TrayStyle) -> Unit) {
                 TrayArt.draw(TrayArt.Look(style, playing = true, accent = accent, cover = accent, levels = listOf(0.5f, 0.95f, 0.7f, 0.35f), phase = 0.15f), 96).toComposeImageBitmap()
             }
             Column(
-                Modifier.width(150.dp).clip(RoundedCornerShape(16.dp))
-                    .background(if (selected) primary.copy(alpha = 0.14f) else pal.paper2)
-                    .border(2.dp, if (selected) primary else Color.Transparent, RoundedCornerShape(16.dp))
+                Modifier.width(150.dp).clip(RoundedCornerShape(Radius.xl))
+                    .background(if (selected) pal.paper3 else pal.paper2)
+                    .border(if (selected) 1.5.dp else 1.dp, if (selected) pal.muted else pal.line.copy(alpha = 0.7f), RoundedCornerShape(Radius.xl))
                     .clickable { onPick(style) }
                     .padding(10.dp),
             ) {
                 // On a panel-like strip, so it reads the way the tray shows it.
-                Box(Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xFF1C1C1F)), contentAlignment = Alignment.Center) {
+                Box(Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(Radius.md)).background(Color(0xFF1C1C1F)), contentAlignment = Alignment.Center) {
                     Image(image, null, Modifier.size(40.dp))
                 }
                 Spacer(Modifier.height(8.dp))
-                Text(name, style = MaterialTheme.typography.titleSmall)
-                Text(desc, color = pal.muted, fontSize = 12.sp, lineHeight = 16.sp)
+                Text(name, style = Type.rowTitle)
+                Text(desc, color = pal.muted, style = Type.rowSub.copy(fontSize = 12.sp))
             }
         }
     }
@@ -310,7 +318,7 @@ private fun TrayStylePicker(current: TrayStyle, onPick: (TrayStyle) -> Unit) {
 private fun StylePreview(style: DesktopStyle, modifier: Modifier) {
     val accent = LocalAccent.current
     val tint = LocalTint.current
-    Canvas(modifier.clip(RoundedCornerShape(10.dp))) {
+    Canvas(modifier.clip(RoundedCornerShape(Radius.md))) {
         val w = size.width
         val h = size.height
         when (style) {
@@ -398,8 +406,12 @@ private fun settingItems(s: DesktopSettings): List<Item> {
     val preampHint = t("Добавляется к ReplayGain; если тихо — прибавь", "Added on top of ReplayGain; raise it if it’s too quiet")
     add(Category.SOUND, preampTitle, preampHint, "preamp gain предусиление громкость") {
         Setting(preampTitle, preampHint) {
-            Text("%+.1f dB".format(s.preampDb), color = pal.muted, fontSize = 13.sp)
-            Slider(s.preampDb, { v -> graph.settings.update { it.copy(preampDb = (v * 2).toInt() / 2f) } }, valueRange = -6f..12f, modifier = Modifier.widthIn(max = 500.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("−6", style = Type.meta, color = pal.faint)
+                LineSlider((s.preampDb + 6f) / 18f, { f -> graph.settings.update { it.copy(preampDb = ((f * 18f - 6f) * 2).roundToInt() / 2f) } }, Modifier.padding(horizontal = 10.dp).widthIn(max = 420.dp).weight(1f, fill = false).fillMaxWidth(), color = MaterialTheme.colorScheme.primary)
+                Text("+12", style = Type.meta, color = pal.faint)
+                Text("%+.1f dB".format(s.preampDb), style = Type.rowTitle, modifier = Modifier.padding(start = 16.dp))
+            }
         }
     }
     val eqTitle = t("Эквалайзер", "Equalizer")
@@ -418,20 +430,22 @@ private fun settingItems(s: DesktopSettings): List<Item> {
         var newRoot by remember { mutableStateOf("") }
         Setting(foldersTitle, foldersHint) {
             s.musicRoots.forEach { r ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(r, Modifier.weight(1f))
-                    if (s.musicRoots.size > 1) TextButton(onClick = { graph.settings.update { it.copy(musicRoots = it.musicRoots - r) }; rescan(graph, nav, force = false) }) { Text(t("Убрать", "Remove")) }
+                Row(Modifier.padding(bottom = 6.dp).fillMaxWidth().clip(RoundedCornerShape(Radius.md)).background(pal.paper2).padding(start = 12.dp, end = 4.dp).height(38.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.Folder, null, tint = pal.muted, modifier = Modifier.size(17.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text(r, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (s.musicRoots.size > 1) PIconButton(Icons.Rounded.Close, t("Убрать", "Remove"), { graph.settings.update { it.copy(musicRoots = it.musicRoots - r) }; rescan(graph, nav, force = false) }, iconSize = 16.dp)
                 }
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(newRoot, { newRoot = it }, Modifier.weight(1f), singleLine = true, placeholder = { Text(t("Путь к папке", "Folder path")) })
-                TextButton(onClick = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PInput(newRoot, { newRoot = it }, t("Путь к папке", "Folder path"), Modifier.weight(1f))
+                PButton(t("Выбрать…", "Browse…"), {
                     val chooser = javax.swing.JFileChooser().apply { fileSelectionMode = javax.swing.JFileChooser.DIRECTORIES_ONLY }
                     if (chooser.showOpenDialog(null) == javax.swing.JFileChooser.APPROVE_OPTION) newRoot = chooser.selectedFile.absolutePath
-                }) { Text(t("Выбрать…", "Browse…")) }
-                TextButton(enabled = newRoot.isNotBlank(), onClick = {
+                }, icon = Icons.Rounded.FolderOpen)
+                PButton(t("Добавить", "Add"), {
                     graph.settings.update { it.copy(musicRoots = (it.musicRoots + newRoot.trim()).distinct()) }; newRoot = ""; rescan(graph, nav, force = false)
-                }) { Text(t("Добавить", "Add")) }
+                }, kind = Kind.PRIMARY, enabled = newRoot.isNotBlank())
             }
         }
     }
@@ -440,13 +454,13 @@ private fun settingItems(s: DesktopSettings): List<Item> {
     add(Category.LIBRARY, scanTitle, scanHint, "scan rescan tags сканировать теги обновить") {
         Setting(scanTitle, scanHint) {
             val scan by graph.library.progress.collectAsState()
-            Row {
-                TextButton(enabled = !scan.running, onClick = { rescan(graph, nav, force = false) }) { Text(scanTitle) }
-                TextButton(enabled = !scan.running, onClick = { rescan(graph, nav, force = true) }) { Text(t("Перечитать все теги", "Re-read all tags")) }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PButton(scanTitle, { rescan(graph, nav, force = false) }, icon = Icons.Rounded.Refresh, enabled = !scan.running)
+                PButton(t("Перечитать все теги", "Re-read all tags"), { rescan(graph, nav, force = true) }, kind = Kind.GHOST, enabled = !scan.running)
             }
             if (scan.running) {
-                Text(if (scan.total > 0) t("Читаю теги: ${scan.done} из ${scan.total}", "Reading tags: ${scan.done} of ${scan.total}") else t("Ищу музыку…", "Looking for music…"), color = pal.muted, fontSize = 13.sp)
-                LinearProgressIndicator(progress = { if (scan.total > 0) scan.done.toFloat() / scan.total else 0f }, Modifier.widthIn(max = 500.dp).fillMaxWidth().padding(top = 4.dp))
+                Text(if (scan.total > 0) t("Читаю теги: ${scan.done} из ${scan.total}", "Reading tags: ${scan.done} of ${scan.total}") else t("Ищу музыку…", "Looking for music…"), color = pal.muted, style = Type.meta, modifier = Modifier.padding(top = 10.dp))
+                PProgress(if (scan.total > 0) scan.done.toFloat() / scan.total else 0f, Modifier.widthIn(max = 500.dp).fillMaxWidth().padding(top = 6.dp))
             }
         }
     }
@@ -454,7 +468,7 @@ private fun settingItems(s: DesktopSettings): List<Item> {
     val flacHint = t("Найти FLAC в Яндекс Музыке для MP3 и других сжатых файлов в выбранных папках; каждый проверяешь на слух", "Find FLAC on Yandex Music for MP3 and other lossy files in the folders you pick; you check each one by ear")
     add(Category.LIBRARY, flacTitle, flacHint, "flac lossless mp3 качество quality upgrade перевести") {
         Setting(flacTitle, flacHint) {
-            TextButton(onClick = { nav.go(Screen.Flac) }) { Text(t("Открыть", "Open")) }
+            PButton(t("Открыть", "Open"), { nav.go(Screen.Flac) }, trailingIcon = Icons.AutoMirrored.Rounded.KeyboardArrowRight)
         }
     }
     val lyrTitle = t("Источник текстов", "Lyrics source")
@@ -488,9 +502,9 @@ private fun settingItems(s: DesktopSettings): List<Item> {
     add(Category.DOWNLOADS, dirTitle, dirHint, "download folder загрузки папка путь") {
         var dir by remember(s.downloadDir) { mutableStateOf(s.downloadDir) }
         Setting(dirTitle, dirHint) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(dir, { dir = it }, Modifier.weight(1f), singleLine = true)
-                TextButton(enabled = dir != s.downloadDir, onClick = { graph.settings.update { it.copy(downloadDir = dir.trim()) } }) { Text(t("Сохранить", "Save")) }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PInput(dir, { dir = it }, modifier = Modifier.weight(1f), leading = Icons.Rounded.Folder)
+                PButton(t("Сохранить", "Save"), { graph.settings.update { it.copy(downloadDir = dir.trim()) } }, kind = Kind.PRIMARY, enabled = dir != s.downloadDir)
             }
         }
     }
@@ -536,9 +550,9 @@ private fun settingItems(s: DesktopSettings): List<Item> {
     add(Category.NETWORK, proxyTitle, proxyHint, "proxy vpn socks youtube прокси") {
         var proxy by remember(s.proxy) { mutableStateOf(s.proxy.orEmpty()) }
         Setting(proxyTitle, proxyHint) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(proxy, { proxy = it }, Modifier.weight(1f), singleLine = true, placeholder = { Text("host:port") })
-                TextButton(enabled = proxy.trim() != s.proxy.orEmpty(), onClick = { graph.settings.update { it.copy(proxy = proxy.trim().ifBlank { null }) } }) { Text(t("Сохранить", "Save")) }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PInput(proxy, { proxy = it }, "host:port", Modifier.weight(1f), leading = Icons.Rounded.Hub)
+                PButton(t("Сохранить", "Save"), { graph.settings.update { it.copy(proxy = proxy.trim().ifBlank { null }) } }, kind = Kind.PRIMARY, enabled = proxy.trim() != s.proxy.orEmpty())
             }
         }
     }
@@ -550,13 +564,17 @@ private fun settingItems(s: DesktopSettings): List<Item> {
     add(Category.PHONE, lanTitle, lanHint, "sync phone lan wifi синхронизация телефон код") {
         val lan by graph.lanSync.status.collectAsState()
         Toggle(lanTitle, lanHint, s.lanSync) { v -> graph.settings.update { it.copy(lanSync = v) }; graph.lanSync.setEnabled(v) }
-        if (lan.running) Column(Modifier.padding(bottom = 8.dp)) {
-            Text(t("Код для нового телефона: ", "Code for a new phone: ") + lan.code, style = MaterialTheme.typography.titleLarge)
-            Text(t("Компьютер: ", "Computer: ") + graph.lanSync.name + " · " + s.lanTokens.size + t(" телефон(ов) подключено", " phone(s) paired"), color = pal.muted, fontSize = 13.sp)
-            lan.last?.let { Text(it, color = pal.muted, fontSize = 13.sp) }
-            if (s.lanTokens.isNotEmpty()) TextButton(onClick = { graph.settings.update { it.copy(lanTokens = emptyMap()) } }) { Text(t("Отключить все телефоны", "Unpair all phones")) }
+        if (lan.running) Column(
+            Modifier.widthIn(max = 680.dp).fillMaxWidth().padding(bottom = 8.dp).clip(RoundedCornerShape(Radius.xl)).background(pal.paper2)
+                .border(1.dp, pal.line.copy(alpha = 0.7f), RoundedCornerShape(Radius.xl)).padding(16.dp),
+        ) {
+            Caption(t("Код для нового телефона", "Code for a new phone"))
+            Text(lan.code, style = MaterialTheme.typography.displayMedium.copy(fontFamily = Sans, letterSpacing = 4.sp), modifier = Modifier.padding(vertical = 4.dp))
+            Text(t("Компьютер: ", "Computer: ") + graph.lanSync.name + " · " + count(s.lanTokens.size, "телефон подключён", "телефона подключено", "телефонов подключено", "phone paired", "phones paired"), color = pal.muted, style = MaterialTheme.typography.bodyMedium)
+            lan.last?.let { Text(it, color = pal.muted, style = Type.meta, modifier = Modifier.padding(top = 2.dp)) }
+            if (s.lanTokens.isNotEmpty()) PButton(t("Отключить все телефоны", "Unpair all phones"), { graph.settings.update { it.copy(lanTokens = emptyMap()) } }, kind = Kind.GHOST, modifier = Modifier.padding(top = 8.dp).offset(x = (-8).dp))
         }
-        lan.error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp) }
+        lan.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
     }
 
     // --- About ---
@@ -583,7 +601,7 @@ private fun settingItems(s: DesktopSettings): List<Item> {
     val logHint = t("Что пошло не так (crash.log) — пришли его автору, если что-то ломается", "What went wrong (crash.log) — send it to the author when something breaks")
     add(Category.ABOUT, logTitle, logHint, "crash log error ошибки журнал лог") {
         Setting(logTitle, logHint) {
-            TextButton(onClick = { runCatching { java.awt.Desktop.getDesktop().open(dev.xvin.palimpsest.desktop.data.Paths.config) } }) { Text(t("Открыть папку", "Open the folder")) }
+            PButton(t("Открыть папку", "Open the folder"), { runCatching { java.awt.Desktop.getDesktop().open(dev.xvin.palimpsest.desktop.data.Paths.config) } }, icon = Icons.Rounded.FolderOpen)
         }
     }
 

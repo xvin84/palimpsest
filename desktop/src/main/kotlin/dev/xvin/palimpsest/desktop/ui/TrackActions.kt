@@ -3,6 +3,9 @@ package dev.xvin.palimpsest.desktop.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.material.icons.rounded.ImageSearch
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -142,18 +145,18 @@ fun TrackMenu(tracks: List<Track>, onDismiss: () -> Unit) {
                 androidx.compose.animation.scaleIn(androidx.compose.animation.core.tween(170, easing = androidx.compose.animation.core.EaseOutCubic), initialScale = 0.92f, transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f)),
         ) {
         Surface(
-            shape = RoundedCornerShape(12.dp), color = pal.paper2, shadowElevation = 16.dp, border = BorderStroke(1.dp, pal.line),
-            modifier = Modifier.width(310.dp),
+            shape = RoundedCornerShape(Radius.lg), color = pal.paper2, shadowElevation = 18.dp, border = BorderStroke(1.dp, pal.line),
+            modifier = Modifier.width(300.dp),
         ) {
-            Column(Modifier.heightIn(max = 620.dp).verticalScroll(rememberScrollState()).padding(vertical = 6.dp)) {
-                Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (one != null) TrackArt(one, Modifier.size(44.dp), 6.dp)
-                    else Box(Modifier.size(44.dp).clip(RoundedCornerShape(6.dp)).background(pal.paper3), contentAlignment = Alignment.Center) { Text("${tracks.size}", style = MaterialTheme.typography.titleMedium) }
+            Column(Modifier.heightIn(max = 620.dp).verticalScroll(rememberScrollState()).padding(vertical = 5.dp)) {
+                Row(Modifier.padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (one != null) TrackArt(one, Modifier.size(40.dp), Radius.sm)
+                    else Box(Modifier.size(40.dp).clip(RoundedCornerShape(Radius.sm)).background(pal.paper3), contentAlignment = Alignment.Center) { Text("${tracks.size}", style = MaterialTheme.typography.titleSmall) }
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(one?.title ?: t("${tracks.size} треков", "${tracks.size} tracks"), style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Text(one?.let { listOfNotNull(it.artist, it.album).joinToString(" · ") } ?: fmt(tracks.sumOf { it.durationMs }), color = pal.muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        if (one != null) Text(techLine(one), color = pal.faint, fontSize = 11.sp, maxLines = 1)
+                        Text(one?.title ?: tracksCount(tracks.size), style = Type.rowTitle, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(one?.let { listOfNotNull(it.artist, it.album).joinToString(" · ") } ?: fmtTotal(tracks.sumOf { it.durationMs }), color = pal.muted, style = Type.rowSub, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (one != null) Text(techLine(one), color = pal.faint, style = Type.meta.copy(fontSize = 11.sp), maxLines = 1)
                     }
                 }
                 Divider()
@@ -224,18 +227,22 @@ fun TrackMenu(tracks: List<Track>, onDismiss: () -> Unit) {
 private fun Item(icon: ImageVector, text: String, danger: Boolean = false, onClick: () -> Unit) {
     val pal = LocalPal.current
     val color = if (danger) MaterialTheme.colorScheme.error else pal.text
+    val hover = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val hovered by hover.collectIsHoveredAsState()
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 6.dp).clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick).padding(horizontal = 10.dp, vertical = 8.dp),
+        Modifier.fillMaxWidth().padding(horizontal = 5.dp).height(32.dp).clip(RoundedCornerShape(Radius.sm))
+            .background(if (hovered) (if (danger) color.copy(alpha = 0.12f) else pal.text.copy(alpha = 0.07f)) else androidx.compose.ui.graphics.Color.Transparent)
+            .hoverable(hover).clickable(onClick = onClick).padding(horizontal = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, null, Modifier.size(18.dp), tint = if (danger) color else pal.muted)
-        Spacer(Modifier.width(12.dp))
-        Text(text, color = color, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Icon(icon, null, Modifier.size(17.dp), tint = if (danger) color else if (hovered) pal.text else pal.muted)
+        Spacer(Modifier.width(11.dp))
+        Text(text, color = color, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
 @Composable
-private fun Divider() = HorizontalDivider(Modifier.padding(vertical = 4.dp), color = LocalPal.current.line)
+private fun Divider() = HorizontalDivider(Modifier.padding(vertical = 4.dp), color = LocalPal.current.line.copy(alpha = 0.7f))
 
 private fun findFlac(graph: Graph, nav: Nav, tr: Track) {
     nav.toast(t("Ищу «${tr.title}» во FLAC…", "Looking for «${tr.title}» in FLAC…"))
@@ -313,59 +320,66 @@ private fun TagEditor(tracks: List<Track>, onDismiss: () -> Unit) {
         Tags.Field.GENRE -> t("Жанр", "Genre")
         Tags.Field.LYRICS -> t("Текст песни (можно LRC)", "Lyrics (LRC works too)")
     }
-    AlertDialog(
-        onDismissRequest = { if (!saving) onDismiss() },
-        modifier = Modifier.widthIn(min = 560.dp, max = 720.dp),
-        title = { Text(one?.let { t("Теги: ", "Tags: ") + File(it.path!!).name } ?: t("Теги ${tracks.size} файлов", "Tags of ${tracks.size} files"), maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        text = {
-            val init = initial
-            if (init == null) { CircularProgressIndicator(Modifier.padding(24.dp)); return@AlertDialog }
-            Column(Modifier.heightIn(max = 560.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (one == null) Text(t("Где у файлов разное, поле пустое и не тронется; что впишешь — запишется во все файлы.", "Where the files differ, the field is empty and stays as it is; what you type goes into every file."), color = pal.muted, fontSize = 12.sp)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Artwork(cover ?: if (one != null) oldCover else null, one?.album ?: one?.title ?: "${tracks.size}", Modifier.size(96.dp), 8.dp)
-                    Spacer(Modifier.width(16.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        OutlinedButton(onClick = {
-                            val chooser = javax.swing.JFileChooser().apply { fileFilter = javax.swing.filechooser.FileNameExtensionFilter(t("Картинки", "Pictures"), "jpg", "jpeg", "png") }
-                            if (chooser.showOpenDialog(null) == javax.swing.JFileChooser.APPROVE_OPTION) cover = runCatching { chooser.selectedFile.readBytes() }.getOrNull()
-                        }) { Text(t("Обложка из файла…", "Cover from a file…")) }
-                        OutlinedButton(onClick = { findCovers = !findCovers }) { Text(t("Найти обложку", "Find a cover")) }
-                    }
-                }
-                if (findCovers) CoverSearch(
-                    "${values[Tags.Field.ARTIST].orEmpty()} ${values[Tags.Field.TITLE] ?: values[Tags.Field.ALBUM].orEmpty()}".trim(),
-                ) { bytes -> cover = bytes; findCovers = false }
-                fields.forEach { f ->
-                    val differ = init[f] == null
-                    OutlinedTextField(
-                        values[f].orEmpty(), { values[f] = it }, Modifier.fillMaxWidth().let { if (f == Tags.Field.LYRICS) it.heightIn(min = 140.dp, max = 260.dp) else it },
-                        label = { Text(if (differ) label(f) + t(" — разные, не трогаю", " — differ, left as is") else label(f)) }, singleLine = f != Tags.Field.LYRICS,
-                    )
+    fun save() {
+        val init = initial ?: return
+        val changes = fields.mapNotNull { f -> values[f]?.takeIf { it != init[f].orEmpty() && !(init[f] == null && it.isBlank()) }?.let { f to it } }.toMap()
+        if (changes.isEmpty() && cover == null) { onDismiss(); return }
+        saving = true
+        scope.launch {
+            var failed = 0
+            withContext(Dispatchers.IO) {
+                tracks.forEach { tr -> runCatching { Tags.update(File(tr.path!!), changes, cover) }.onFailure { failed++; System.err.println("tags ${tr.path}: $it") } }
+            }
+            val fresh = graph.library.reread(tracks)
+            afterChange(graph, tracks.zip(tracks.map { o -> fresh.firstOrNull { it.id == o.id } ?: o }).toMap())
+            saving = false
+            onDismiss()
+            nav.toast(if (failed == 0) t("Теги записаны", "Tags saved") else t("Не удалось записать $failed из ${tracks.size} (файл занят или только для чтения)", "Couldn’t write $failed of ${tracks.size} (file busy or read-only)"))
+        }
+    }
+    PDialog(
+        one?.let { t("Теги", "Tags") } ?: t("Теги: ", "Tags: ") + count(tracks.size, "файл", "файла", "файлов", "file", "files"), onDismiss, width = 640.dp,
+        subtitle = one?.let { File(it.path!!).name } ?: t("Где у файлов разное, поле пустое и не тронется; что впишешь — запишется во все файлы.", "Where the files differ, the field is empty and stays as it is; what you type goes into every file."),
+        dismissible = !saving,
+        buttons = {
+            PButton(t("Отмена", "Cancel"), onDismiss, kind = Kind.GHOST, enabled = !saving)
+            PButton(if (saving) t("Записываю…", "Saving…") else t("Сохранить", "Save"), ::save, kind = Kind.PRIMARY, enabled = initial != null && !saving)
+        },
+    ) {
+        val init = initial
+        if (init == null) { Spinner(Modifier.padding(24.dp)); return@PDialog }
+        Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Artwork(cover ?: if (one != null) oldCover else null, one?.album ?: one?.title ?: "${tracks.size}", Modifier.size(96.dp), Radius.md)
+                Spacer(Modifier.width(16.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PButton(t("Обложка из файла…", "Cover from a file…"), {
+                        val chooser = javax.swing.JFileChooser().apply { fileFilter = javax.swing.filechooser.FileNameExtensionFilter(t("Картинки", "Pictures"), "jpg", "jpeg", "png") }
+                        if (chooser.showOpenDialog(null) == javax.swing.JFileChooser.APPROVE_OPTION) cover = runCatching { chooser.selectedFile.readBytes() }.getOrNull()
+                    }, icon = Icons.Rounded.FolderOpen)
+                    PButton(t("Найти обложку", "Find a cover"), { findCovers = !findCovers }, icon = Icons.Rounded.ImageSearch)
                 }
             }
-        },
-        confirmButton = {
-            TextButton(enabled = initial != null && !saving, onClick = {
-                val init = initial ?: return@TextButton
-                val changes = fields.mapNotNull { f -> values[f]?.takeIf { it != init[f].orEmpty() && !(init[f] == null && it.isBlank()) }?.let { f to it } }.toMap()
-                if (changes.isEmpty() && cover == null) { onDismiss(); return@TextButton }
-                saving = true
-                scope.launch {
-                    var failed = 0
-                    withContext(Dispatchers.IO) {
-                        tracks.forEach { tr -> runCatching { Tags.update(File(tr.path!!), changes, cover) }.onFailure { failed++; System.err.println("tags ${tr.path}: $it") } }
-                    }
-                    val fresh = graph.library.reread(tracks)
-                    afterChange(graph, tracks.zip(tracks.map { o -> fresh.firstOrNull { it.id == o.id } ?: o }).toMap())
-                    saving = false
-                    onDismiss()
-                    nav.toast(if (failed == 0) t("Теги записаны", "Tags saved") else t("Не удалось записать $failed из ${tracks.size} (файл занят или только для чтения)", "Couldn’t write $failed of ${tracks.size} (file busy or read-only)"))
-                }
-            }) { Text(if (saving) t("Записываю…", "Saving…") else t("Сохранить", "Save")) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss, enabled = !saving) { Text(t("Отмена", "Cancel")) } },
-    )
+            if (findCovers) CoverSearch(
+                "${values[Tags.Field.ARTIST].orEmpty()} ${values[Tags.Field.TITLE] ?: values[Tags.Field.ALBUM].orEmpty()}".trim(),
+            ) { bytes -> cover = bytes; findCovers = false }
+            // Short fields two to a row; the title and the lyrics take the whole width.
+            val wide = setOf(Tags.Field.TITLE, Tags.Field.LYRICS)
+            @Composable
+            fun Field(f: Tags.Field, modifier: Modifier) {
+                val differ = init[f] == null
+                PInput(
+                    values[f].orEmpty(), { values[f] = it }, if (differ) t("разные — не трогаю", "differ — left as is") else "", modifier,
+                    label = label(f), lines = if (f == Tags.Field.LYRICS) 6 else 1,
+                )
+            }
+            fields.filter { it == Tags.Field.TITLE }.forEach { Field(it, Modifier.fillMaxWidth()) }
+            fields.filter { it !in wide }.chunked(2).forEach { pair ->
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) { pair.forEach { Field(it, Modifier.weight(1f)) }; if (pair.size == 1) Spacer(Modifier.weight(1f)) }
+            }
+            fields.filter { it == Tags.Field.LYRICS }.forEach { Field(it, Modifier.fillMaxWidth()) }
+        }
+    }
 }
 
 /** Covers for [query] from Yandex Music, Deezer and iTunes; a click picks one. */
@@ -383,11 +397,11 @@ private fun CoverSearch(query: String, onPick: (ByteArray) -> Unit) {
     }
     val list = found
     when {
-        list == null -> Row(verticalAlignment = Alignment.CenterVertically) { CircularProgressIndicator(Modifier.size(20.dp)); Spacer(Modifier.width(10.dp)); Text(t("Ищу «$query»…", "Looking for «$query»…"), color = pal.muted) }
-        list.isEmpty() -> Text(t("Ничего не нашлось", "Nothing found"), color = pal.muted)
+        list == null -> Row(verticalAlignment = Alignment.CenterVertically) { Spinner(); Spacer(Modifier.width(10.dp)); Text(t("Ищу «$query»…", "Looking for «$query»…"), style = MaterialTheme.typography.bodyMedium, color = pal.muted) }
+        list.isEmpty() -> Text(t("Ничего не нашлось", "Nothing found"), style = MaterialTheme.typography.bodyMedium, color = pal.muted)
         else -> Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             list.forEach { url ->
-                Artwork(url, query, Modifier.size(88.dp).clickable { scope.launch { withContext(Dispatchers.IO) { graph.covers.bytes(url) }?.let(onPick) } }, 6.dp)
+                Artwork(url, query, Modifier.size(88.dp).clip(RoundedCornerShape(Radius.sm)).clickable { scope.launch { withContext(Dispatchers.IO) { graph.covers.bytes(url) }?.let(onPick) } }, Radius.sm)
             }
         }
     }
@@ -439,38 +453,37 @@ private fun MoveDialog(tracks: List<Track>, onDismiss: () -> Unit) {
             )
         }
     }
-    AlertDialog(
-        onDismissRequest = { if (!busy) onDismiss() },
-        modifier = Modifier.widthIn(min = 520.dp, max = 680.dp),
-        title = { Text(if (tracks.size == 1) t("Переместить «${tracks[0].title}»", "Move «${tracks[0].title}»") else t("Переместить ${tracks.size} файлов", "Move ${tracks.size} files")) },
-        text = {
-            Column {
-                OutlinedTextField(filter, { filter = it }, Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text(t("Найти папку", "Find a folder")) })
-                Spacer(Modifier.height(8.dp))
-                val words = filter.lowercase().split(' ').filter { it.isNotBlank() }
-                Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState())) {
-                    folders.filter { p -> words.all { it in p.lowercase() } }.take(300).forEach { p ->
-                        Row(
-                            Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable(enabled = !busy) { moveTo(File(p)) }.padding(horizontal = 8.dp, vertical = 7.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(Icons.Rounded.Folder, null, Modifier.size(18.dp), tint = LocalAccent.current)
-                            Spacer(Modifier.width(10.dp))
-                            Text(short(p), maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 14.sp)
-                        }
-                    }
-                }
-                if (busy) Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) { CircularProgressIndicator(Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(t("Перемещаю…", "Moving…"), color = pal.muted) }
-            }
-        },
-        confirmButton = {
-            TextButton(enabled = !busy, onClick = {
+    PDialog(
+        if (tracks.size == 1) t("Переместить «${tracks[0].title}»", "Move «${tracks[0].title}»") else t("Переместить: ", "Move ") + count(tracks.size, "файл", "файла", "файлов", "file", "files"),
+        onDismiss, width = 600.dp, dismissible = !busy,
+        buttons = {
+            if (busy) { Spinner(size = 16.dp); Text(t("Перемещаю…", "Moving…"), style = MaterialTheme.typography.bodyMedium, color = pal.muted); Spacer(Modifier.weight(1f)) }
+            PButton(t("Другая папка…", "Other folder…"), {
                 val chooser = javax.swing.JFileChooser(roots.firstOrNull()).apply { fileSelectionMode = javax.swing.JFileChooser.DIRECTORIES_ONLY }
                 if (chooser.showOpenDialog(null) == javax.swing.JFileChooser.APPROVE_OPTION) moveTo(chooser.selectedFile)
-            }) { Text(t("Другая папка…", "Other folder…")) }
+            }, icon = Icons.Rounded.FolderOpen, enabled = !busy)
+            PButton(t("Отмена", "Cancel"), onDismiss, kind = Kind.GHOST, enabled = !busy)
         },
-        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text(t("Отмена", "Cancel")) } },
-    )
+    ) {
+        PField(filter, { filter = it }, t("Найти папку", "Find a folder"), Modifier.fillMaxWidth())
+        Spacer(Modifier.height(8.dp))
+        val words = filter.lowercase().split(' ').filter { it.isNotBlank() }
+        Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState())) {
+            folders.filter { p -> words.all { it in p.lowercase() } }.take(300).forEach { p ->
+                val hover = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                val hovered by hover.collectIsHoveredAsState()
+                Row(
+                    Modifier.fillMaxWidth().height(34.dp).clip(RoundedCornerShape(Radius.sm)).background(if (hovered) pal.text.copy(alpha = 0.06f) else androidx.compose.ui.graphics.Color.Transparent)
+                        .hoverable(hover).clickable(enabled = !busy) { moveTo(File(p)) }.padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Rounded.Folder, null, Modifier.size(17.dp), tint = pal.muted)
+                    Spacer(Modifier.width(10.dp))
+                    Text(short(p), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        }
+    }
 }
 
 // --- Deleting ----------------------------------------------------------------------------------------
@@ -481,43 +494,43 @@ private fun DeleteDialog(tracks: List<Track>, onDismiss: () -> Unit) {
     val nav = LocalNav.current
     val pal = LocalPal.current
     val streams = tracks.count { it.remoteId != null }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(if (tracks.size == 1) t("Удалить файл?", "Delete the file?") else t("Удалить ${tracks.size} файлов?", "Delete ${tracks.size} files?")) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                tracks.take(6).forEach { Text(File(it.path!!).name, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp) }
-                if (tracks.size > 6) Text(t("…и ещё ${tracks.size - 6}", "…and ${tracks.size - 6} more"), color = pal.muted, fontSize = 13.sp)
-                Spacer(Modifier.height(4.dp))
-                Text(t("Файлы уйдут в корзину системы — оттуда их можно вернуть.", "The files go to the system trash, where they can be restored from."), color = pal.muted)
-                if (streams > 0) Text(t("Треки с сервисов останутся в медиатеке — их можно будет слушать онлайн.", "Tracks from services stay in the library to stream."), color = pal.muted)
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                onDismiss()
-                graph.scope.launch {
-                    var ok = 0
-                    withContext(Dispatchers.IO) {
-                        tracks.forEach { tr ->
-                            val f = File(tr.path!!)
-                            if (!FileOps.trash(f)) return@forEach
-                            ok++
-                            FileOps.companions(f).forEach(FileOps::trash)
-                            if (tr.remoteId != null) graph.library.upsert(tr.copy(path = null, folder = null, sizeBytes = 0)) else graph.library.remove(tr.id)
-                        }
-                    }
-                    withContext(Dispatchers.Main) {
-                        nav.toast(
-                            if (ok == tracks.size) (if (ok == 1) t("«${tracks[0].title}» — в корзине", "«${tracks[0].title}» moved to the trash") else t("В корзине: $ok", "Moved to the trash: $ok"))
-                            else t("Удалено $ok из ${tracks.size} — остальные не дались", "Deleted $ok of ${tracks.size} — the rest couldn’t be"),
-                        )
-                    }
+    fun delete() {
+        onDismiss()
+        graph.scope.launch {
+            var ok = 0
+            withContext(Dispatchers.IO) {
+                tracks.forEach { tr ->
+                    val f = File(tr.path!!)
+                    if (!FileOps.trash(f)) return@forEach
+                    ok++
+                    FileOps.companions(f).forEach(FileOps::trash)
+                    if (tr.remoteId != null) graph.library.upsert(tr.copy(path = null, folder = null, sizeBytes = 0)) else graph.library.remove(tr.id)
                 }
-            }) { Text(t("Удалить", "Delete"), color = MaterialTheme.colorScheme.error) }
+            }
+            withContext(Dispatchers.Main) {
+                nav.toast(
+                    if (ok == tracks.size) (if (ok == 1) t("«${tracks[0].title}» — в корзине", "«${tracks[0].title}» moved to the trash") else t("В корзине: $ok", "Moved to the trash: $ok"))
+                    else t("Удалено $ok из ${tracks.size} — остальные не дались", "Deleted $ok of ${tracks.size} — the rest couldn’t be"),
+                )
+            }
+        }
+    }
+    PDialog(
+        if (tracks.size == 1) t("Удалить файл?", "Delete the file?") else t("Удалить ", "Delete ") + count(tracks.size, "файл", "файла", "файлов", "file", "files") + "?",
+        onDismiss, width = 460.dp,
+        buttons = {
+            PButton(t("Отмена", "Cancel"), onDismiss, kind = Kind.GHOST)
+            PButton(t("Удалить", "Delete"), ::delete, icon = Icons.Rounded.Delete, kind = Kind.DANGER)
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(t("Отмена", "Cancel")) } },
-    )
+    ) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.md)).background(pal.paper3).padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            tracks.take(6).forEach { Text(File(it.path!!).name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium) }
+            if (tracks.size > 6) Text(t("…и ещё ${tracks.size - 6}", "…and ${tracks.size - 6} more"), color = pal.muted, style = MaterialTheme.typography.bodyMedium)
+        }
+        Spacer(Modifier.height(12.dp))
+        Text(t("Файлы уйдут в корзину системы — оттуда их можно вернуть.", "The files go to the system trash, where they can be restored from."), color = pal.muted, style = MaterialTheme.typography.bodyMedium)
+        if (streams > 0) Text(t("Треки с сервисов останутся в медиатеке — их можно будет слушать онлайн.", "Tracks from services stay in the library to stream."), color = pal.muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp))
+    }
 }
 
 // --- Versions ----------------------------------------------------------------------------------------
@@ -541,39 +554,36 @@ private fun VersionsDialog(track: Track, onDismiss: () -> Unit) {
         "%.1f MB".format(f.length() / 1_048_576.0),
         java.text.SimpleDateFormat("d MMM yyyy, HH:mm").format(java.util.Date(f.lastModified())),
     ).joinToString(" · ")
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        modifier = Modifier.widthIn(min = 520.dp, max = 680.dp),
-        title = { Text(t("Версии «${current.title}»", "Versions of «${current.title}»")) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                current.path?.let { p ->
-                    Version(File(p).name, t("Сейчас · ", "Now · ") + techLine(current)) {
-                        TextButton(onClick = { graph.player.play(listOf(current)) }) { Text(t("Слушать", "Play")) }
-                    }
+    PDialog(
+        t("Версии «${current.title}»", "Versions of «${current.title}»"), onDismiss, width = 620.dp,
+        subtitle = t("Прежние файлы лежат в папке .palimpsest/replaced рядом с треком.", "Earlier files live in .palimpsest/replaced next to the track."),
+        buttons = { PButton(t("Готово", "Done"), onDismiss, kind = Kind.PRIMARY) },
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            current.path?.let { p ->
+                Version(File(p).name, t("Сейчас · ", "Now · ") + techLine(current)) {
+                    PButton(t("Слушать", "Play"), { graph.player.play(listOf(current)) }, icon = Icons.Rounded.PlayArrow, kind = Kind.GHOST)
                 }
-                old.forEach { f ->
-                    Version(f.name, line(f)) {
-                        TextButton(onClick = { preview(f, t("старая версия", "earlier version")) }) { Text(t("Слушать", "Play")) }
-                        TextButton(onClick = {
-                            scope.launch {
-                                val restored = withContext(Dispatchers.IO) { FileOps.restore(current, f) }
-                                if (restored == null) { nav.toast(t("Не получилось вернуть", "Couldn’t restore")); return@launch }
-                                val moved = graph.library.relocate(current, restored)
-                                val fresh = graph.library.reread(listOf(moved)).firstOrNull() ?: moved
-                                afterChange(graph, mapOf(current to fresh))
-                                tick++
-                                nav.toast(t("Вернул «${f.name}», прежний файл сохранён", "Restored «${f.name}», the other file is kept"))
-                            }
-                        }) { Text(t("Вернуть", "Restore")) }
-                        TextButton(onClick = { if (FileOps.trash(f)) tick++ else nav.toast(t("Не удалось удалить", "Couldn’t delete")) }) { Text(t("В корзину", "Trash"), color = MaterialTheme.colorScheme.error) }
-                    }
-                }
-                Text(t("Прежние файлы лежат в папке .palimpsest/replaced рядом с треком.", "Earlier files live in .palimpsest/replaced next to the track."), color = pal.faint, fontSize = 12.sp)
             }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(t("Готово", "Done")) } },
-    )
+            old.forEach { f ->
+                Version(f.name, line(f)) {
+                    PIconButton(Icons.Rounded.PlayArrow, t("Слушать", "Play"), { preview(f, t("старая версия", "earlier version")) }, iconSize = 18.dp)
+                    PButton(t("Вернуть", "Restore"), {
+                        scope.launch {
+                            val restored = withContext(Dispatchers.IO) { FileOps.restore(current, f) }
+                            if (restored == null) { nav.toast(t("Не получилось вернуть", "Couldn’t restore")); return@launch }
+                            val moved = graph.library.relocate(current, restored)
+                            val fresh = graph.library.reread(listOf(moved)).firstOrNull() ?: moved
+                            afterChange(graph, mapOf(current to fresh))
+                            tick++
+                            nav.toast(t("Вернул «${f.name}», прежний файл сохранён", "Restored «${f.name}», the other file is kept"))
+                        }
+                    }, kind = Kind.GHOST)
+                    PIconButton(Icons.Rounded.Delete, t("В корзину", "Trash"), { if (FileOps.trash(f)) tick++ else nav.toast(t("Не удалось удалить", "Couldn’t delete")) }, iconSize = 18.dp, tint = MaterialTheme.colorScheme.error)
+                }
+            }
+        }
+    }
 }
 
 /** Ids of files played only to listen to them (versions): not tracks of the library, not logged. */
@@ -582,12 +592,12 @@ const val PREVIEW = "preview:"
 @Composable
 private fun Version(name: String, info: String, actions: @Composable () -> Unit) {
     val pal = LocalPal.current
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(pal.paper3).padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.md)).background(pal.paper3).padding(start = 12.dp, end = 6.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 14.sp)
-            Text(info, color = pal.muted, fontSize = 12.sp, maxLines = 1)
+            Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = Type.rowTitle)
+            Text(info, color = pal.muted, style = Type.meta, maxLines = 1)
         }
-        actions()
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) { actions() }
     }
 }
 
@@ -612,28 +622,36 @@ private fun VideoDialog(track: Track, onDismiss: () -> Unit) {
 
     @Composable
     fun Group(title: String, content: @Composable () -> Unit) {
-        Spacer(Modifier.height(14.dp))
-        Text(title.uppercase(), style = MaterialTheme.typography.labelSmall, color = pal.muted)
+        Spacer(Modifier.height(16.dp))
+        Caption(title)
         Spacer(Modifier.height(8.dp))
         androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { content() }
     }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        modifier = Modifier.widthIn(min = 520.dp, max = 640.dp),
-        title = { Text(t("Видео из трека", "Video from the track")) },
-        text = {
-            Column {
-                Text(
-                    t("Трек целиком, звук прямо из файла через твой эквалайзер. Спектр — как в плеере. Видео сохранится в ", "The whole track, the sound straight from the file through your equalizer. The spectrum moves as in the player. The video is saved to ") + graph.videos.folder.absolutePath + ".",
-                    color = pal.muted, fontSize = 13.sp,
-                )
+    fun make() {
+        graph.settings.update { it.copy(renderChoice = listOf(mode.name, aspect.name, quality.name, viz.name)) }
+        graph.videos.start(track, effective, aspect, quality, viz) { r ->
+            r.onSuccess { f -> nav.toast(t("Видео готово: ${f.name}", "The video is ready: ${f.name}")); FileOps.showInFolder(f) }
+                .onFailure { nav.toast(t("Видео не получилось: ", "The video failed: ") + (it.message ?: it.javaClass.simpleName)) }
+        }
+        nav.toast(t("Делаю видео — прогресс слева внизу", "Making the video — progress at the bottom left"))
+        onDismiss()
+    }
+    PDialog(
+        t("Видео из трека", "Video from the track"), onDismiss, width = 600.dp,
+        subtitle = t("Трек целиком, звук прямо из файла через твой эквалайзер. Спектр — как в плеере. Видео сохранится в ", "The whole track, the sound straight from the file through your equalizer. The spectrum moves as in the player. The video is saved to ") + graph.videos.folder.absolutePath + ".",
+        buttons = {
+            PButton(t("Отмена", "Cancel"), onDismiss, kind = Kind.GHOST)
+            PButton(t("Сделать видео", "Make the video"), ::make, icon = Icons.Rounded.Movie, kind = Kind.PRIMARY, enabled = busy == null && hasLyrics != null)
+        },
+    ) {
+        Column {
                 Group(t("Что в кадре", "What's in it")) {
                     Pill(t("Обложка", "Cover"), effective == dev.xvin.palimpsest.desktop.render.RenderMode.COVER, { mode = dev.xvin.palimpsest.desktop.render.RenderMode.COVER })
                     if (hasLyrics == true) Pill(t("Текст", "Lyrics"), effective == dev.xvin.palimpsest.desktop.render.RenderMode.LYRICS, { mode = dev.xvin.palimpsest.desktop.render.RenderMode.LYRICS })
                 }
                 when (hasLyrics) {
-                    null -> Text(t("Ищу синхронный текст…", "Looking for synced lyrics…"), color = pal.faint, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
-                    false -> Text(t("Синхронного текста нет — в видео будет обложка", "No synced lyrics — the video shows the cover"), color = pal.faint, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
+                    null -> Text(t("Ищу синхронный текст…", "Looking for synced lyrics…"), color = pal.faint, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 6.dp))
+                    false -> Text(t("Синхронного текста нет — в видео будет обложка", "No synced lyrics — the video shows the cover"), color = pal.faint, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 6.dp))
                     else -> Unit
                 }
                 Group(t("Формат", "Format")) {
@@ -650,20 +668,7 @@ private fun VideoDialog(track: Track, onDismiss: () -> Unit) {
                     Pill(t("Зеркало", "Mirror"), viz == dev.xvin.palimpsest.desktop.render.RenderViz.MIRROR, { viz = dev.xvin.palimpsest.desktop.render.RenderViz.MIRROR })
                     Pill(t("Кольцо вокруг обложки", "Ring around the cover"), viz == dev.xvin.palimpsest.desktop.render.RenderViz.RING, { viz = dev.xvin.palimpsest.desktop.render.RenderViz.RING })
                 }
-                if (busy != null) Text(t("Сейчас уже делается видео «${busy!!.title}» — дождись его.", "A video of «${busy!!.title}» is being made — wait for it."), color = MaterialTheme.colorScheme.error, fontSize = 12.sp, modifier = Modifier.padding(top = 10.dp))
-            }
-        },
-        confirmButton = {
-            TextButton(enabled = busy == null && hasLyrics != null, onClick = {
-                graph.settings.update { it.copy(renderChoice = listOf(mode.name, aspect.name, quality.name, viz.name)) }
-                graph.videos.start(track, effective, aspect, quality, viz) { r ->
-                    r.onSuccess { f -> nav.toast(t("Видео готово: ${f.name}", "The video is ready: ${f.name}")); FileOps.showInFolder(f) }
-                        .onFailure { nav.toast(t("Видео не получилось: ", "The video failed: ") + (it.message ?: it.javaClass.simpleName)) }
-                }
-                nav.toast(t("Делаю видео — прогресс слева внизу", "Making the video — progress at the bottom left"))
-                onDismiss()
-            }) { Text(t("Сделать видео", "Make the video")) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(t("Отмена", "Cancel")) } },
-    )
+                if (busy != null) Text(t("Сейчас уже делается видео «${busy!!.title}» — дождись его.", "A video of «${busy!!.title}» is being made — wait for it."), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 12.dp))
+        }
+    }
 }

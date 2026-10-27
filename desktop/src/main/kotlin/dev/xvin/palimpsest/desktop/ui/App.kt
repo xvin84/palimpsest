@@ -254,9 +254,20 @@ private fun ApplicationScope.App(showRequests: kotlinx.coroutines.channels.Recei
         title = "Palimpsest",
         icon = painterResource("icon.png"),
         state = state,
+        // Space (and Enter) would otherwise press whatever button was clicked last — the heart, the
+        // lyrics switch — since a clicked button keeps the focus; so those are taken before the
+        // button sees them, unless a field is being typed in or a menu or dialog is open.
+        onPreviewKeyEvent = { e ->
+            if (e.type != KeyEventType.KeyDown || KeyboardOwner.busy || nav.menu.isNotEmpty() || nav.dialog != null || nav.waveTuning) return@Window false
+            val stroke = strokeOf(e)
+            val action = stroke?.takeIf { it == "Space" || it == "Enter" }?.let(keys::get)
+            action != null && runHotAction(action, graph, nav, controls)
+        },
         onKeyEvent = { e ->
             if (e.type != KeyEventType.KeyDown) return@Window false
-            val action = strokeOf(e)?.let(keys::get)
+            val stroke = strokeOf(e)
+            // A field being typed in keeps its letters and editing keys.
+            val action = stroke?.takeIf(KeyboardOwner::letThrough)?.let(keys::get)
             when {
                 action != null -> runHotAction(action, graph, nav, controls)
                 // Media keys on the keyboard always work.
@@ -449,10 +460,7 @@ private fun Sidebar(compact: Boolean) {
                     Text(label, style = Type.meta, color = pal.muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                     onCancel?.let { PIconButton(Icons.Rounded.Close, t("Отменить", "Cancel"), it, size = 20.dp, iconSize = 14.dp) }
                 }
-                LinearProgressIndicator(
-                    progress = { progress }, Modifier.fillMaxWidth().padding(top = 6.dp).height(3.dp).clip(RoundedCornerShape(2.dp)),
-                    color = pal.text.copy(alpha = 0.7f), trackColor = pal.line, drawStopIndicator = {}, gapSize = 0.dp,
-                )
+                PProgress(progress, Modifier.fillMaxWidth().padding(top = 6.dp))
             }
         }
         if (scan.running) Job(
@@ -616,7 +624,7 @@ fun likeRemote(graph: Graph, t: Track, liked: Boolean) {
 
 /** The seek line: click or drag to move; the knob shows under the pointer. */
 @Composable
-fun SeekLine(positionMs: Long, durationMs: Long, modifier: Modifier = Modifier, color: Color = LocalAccent.current, onSeek: (Long) -> Unit) {
+fun SeekLine(positionMs: Long, durationMs: Long, modifier: Modifier = Modifier, color: Color = MaterialTheme.colorScheme.primary, onSeek: (Long) -> Unit) {
     val frac = if (durationMs > 0) (positionMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
     LineSlider(frac, {}, modifier, color, onDone = { if (durationMs > 0) onSeek((it * durationMs).toLong()) })
 }

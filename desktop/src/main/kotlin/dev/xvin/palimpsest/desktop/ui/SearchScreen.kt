@@ -107,7 +107,7 @@ fun SearchScreen() {
             return@Column
         }
         if (source == null) LibraryResults(all, liked, query, kind) else when (val r = remote) {
-            null, is Load.Loading -> CircularProgressIndicator(Modifier.padding(24.dp).size(24.dp), strokeWidth = 2.dp, color = pal.muted)
+            null, is Load.Loading -> Spinner(Modifier.padding(24.dp))
             is Load.Failed -> Text(t("Ошибка поиска: ", "Search failed: ") + r.error.message, color = MaterialTheme.colorScheme.error)
             is Load.Ok -> RemoteResults(r.value, kind) { kind = it }
         }

@@ -2,6 +2,12 @@ package dev.xvin.palimpsest.desktop.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
@@ -190,25 +196,27 @@ fun HotkeyRow(a: HotAction) {
     fun save(changes: Map<HotAction, List<String>>) = graph.settings.update { s ->
         s.copy(hotkeys = s.hotkeys + changes.map { (k, v) -> k.name to v })
     }
-    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(a.title(), Modifier.width(280.dp), fontSize = 14.sp)
+    Row(Modifier.fillMaxWidth().widthIn(max = 820.dp).padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(a.title(), Modifier.width(280.dp), style = MaterialTheme.typography.bodyMedium)
         FlowRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             keys.forEach { k ->
                 Row(
-                    Modifier.clip(RoundedCornerShape(6.dp)).background(pal.paper3).padding(start = 10.dp, end = 4.dp, top = 3.dp, bottom = 3.dp),
+                    // A key cap: a little raised, the shortcut in tabular figures.
+                    Modifier.height(26.dp).clip(RoundedCornerShape(Radius.sm)).background(pal.paper3)
+                        .border(1.dp, pal.line, RoundedCornerShape(Radius.sm)).padding(start = 9.dp, end = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(Hotkeys.label(k, ru), fontSize = 13.sp)
-                    Text("×", color = pal.faint, fontSize = 14.sp, modifier = Modifier.padding(start = 6.dp).clip(RoundedCornerShape(50)).clickable { save(mapOf(a to keys - k)) }.padding(horizontal = 4.dp))
+                    Text(Hotkeys.label(k, ru), style = Type.meta.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold))
+                    PIconButton(androidx.compose.material.icons.Icons.Rounded.Close, t("Убрать", "Remove"), { save(mapOf(a to keys - k)) }, Modifier.padding(start = 2.dp), size = 20.dp, iconSize = 12.dp, tint = pal.faint)
                 }
             }
             if (capturing) {
                 val focus = remember { FocusRequester() }
                 LaunchedEffect(Unit) { focus.requestFocus() }
                 Text(
-                    t("Нажми сочетание… (Esc — отмена)", "Press the keys… (Esc cancels)"), color = accent, fontSize = 13.sp,
-                    modifier = Modifier.clip(RoundedCornerShape(6.dp)).border(1.dp, accent, RoundedCornerShape(6.dp)).padding(horizontal = 10.dp, vertical = 3.dp)
-                        .focusRequester(focus).onFocusChanged { if (it.isFocused) hadFocus = true else if (hadFocus) capturing = false }.focusable()
+                    t("Нажми сочетание… (Esc — отмена)", "Press the keys… (Esc cancels)"), color = pal.text, style = Type.meta,
+                    modifier = Modifier.height(26.dp).clip(RoundedCornerShape(Radius.sm)).border(1.dp, accent, RoundedCornerShape(Radius.sm)).padding(horizontal = 10.dp, vertical = 5.dp)
+                        .focusRequester(focus).ownsKeys().onFocusChanged { if (it.isFocused) hadFocus = true else if (hadFocus) capturing = false }.focusable()
                         .onPreviewKeyEvent { e ->
                             if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent true
                             val stroke = strokeOf(e) ?: return@onPreviewKeyEvent true
@@ -221,10 +229,10 @@ fun HotkeyRow(a: HotAction) {
                         },
                 )
             } else {
-                Text("+", color = accent, fontSize = 16.sp, modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable { hadFocus = false; capturing = true }.padding(horizontal = 10.dp, vertical = 1.dp))
+                PIconButton(androidx.compose.material.icons.Icons.Rounded.Add, t("Добавить сочетание", "Add a shortcut"), { hadFocus = false; capturing = true }, size = 26.dp, iconSize = 16.dp)
             }
         }
-        if (a.name in settings.hotkeys) TextButton(onClick = { graph.settings.update { it.copy(hotkeys = it.hotkeys - a.name) } }) { Text(t("Как было", "Default"), color = pal.muted, fontSize = 12.sp) }
+        if (a.name in settings.hotkeys) PButton(t("Как было", "Default"), { graph.settings.update { it.copy(hotkeys = it.hotkeys - a.name) } }, icon = androidx.compose.material.icons.Icons.AutoMirrored.Rounded.Undo, kind = Kind.GHOST)
     }
 }
 
@@ -237,8 +245,8 @@ fun HotkeysIntro() {
         Text(
             t("Клавиши как в Яндекс Музыке: K — пауза, J/L — перемотка, N/P — треки, F/D — нравится/нет, R — повтор, S — перемешать, M — звук, W — большой плеер. Работают, когда курсор не в поле ввода; в русской раскладке тоже.",
                 "Keys as in Yandex Music: K pause, J/L seek, N/P tracks, F/D like/dislike, R repeat, S shuffle, M mute, W big player. They work when you’re not typing in a field, in any layout."),
-            color = pal.muted, fontSize = 13.sp, modifier = Modifier.weight(1f),
+            color = pal.muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f).padding(end = 16.dp),
         )
-        TextButton(onClick = { graph.settings.update { it.copy(hotkeys = emptyMap()) } }) { Text(t("Всё как было", "Reset all")) }
+        PButton(t("Всё как было", "Reset all"), { graph.settings.update { it.copy(hotkeys = emptyMap()) } }, icon = androidx.compose.material.icons.Icons.AutoMirrored.Rounded.Undo)
     }
 }

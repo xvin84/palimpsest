@@ -164,7 +164,7 @@ fun LyricsView(modifier: Modifier, big: Boolean, scale: Float = 1f) {
     val p = parsed
     when {
         track == null -> EmptyState(t("Ничего не играет", "Nothing playing"), "")
-        p == null -> Box(modifier, contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        p == null -> Box(modifier, contentAlignment = Alignment.Center) { Spinner(size = 24.dp) }
         p.lines.isEmpty() -> Box(modifier, contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(t("Текста не нашлось", "No lyrics found"), color = pal.muted)
@@ -394,13 +394,16 @@ private fun LyricsSourceButton(track: Track, shown: Lyrics?, onPick: (Lyrics) ->
         )
         if (open) {
             val variants by produceState<List<Lyrics>?>(null, track.id) { value = runCatching { graph.lyrics.variants(track) }.getOrDefault(emptyList()) }
-            androidx.compose.material3.DropdownMenu(true, onDismissRequest = { open = false }, modifier = Modifier.widthIn(min = 300.dp, max = 420.dp)) {
+            androidx.compose.material3.DropdownMenu(
+                true, onDismissRequest = { open = false }, modifier = Modifier.widthIn(min = 300.dp, max = 420.dp),
+                shape = RoundedCornerShape(Radius.lg), containerColor = pal.paper2, shadowElevation = 18.dp, border = androidx.compose.foundation.BorderStroke(1.dp, pal.line),
+            ) {
                 val list = variants
                 when {
                     list == null -> Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        CircularProgressIndicator(Modifier.size(18.dp)); Spacer(Modifier.width(10.dp)); Text(t("Ищу во всех источниках…", "Looking everywhere…"), color = pal.muted)
+                        Spinner(size = 16.dp); Spacer(Modifier.width(10.dp)); Text(t("Ищу во всех источниках…", "Looking everywhere…"), style = MaterialTheme.typography.bodyMedium, color = pal.muted)
                     }
-                    list.isEmpty() -> Text(t("Нигде нет", "Nowhere to be found"), Modifier.padding(16.dp), color = pal.muted)
+                    list.isEmpty() -> Text(t("Нигде нет", "Nowhere to be found"), Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium, color = pal.muted)
                     else -> list.forEach { l ->
                         val text = l.synced ?: l.plain.orEmpty()
                         val first = Lrc.parse(text).lines.firstOrNull { it.text.isNotBlank() }?.text.orEmpty()
