@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.lerp
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.roundToInt
 
@@ -48,13 +49,20 @@ class CoverSpots {
     var bar by mutableStateOf<Rect?>(null)
     /** The big player's cover by layout (lyrics on → true): its place and corner. */
     val big = androidx.compose.runtime.mutableStateMapOf<Boolean, Pair<Rect, Dp>>()
-    /** While a cover is in the air, the real ones stay hidden. */
+    /** While a cover is in the air, the two it flies between stay hidden (the others, e.g. the bar's during a lyrics switch, stay put). */
     var flying by mutableStateOf(false)
+    internal var involved by mutableStateOf(emptySet<Any>())
     internal var from: Rect? = null
     internal var to: Rect? = null
     internal var fromCorner = 0.dp
     internal var toCorner = 0.dp
     internal val progress = Animatable(0f)
+    /**
+     * How much of the copy shows over the real covers: it fades in as it lifts off and fades into the
+     * real cover after landing, so nothing swaps in a single frame (Lane's shadows over its cover, a
+     * pixel's difference in place or corner).
+     */
+    internal val handoff = Animatable(0f)
 }
 
 val LocalCoverSpots = androidx.compose.runtime.staticCompositionLocalOf { CoverSpots() }
@@ -66,7 +74,7 @@ fun Modifier.coverSpot(big: Boolean, corner: Dp = 18.dp, lyrics: Boolean = true)
     onGloballyPositioned { c ->
         val r = c.boundsInRoot()
         if (big) spots.big[lyrics] = r to corner else spots.bar = r
-    }.graphicsLayer { alpha = if (spots.flying) 0f else 1f }
+    }.graphicsLayer { alpha = if (spots.flying && (if (big) "big:$lyrics" else "bar") in spots.involved) 1f - spots.handoff.value else 1f }
 }
 
 /** Flies the cover when the big player opens or closes ([open]) or its [lyrics] are switched. Drawn above everything. */
@@ -83,22 +91,28 @@ fun CoverFlight(open: Boolean, lyrics: Boolean, model: Any?, seed: String, artis
         val start: Pair<Rect, Dp>
         val target: () -> Pair<Rect, Dp>?
         when {
-            open && !wasOpen -> { start = (spots.bar ?: return@LaunchedEffect) to Radius.sm; target = { spots.big[lyrics] } }
-            !open && wasOpen -> { start = spots.big[wasLyrics] ?: return@LaunchedEffect; target = { spots.bar?.let { it to Radius.sm } } }
-            open && lyrics != wasLyrics -> { start = spots.big[wasLyrics] ?: return@LaunchedEffect; target = { spots.big[lyrics] } }
+            open && !wasOpen -> { start = (spots.bar ?: return@LaunchedEffect) to Radius.sm; target = { spots.big[lyrics] }; spots.involved = setOf("bar", "big:$lyrics") }
+            !open && wasOpen -> { start = spots.big[wasLyrics] ?: return@LaunchedEffect; target = { spots.bar?.let { it to Radius.sm } }; spots.involved = setOf("big:$wasLyrics", "bar") }
+            open && lyrics != wasLyrics -> { start = spots.big[wasLyrics] ?: return@LaunchedEffect; target = { spots.big[lyrics] }; spots.involved = setOf("big:$wasLyrics", "big:$lyrics") }
             else -> return@LaunchedEffect
         }
         spots.from = start.first; spots.fromCorner = start.second
         spots.to = start.first; spots.toCorner = start.second
         spots.progress.snapTo(0f)
+        spots.handoff.snapTo(0f)
         spots.flying = true
         try {
-            val end = withTimeoutOrNull(400) { snapshotFlow { target() }.first { it != null && it.first.width > 0f } } ?: return@LaunchedEffect
-            spots.to = end.first
-            spots.toCorner = end.second
-            spots.progress.animateTo(1f, tween(if (open && wasOpen) 480 else if (open) 520 else 440, easing = Emphasized))
+            kotlinx.coroutines.coroutineScope {
+                launch { spots.handoff.animateTo(1f, tween(100)) }
+                val end = withTimeoutOrNull(400) { snapshotFlow { target() }.first { it != null && it.first.width > 0f } } ?: return@coroutineScope
+                spots.to = end.first
+                spots.toCorner = end.second
+                spots.progress.animateTo(1f, tween(if (open && wasOpen) 480 else if (open) 520 else 440, easing = Emphasized))
+                spots.handoff.animateTo(0f, tween(180))
+            }
         } finally {
             spots.flying = false
+            spots.handoff.snapTo(0f)
         }
     }
     // The copy is always there, unseen at rest, and always laid out large so its picture is loaded
@@ -117,7 +131,7 @@ fun CoverFlight(open: Boolean, lyrics: Boolean, model: Any?, seed: String, artis
                     translationY = r.top
                     scaleX = r.width / side
                     scaleY = r.height / side
-                    alpha = if (spots.flying) 1f else 0f
+                    alpha = if (spots.flying) spots.handoff.value else 0f
                     // A shadow that grows mid-flight: the cover lifts off and lands.
                     shadowElevation = 24.dp.toPx() * (1f - kotlin.math.abs(p * 2f - 1f)) / scaleX.coerceAtLeast(0.05f)
                     shape = RoundedCornerShape(lerp(spots.fromCorner, spots.toCorner, p).toPx() / scaleX.coerceAtLeast(0.05f))
