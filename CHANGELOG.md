@@ -2,6 +2,37 @@
 
 **English** | [Русский](CHANGELOG.ru.md)
 
+## 0.5.0 — 2026-10-28
+
+### New
+- Computer: **a new look.** Still Palimpsest — warm paper, the accent from the cover, a serif in the titles — but
+  finished:
+  - all the text is set in Manrope (everything but the titles used to be the system's font), sizes and corners on one
+    scale;
+  - only what's playing, the play button and a screen's main action stay orange;
+  - buttons, fields, switches and sliders of its own, compact, instead of Material's finger-sized ones;
+  - **a track table with real columns**: click a header to sort, the date added, a heart to click right in the row,
+    bars that move with the music by the playing track;
+  - the sidebar grouped with Settings at the bottom; a lower player bar with the heart by the title;
+  - lyrics larger and in more contrast: the sung line bright, the far ones slightly out of focus;
+  - the track menu, every window (tags, moving, deleting, versions, video, My Wave), Settings, keyboard shortcuts,
+    History, Upgrade to FLAC, Search, artist pages and Services in the same style, without gradients; Lane too.
+- Computer: **motion.** The cover flies from the player bar into the big player and back, and between its layouts when
+  the lyrics are switched on and off; the heart jumps when liked; table rows slide to their places on sort and filter;
+  tabs change softly; album tiles lift under the pointer.
+- Computer: **a mark and drawings of its own** — a P over a fainter P, a My Wave sign, small drawings on empty screens.
+- Computer: **the folder for videos can be chosen** (Settings → Downloads, and in the «Video from the track» window,
+  which now shows where it will be saved), and a finished video comes with a «Show» button.
+
+### Fixed
+- **Yandex's «subscribe to Plus» line and NetEase's credit lines (作词/作曲) are no longer shown as the song's words**
+  — on the phone and the computer, also for ones saved before; the lyrics then come from the other sources.
+- Computer: **Space pauses** even after a button was clicked — it used to press that button again (like, lyrics). And
+  **typing in Search no longer sets off keyboard shortcuts**.
+- Computer: «Show in folder» on Linux opens the file manager with the file selected — the folder used to open in
+  whatever the system took for the folder app, or not at all.
+- Computer: the lyrics can no longer crash the app when they first jump to the sung line.
+
 ## 0.4.10 — 2026-10-27
 
 ### New
