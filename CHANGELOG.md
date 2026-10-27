@@ -17,6 +17,11 @@
   - lyrics larger and in more contrast: the sung line bright, the far ones slightly out of focus;
   - the track menu, every window (tags, moving, deleting, versions, video, My Wave), Settings, keyboard shortcuts,
     History, Upgrade to FLAC, Search, artist pages and Services in the same style, without gradients; Lane too.
+- Phone: **the same look, made for the phone.** All the text in Manrope (it was the system's Roboto); quiet outlined
+  chips instead of orange pills; only what's playing stays orange: bars over the playing track's cover, while likes,
+  ranks, History's figures, search kinds and Settings' tiles turned neutral; the heart jumps with a ring when liked;
+  the offline wave has a wave sign and a play button instead of «▶»; empty screens get the same drawings as on the
+  computer. Lane, Glass, Vinyl and Mono keep their character, in Manrope too.
 - Computer: **motion.** The cover flies from the player bar into the big player and back, and between its layouts when
   the lyrics are switched on and off; the heart jumps when liked; table rows slide to their places on sort and filter;
   tabs change softly; album tiles lift under the pointer.
