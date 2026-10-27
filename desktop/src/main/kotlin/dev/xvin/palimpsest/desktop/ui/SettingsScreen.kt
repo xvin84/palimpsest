@@ -139,13 +139,7 @@ fun SettingsScreen() {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= 760.dp
         val search = @Composable {
-            OutlinedTextField(
-                query, { query = it }, Modifier.fillMaxWidth(), singleLine = true,
-                leadingIcon = { Icon(Icons.Rounded.Search, null) },
-                trailingIcon = if (query.isEmpty()) null else { { IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Close, t("Очистить", "Clear")) } } },
-                placeholder = { Text(t("Поиск по настройкам", "Search settings"), maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                shape = RoundedCornerShape(14.dp),
-            )
+            PField(query, { query = it }, t("Поиск по настройкам", "Search settings"), Modifier.fillMaxWidth())
         }
         val shown = when {
             words.isNotEmpty() -> items.filter { it.matches(words) }
@@ -212,17 +206,17 @@ private fun CategoryRow(c: Category, selected: Boolean, arrow: Boolean, onClick:
     val accent = LocalAccent.current
     val pal = LocalPal.current
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(if (selected) pal.paper3 else Color.Transparent)
-            .clickable(onClick = onClick).padding(horizontal = 8.dp, vertical = 9.dp),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.md)).background(if (selected) pal.text.copy(alpha = 0.08f) else Color.Transparent)
+            .clickable(onClick = onClick).padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(38.dp).clip(CircleShape).background(accent.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
-            Icon(c.icon, null, tint = accent, modifier = Modifier.size(20.dp))
+        Box(Modifier.size(34.dp).clip(RoundedCornerShape(Radius.md)).background(pal.paper3), contentAlignment = Alignment.Center) {
+            Icon(c.icon, null, tint = if (selected) accent else pal.muted, modifier = Modifier.size(18.dp))
         }
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
-            Text(c.title, style = MaterialTheme.typography.titleMedium)
-            Text(c.summary, color = pal.muted, fontSize = 12.sp, lineHeight = 16.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(c.title, style = Type.rowTitle)
+            Text(c.summary, color = pal.muted, style = Type.rowSub.copy(fontSize = 12.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         if (arrow) Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = pal.faint)
     }

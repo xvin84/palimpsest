@@ -1,6 +1,20 @@
 package dev.xvin.palimpsest.desktop.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Sync
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Waves
+import androidx.compose.material3.Icon
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -53,14 +67,14 @@ fun ServicesScreen() {
     var code by remember { mutableStateOf<YDeviceCode?>(null) }
     var busy by remember { mutableStateOf(false) }
     var syncing by remember { mutableStateOf(false) }
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 28.dp, vertical = 20.dp)) {
+    LazyColumn(Modifier.fillMaxSize().padding(start = 28.dp, end = 20.dp, top = 22.dp)) {
         item { Text(t("Сервисы", "Services"), style = MaterialTheme.typography.displayMedium) }
         item { SectionHeader(t("Яндекс Музыка", "Yandex Music")) }
         if (settings.yandexToken == null) item {
             Column {
-                Text(t("Вход по коду: пароль в приложение не вводится.", "Sign in with a code: no password goes into the app."), color = pal.muted)
+                Text(t("Вход по коду: пароль в приложение не вводится.", "Sign in with a code: no password goes into the app."), style = MaterialTheme.typography.bodyMedium, color = pal.muted)
                 val c = code
-                if (c == null) Button(enabled = !busy, onClick = {
+                if (c == null) PButton(t("Войти в Яндекс", "Sign in to Yandex"), enabled = !busy, kind = Kind.PRIMARY, modifier = Modifier.padding(top = 12.dp), onClick = {
                     busy = true
                     scope.launch {
                         runCatching { graph.yandexAuth.requestDeviceCode("Palimpsest (Desktop)") }.onSuccess { dc ->
@@ -76,58 +90,74 @@ fun ServicesScreen() {
                         }.onFailure { nav.toast(it.message ?: "") }
                         busy = false
                     }
-                }, modifier = Modifier.padding(top = 8.dp)) { Text(t("Войти в Яндекс", "Sign in to Yandex")) }
-                else Column(Modifier.padding(top = 8.dp).clip(RoundedCornerShape(16.dp)).background(pal.paper2).padding(20.dp)) {
-                    Text(t("Открой ${c.verification_url} и введи код:", "Open ${c.verification_url} and enter the code:"))
-                    Text(c.user_code, style = MaterialTheme.typography.displayMedium, color = accent)
-                    Text(t("Жду подтверждения…", "Waiting for confirmation…"), color = pal.muted)
+                })
+                else Column(Modifier.padding(top = 12.dp).clip(RoundedCornerShape(Radius.xl)).background(pal.paper2).border(1.dp, pal.line, RoundedCornerShape(Radius.xl)).padding(20.dp)) {
+                    Text(t("Открой ${c.verification_url} и введи код:", "Open ${c.verification_url} and enter the code:"), style = MaterialTheme.typography.bodyMedium)
+                    Text(c.user_code, style = MaterialTheme.typography.displayMedium.copy(fontFamily = Sans, letterSpacing = 4.sp), modifier = Modifier.padding(vertical = 8.dp))
+                    Text(t("Жду подтверждения…", "Waiting for confirmation…"), style = Type.meta, color = pal.muted)
                 }
             }
         } else {
             item {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(t("Вход выполнен: ", "Signed in: ") + (settings.yandexLogin ?: "✓"), Modifier.weight(1f))
-                    TextButton(onClick = { graph.settings.update { it.copy(yandexToken = null, yandexRefresh = null, yandexLogin = null) } }) { Text(t("Выйти", "Sign out")) }
+                    Box(Modifier.size(32.dp).clip(CircleShape).background(pal.paper3), contentAlignment = Alignment.Center) {
+                        Text((settings.yandexLogin ?: "Я").take(1).uppercase(), style = MaterialTheme.typography.labelLarge)
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(settings.yandexLogin ?: t("Яндекс", "Yandex"), style = Type.rowTitle)
+                        Text(t("Вход выполнен", "Signed in"), style = Type.meta, color = pal.muted)
+                    }
+                    PButton(t("Выйти", "Sign out"), { graph.settings.update { it.copy(yandexToken = null, yandexRefresh = null, yandexLogin = null) } }, kind = Kind.GHOST)
                 }
             }
             item {
-                // «Моя волна»
+                // «Моя волна»: a quiet card; the accent is only on its sign and the play button.
+                val hover = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                val hovered by hover.collectIsHoveredAsState()
                 Row(
-                    Modifier.fillMaxWidth().padding(vertical = 10.dp).clip(RoundedCornerShape(20.dp))
-                        .background(Brush.horizontalGradient(listOf(accent.copy(alpha = 0.55f), accent.copy(alpha = 0.12f))))
-                        .clickable { startMyWave(graph, nav) }
-                        .padding(24.dp),
+                    Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 12.dp).clip(RoundedCornerShape(Radius.xl))
+                        .background(if (hovered) pal.paper3 else pal.paper2).border(1.dp, pal.line.copy(alpha = 0.7f), RoundedCornerShape(Radius.xl))
+                        .hoverable(hover).clickable { startMyWave(graph, nav) }
+                        .padding(horizontal = 20.dp, vertical = 18.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    Box(Modifier.size(56.dp).clip(CircleShape).background(accent.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.Waves, null, tint = accent, modifier = Modifier.size(28.dp))
+                    }
+                    Spacer(Modifier.width(18.dp))
                     Column(Modifier.weight(1f)) {
                         Text(t("Моя волна", "My Wave"), style = MaterialTheme.typography.headlineLarge)
-                        Text(t("Бесконечный поток под твой вкус", "An endless stream tuned to you"), color = pal.text.copy(alpha = 0.8f))
+                        Text(t("Бесконечный поток под твой вкус", "An endless stream tuned to you"), style = MaterialTheme.typography.bodyMedium, color = pal.muted)
                     }
-                    TextButton(onClick = { nav.waveTuning = true }) { Text(t("Настроить", "Tune"), color = pal.text) }
-                    Text("▶", style = MaterialTheme.typography.displayMedium)
+                    PButton(t("Настроить", "Tune"), { nav.waveTuning = true }, icon = Icons.Rounded.Tune, kind = Kind.GHOST)
+                    Spacer(Modifier.width(12.dp))
+                    Box(Modifier.size(44.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary).clickable { startMyWave(graph, nav) }, contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.PlayArrow, t("Слушать", "Play"), tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(26.dp))
+                    }
                 }
             }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(enabled = !syncing, onClick = {
+                    PButton(if (syncing) t("Синхронизирую…", "Syncing…") else t("Синхронизировать лайки", "Sync likes"), enabled = !syncing, icon = Icons.Rounded.Sync, onClick = {
                         syncing = true
                         scope.launch {
                             runCatching { graph.library.syncLikes(Service.YANDEX, graph.yandex.likedTracks()) }
                                 .onSuccess { nav.toast(t("Лайки синхронизированы", "Likes synced")) }.onFailure { nav.toast(it.message ?: "") }
                             syncing = false
                         }
-                    }) { Text(if (syncing) t("Синхронизирую…", "Syncing…") else t("Синхронизировать лайки", "Sync likes")) }
-                    OutlinedButton(onClick = { nav.root(Screen.Liked) }) { Text(t("Любимые", "Favourites")) }
+                    })
+                    PButton(t("Любимые", "Favourites"), { nav.root(Screen.Liked) }, icon = Icons.Rounded.Favorite)
                 }
             }
             item {
                 val lists by produceState<Load<List<RemotePlaylist>>>(Load.Loading, settings.yandexToken) { value = load { graph.yandex.playlists() } }
                 SectionHeader(t("Плейлисты Яндекса", "Yandex playlists"))
                 when (val l = lists) {
-                    is Load.Loading -> CircularProgressIndicator()
+                    is Load.Loading -> CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp, color = pal.muted)
                     is Load.Failed -> Text(l.error.message.orEmpty(), color = MaterialTheme.colorScheme.error)
-                    is Load.Ok -> LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        items(l.value, key = { it.id }) { p -> AlbumTile(p.coverUrl, p.title, t("${p.trackCount} тр.", "${p.trackCount} tracks")) { nav.go(Screen.RemotePlaylist(Service.YANDEX, p.id, p.title)) } }
+                    is Load.Ok -> LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                        items(l.value, key = { it.id }) { p -> AlbumTile(p.coverUrl, p.title, tracksCount(p.trackCount)) { nav.go(Screen.RemotePlaylist(Service.YANDEX, p.id, p.title)) } }
                     }
                 }
             }
@@ -136,7 +166,7 @@ fun ServicesScreen() {
         item {
             Text(
                 t("Работают без входа — ищи в «Поиске». Из России нужен прокси (Настройки → Сеть).", "No sign-in needed — use Search. From Russia they need the proxy (Settings → Network)."),
-                color = pal.muted,
+                style = MaterialTheme.typography.bodyMedium, color = pal.muted,
             )
         }
         item { Spacer(Modifier.height(40.dp)) }

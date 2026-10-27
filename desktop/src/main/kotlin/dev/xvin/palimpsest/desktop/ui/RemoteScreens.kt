@@ -1,6 +1,10 @@
 package dev.xvin.palimpsest.desktop.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material.icons.rounded.Whatshot
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -80,9 +84,7 @@ fun RemoteTrackList(tracks: List<RemoteTrack>, numbered: Boolean = false) {
                     TrackLine(t, if (numbered) r.trackNumber ?: (i + 1) else i + 1, st.current?.id == t.id, t.id in liked,
                         onPlay = { graph.player.playRemote(tracks, i) }, onMenu = { nav.openMenu(graph.library.ensureRemote(r)) })
                 }
-                IconButton(onClick = { graph.downloads.enqueue(listOf(graph.library.ensureRemote(r).id)); nav.toast(t("Скачиваю «${r.title}»", "Downloading «${r.title}»")) }) {
-                    Icon(Icons.Rounded.Download, null, tint = LocalPal.current.faint, modifier = Modifier.size(18.dp))
-                }
+                PIconButton(Icons.Rounded.Download, t("Скачать", "Download"), { graph.downloads.enqueue(listOf(graph.library.ensureRemote(r).id)); nav.toast(t("Скачиваю «${r.title}»", "Downloading «${r.title}»")) }, iconSize = 18.dp, tint = LocalPal.current.faint)
             }
         }
     }
@@ -90,21 +92,12 @@ fun RemoteTrackList(tracks: List<RemoteTrack>, numbered: Boolean = false) {
 
 @Composable
 fun ArtistCircle(image: Any?, name: String, onClick: () -> Unit) {
-    Column(Modifier.width(110.dp).clickable(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally) {
-        Artwork(image, name, Modifier.size(100.dp), 50.dp)
-        Spacer(Modifier.height(6.dp))
-        Text(name, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-    }
+    Tile({ Artwork(image, name, Modifier.fillMaxSize(), 80.dp) }, name, "", Modifier.width(140.dp), round = true, onClick = onClick)
 }
 
 @Composable
 fun AlbumTile(image: Any?, title: String, subtitle: String, onClick: () -> Unit) {
-    Column(Modifier.width(160.dp).clickable(onClick = onClick)) {
-        Artwork(image, title, Modifier.size(160.dp), 10.dp)
-        Spacer(Modifier.height(6.dp))
-        Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        if (subtitle.isNotBlank()) Text(subtitle, color = LocalPal.current.muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-    }
+    Tile({ Artwork(image, title, Modifier.fillMaxSize(), Radius.md) }, title, subtitle, Modifier.width(160.dp), onClick = onClick)
 }
 
 fun albumLine(a: RemoteAlbum) = listOfNotNull(a.artists.joinToString(", ").ifBlank { null }, a.year?.toString(), if (a.type == "single") t("сингл", "single") else null).joinToString(" · ")
@@ -119,27 +112,31 @@ fun ArtistScreen(s: Screen.Artist) {
     val local = remember(all, s.name) { all.filter { t -> t.isLocal && t.artists.any { it.equals(s.name, true) } } }
     val info by produceState<Load<ArtistInfo?>>(Load.Loading, s) { value = load { artistInfo(graph, s.name, s.remoteId, s.service) } }
     val a = (info as? Load.Ok)?.value
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 28.dp, vertical = 20.dp)) {
+    LazyColumn(Modifier.fillMaxSize().padding(start = 28.dp, end = 20.dp), contentPadding = PaddingValues(top = 16.dp, bottom = 32.dp)) {
         item {
+            PIconButton(Icons.AutoMirrored.Rounded.ArrowBack, t("Назад", "Back"), nav::back, Modifier.padding(bottom = 8.dp).offset(x = (-6).dp), iconSize = 20.dp)
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = nav::back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, null) }
-                Artwork(a?.artist?.coverUrl, s.name, Modifier.size(160.dp), 80.dp)
-                Spacer(Modifier.width(24.dp))
+                Artwork(a?.artist?.coverUrl, s.name, Modifier.size(168.dp), 84.dp)
+                Spacer(Modifier.width(28.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(a?.artist?.name ?: s.name, style = MaterialTheme.typography.displayLarge, maxLines = 2)
-                    Text(listOfNotNull(a?.genres?.take(3)?.joinToString(", ")?.ifBlank { null }, if (local.isNotEmpty()) t("у тебя ${local.size} тр.", "${local.size} tracks in your library") else null).joinToString(" · "), color = pal.muted)
-                    Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (local.isNotEmpty()) Button(onClick = { graph.player.play(local) }) { Icon(Icons.Rounded.PlayArrow, null); Text(t("Моё", "Mine")) }
-                        a?.takeIf { it.popular.isNotEmpty() }?.let { info -> OutlinedButton(onClick = { graph.player.playRemote(info.popular, 0) }) { Text(t("Популярное", "Popular")) } }
-                        if (a != null && a.artist.service == Service.YANDEX) OutlinedButton(onClick = {
+                    Text(t("ИСПОЛНИТЕЛЬ", "ARTIST"), style = Type.caption, color = pal.muted, modifier = Modifier.padding(bottom = 6.dp))
+                    Text(a?.artist?.name ?: s.name, style = MaterialTheme.typography.displayLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        listOfNotNull(a?.genres?.take(3)?.joinToString(", ")?.ifBlank { null }, if (local.isNotEmpty()) t("в медиатеке ", "in your library: ") + tracksCount(local.size) else null).joinToString(" · "),
+                        style = MaterialTheme.typography.bodyMedium, color = pal.muted, modifier = Modifier.padding(top = 4.dp),
+                    )
+                    Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (local.isNotEmpty()) PButton(t("Моё", "Mine"), { graph.player.play(local) }, icon = Icons.Rounded.PlayArrow, kind = Kind.PRIMARY)
+                        a?.takeIf { it.popular.isNotEmpty() }?.let { info -> PButton(t("Популярное", "Popular"), { graph.player.playRemote(info.popular, 0) }, icon = Icons.Rounded.Whatshot, kind = if (local.isEmpty()) Kind.PRIMARY else Kind.SECONDARY) }
+                        if (a != null && a.artist.service == Service.YANDEX) PButton(t("Радио", "Radio"), {
                             graph.scope.launch { runCatching { graph.player.startRadio("artist:${a.artist.id}", t("Радио: ", "Radio: ") + a.artist.name) }.onFailure { nav.toast(it.message ?: "") } }
-                        }) { Icon(Icons.Rounded.Radio, null); Spacer(Modifier.width(4.dp)); Text(t("Радио", "Radio")) }
+                        }, icon = Icons.Rounded.Radio)
                     }
                 }
             }
         }
-        a?.description?.let { item { Text(it, color = pal.muted, maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 16.dp)) } }
-        if (info is Load.Loading) item { CircularProgressIndicator(Modifier.padding(24.dp)) }
+        a?.description?.let { item { Text(it, style = MaterialTheme.typography.bodyMedium, color = pal.muted, maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 20.dp).widthIn(max = 760.dp)) } }
+        if (info is Load.Loading) item { CircularProgressIndicator(Modifier.padding(24.dp).size(24.dp), strokeWidth = 2.dp, color = pal.muted) }
         if (local.isNotEmpty()) {
             item { SectionHeader(t("В медиатеке", "In your library")) }
             items(local.take(30), key = { "l" + it.id }) { tr ->
@@ -151,11 +148,11 @@ fun ArtistScreen(s: Screen.Artist) {
             if (info.popular.isNotEmpty()) { item { SectionHeader(t("Популярное", "Popular")) }; item { RemoteTrackList(info.popular.take(15)) } }
             if (info.albums.isNotEmpty()) {
                 item { SectionHeader(t("Альбомы и синглы", "Albums and singles")) }
-                item { LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) { items(info.albums, key = { it.id }) { al -> AlbumTile(al.coverUrl, al.title, albumLine(al)) { nav.go(Screen.RemoteAlbum(al.id, al.service)) } } } }
+                item { LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp)) { items(info.albums, key = { it.id }) { al -> AlbumTile(al.coverUrl, al.title, albumLine(al)) { nav.go(Screen.RemoteAlbum(al.id, al.service)) } } } }
             }
             if (info.similar.isNotEmpty()) {
                 item { SectionHeader(t("Похожие", "Similar")) }
-                item { LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) { items(info.similar, key = { it.id }) { sa -> ArtistCircle(sa.coverUrl, sa.name) { nav.go(Screen.Artist(sa.name, sa.id, sa.service)) } } } }
+                item { LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp)) { items(info.similar, key = { it.id }) { sa -> ArtistCircle(sa.coverUrl, sa.name) { nav.go(Screen.Artist(sa.name, sa.id, sa.service)) } } } }
             }
         }
     }
@@ -170,35 +167,45 @@ fun RemoteAlbumScreen(s: Screen.RemoteAlbum) {
             else (graph.provider(s.service) as BrowsableProvider).album(s.id)
         }
     }
-    RemoteList(data, { it.album.title }, { albumLine(it.album) }, { it.album.coverUrl }, { it.tracks }, numbered = true)
+    RemoteList(data, t("Альбом", "Album"), { it.album.title }, { albumLine(it.album) }, { it.album.coverUrl }, { it.tracks }, numbered = true)
 }
 
 @Composable
 fun RemotePlaylistScreen(s: Screen.RemotePlaylist) {
     val graph = LocalGraph.current
     val data by produceState<Load<List<RemoteTrack>>>(Load.Loading, s) { value = load { graph.provider(s.service)!!.playlistTracks(s.id) } }
-    RemoteList(data, { s.title }, { t("${it.size} треков", "${it.size} tracks") }, { it.firstOrNull()?.coverUrl }, { it }, numbered = false)
+    RemoteList(data, t("Плейлист", "Playlist"), { s.title }, { tracksCount(it.size) }, { it.firstOrNull()?.coverUrl }, { it }, numbered = false)
 }
 
 @Composable
-private fun <T> RemoteList(data: Load<T>, title: (T) -> String, subtitle: (T) -> String, cover: (T) -> String?, tracks: (T) -> List<RemoteTrack>, numbered: Boolean) {
+private fun <T> RemoteList(data: Load<T>, kind: String, title: (T) -> String, subtitle: (T) -> String, cover: (T) -> String?, tracks: (T) -> List<RemoteTrack>, numbered: Boolean) {
     val graph = LocalGraph.current
     val nav = LocalNav.current
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 28.dp, vertical = 20.dp)) {
+    val pal = LocalPal.current
+    LazyColumn(Modifier.fillMaxSize().padding(start = 28.dp, end = 20.dp), contentPadding = PaddingValues(top = 16.dp, bottom = 32.dp)) {
         when (data) {
-            is Load.Loading -> item { Row { IconButton(onClick = nav::back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, null) }; CircularProgressIndicator(Modifier.padding(24.dp)) } }
-            is Load.Failed -> item { Row { IconButton(onClick = nav::back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, null) }; Text(t("Не загрузилось: ", "Couldn’t load: ") + data.error.message, color = MaterialTheme.colorScheme.error) } }
+            is Load.Loading -> item {
+                Column {
+                    PIconButton(Icons.AutoMirrored.Rounded.ArrowBack, t("Назад", "Back"), nav::back, Modifier.offset(x = (-6).dp), iconSize = 20.dp)
+                    CircularProgressIndicator(Modifier.padding(24.dp).size(24.dp), strokeWidth = 2.dp, color = pal.muted)
+                }
+            }
+            is Load.Failed -> item {
+                Column {
+                    PIconButton(Icons.AutoMirrored.Rounded.ArrowBack, t("Назад", "Back"), nav::back, Modifier.offset(x = (-6).dp), iconSize = 20.dp)
+                    Text(t("Не загрузилось: ", "Couldn’t load: ") + data.error.message, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 16.dp))
+                }
+            }
             is Load.Ok -> {
                 val v = data.value
                 val list = tracks(v)
-                item { ListHeader(title(v), subtitle(v)) { Artwork(cover(v), title(v), Modifier.fillMaxSize(), 12.dp) } }
                 item {
-                    Row(Modifier.padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { graph.player.playRemote(list, 0) }, enabled = list.isNotEmpty()) { Icon(Icons.Rounded.PlayArrow, null); Text(t("Слушать", "Play")) }
-                        OutlinedButton(onClick = { graph.downloads.enqueue(list.map { graph.library.ensureRemote(it).id }); nav.toast(t("Скачиваю ${list.size} тр.", "Downloading ${list.size} tracks")) }, enabled = list.isNotEmpty()) {
-                            Icon(Icons.Rounded.Download, null); Spacer(Modifier.width(4.dp)); Text(t("Скачать всё", "Download all"))
-                        }
-                    }
+                    ListHeader(title(v), subtitle(v), kind, actions = {
+                        PButton(t("Слушать", "Play"), { graph.player.playRemote(list, 0) }, icon = Icons.Rounded.PlayArrow, kind = Kind.PRIMARY, enabled = list.isNotEmpty())
+                        PButton(t("Скачать всё", "Download all"), {
+                            graph.downloads.enqueue(list.map { graph.library.ensureRemote(it).id }); nav.toast(t("Скачиваю: ", "Downloading ") + tracksCount(list.size))
+                        }, icon = Icons.Rounded.Download, enabled = list.isNotEmpty())
+                    }) { Artwork(cover(v), title(v), Modifier.fillMaxSize(), Radius.lg) }
                 }
                 item { RemoteTrackList(list, numbered) }
             }
@@ -211,5 +218,5 @@ private fun <T> RemoteList(data: Load<T>, title: (T) -> String, subtitle: (T) ->
 fun SimilarScreen(s: Screen.Similar) {
     val graph = LocalGraph.current
     val data by produceState<Load<List<RemoteTrack>>>(Load.Loading, s) { value = load { graph.yandex.similarTracks(s.remoteId) } }
-    RemoteList(data, { t("Похожие на «${s.title}»", "Similar to «${s.title}»") }, { t("${it.size} треков", "${it.size} tracks") }, { it.firstOrNull()?.coverUrl }, { it }, numbered = false)
+    RemoteList(data, t("Похожие", "Similar"), { t("Похожие на «${s.title}»", "Similar to «${s.title}»") }, { tracksCount(it.size) }, { it.firstOrNull()?.coverUrl }, { it }, numbered = false)
 }

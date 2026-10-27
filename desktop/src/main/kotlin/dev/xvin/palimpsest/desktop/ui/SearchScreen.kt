@@ -1,6 +1,10 @@
 package dev.xvin.palimpsest.desktop.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.height
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -78,50 +82,56 @@ fun SearchScreen() {
         remote = load { graph.provider(s)!!.searchAll(query.trim(), kind) }
         if (query.isNotBlank()) graph.settings.update { it.copy(recentSearches = (listOf(query.trim()) + it.recentSearches.filterNot { r -> r.equals(query.trim(), true) }).take(12)) }
     }
-    Column(Modifier.fillMaxSize().padding(horizontal = 28.dp, vertical = 20.dp)) {
+    Column(Modifier.fillMaxSize().padding(start = 28.dp, end = 20.dp, top = 22.dp)) {
         Text(t("Поиск", "Search"), style = MaterialTheme.typography.displayMedium)
-        OutlinedTextField(
-            query, { query = it }, Modifier.fillMaxWidth().padding(vertical = 12.dp).focusRequester(focus), singleLine = true,
-            leadingIcon = { Icon(Icons.Rounded.Search, null) }, placeholder = { Text(t("Исполнитель, альбом, трек", "Artist, album, track")) }, shape = RoundedCornerShape(14.dp),
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { searchSources.forEach { s -> Pill(label(s), source == s, { source = s }) } }
-        Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(SearchType.ALL to t("Всё", "All"), SearchType.TRACKS to t("Треки", "Tracks"), SearchType.ARTISTS to t("Исполнители", "Artists"), SearchType.ALBUMS to t("Альбомы", "Albums"), SearchType.PLAYLISTS to t("Плейлисты", "Playlists"))
-                .forEach { (k, l) -> Text(l, color = if (kind == k) LocalAccent.current else pal.muted, modifier = Modifier.clip(RoundedCornerShape(50)).clickable { kind = k }.padding(horizontal = 10.dp, vertical = 4.dp)) }
+        PField(query, { query = it }, t("Исполнитель, альбом, трек", "Artist, album, track"), Modifier.fillMaxWidth(), height = 42.dp, textModifier = Modifier.padding(top = 14.dp, bottom = 12.dp).focusRequester(focus))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Tabs(searchSources.map { it to label(it) }, source, { source = it })
+            Spacer(Modifier.width(16.dp))
+            TextTabs(
+                listOf(SearchType.ALL to t("Всё", "All"), SearchType.TRACKS to t("Треки", "Tracks"), SearchType.ARTISTS to t("Исполнители", "Artists"), SearchType.ALBUMS to t("Альбомы", "Albums"), SearchType.PLAYLISTS to t("Плейлисты", "Playlists")),
+                kind, { kind = it },
+            )
         }
+        Spacer(Modifier.height(8.dp))
         if (source == Service.YANDEX && settings.yandexToken == null) { EmptyState(t("Яндекс не подключён", "Yandex isn’t connected"), t("Войди в «Сервисах».", "Sign in under Services.")); return@Column }
         if (query.isBlank()) {
             if (settings.recentSearches.isNotEmpty()) {
                 SectionHeader(t("Недавние запросы", "Recent searches"))
-                settings.recentSearches.forEach { r -> Text(r, Modifier.fillMaxWidth().clickable { query = r }.padding(vertical = 8.dp)) }
+                settings.recentSearches.forEach { r ->
+                    ListRow({
+                        Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.History, null, tint = pal.faint, modifier = Modifier.size(18.dp)) }
+                    }, r, "") { query = r }
+                }
             }
             return@Column
         }
         if (source == null) LibraryResults(all, liked, query, kind) else when (val r = remote) {
-            null, is Load.Loading -> CircularProgressIndicator(Modifier.padding(24.dp))
+            null, is Load.Loading -> CircularProgressIndicator(Modifier.padding(24.dp).size(24.dp), strokeWidth = 2.dp, color = pal.muted)
             is Load.Failed -> Text(t("Ошибка поиска: ", "Search failed: ") + r.error.message, color = MaterialTheme.colorScheme.error)
             is Load.Ok -> RemoteResults(r.value, kind) { kind = it }
         }
     }
 }
 
+/** The best match on top: a quiet card — the picture, what it is, its name in the serif, and play. */
 @Composable
 private fun BestCard(image: Any?, title: String, kindLabel: String, subtitle: String, round: Boolean, onOpen: () -> Unit, onPlay: () -> Unit) {
-    val accent = LocalAccent.current
     val pal = LocalPal.current
     Row(
-        Modifier.fillMaxWidth().padding(vertical = 8.dp).clip(RoundedCornerShape(20.dp)).background(Brush.horizontalGradient(listOf(accent.copy(alpha = 0.28f), pal.paper2)))
-            .clickable(onClick = onOpen).padding(20.dp),
+        Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp).clip(RoundedCornerShape(Radius.xl)).background(pal.paper2)
+            .border(1.dp, pal.line.copy(alpha = 0.7f), RoundedCornerShape(Radius.xl))
+            .clickable(onClick = onOpen).padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Artwork(image, title, Modifier.size(120.dp), if (round) 60.dp else 12.dp)
+        Artwork(image, title, Modifier.size(112.dp), if (round) 56.dp else Radius.lg)
         Spacer(Modifier.width(20.dp))
         Column(Modifier.weight(1f)) {
-            Text(kindLabel.uppercase(), color = accent, style = MaterialTheme.typography.labelSmall)
-            Text(title, style = MaterialTheme.typography.headlineLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text(subtitle, color = pal.muted, maxLines = 1)
+            Text(kindLabel.uppercase(), color = pal.muted, style = Type.caption)
+            Text(title, style = MaterialTheme.typography.headlineLarge, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(vertical = 2.dp))
+            Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = pal.muted, maxLines = 1)
         }
-        Button(onClick = onPlay) { Icon(Icons.Rounded.PlayArrow, null); Text(t("Слушать", "Play")) }
+        PButton(t("Слушать", "Play"), onPlay, icon = Icons.Rounded.PlayArrow, kind = Kind.PRIMARY)
     }
 }
 
@@ -142,11 +152,11 @@ private fun LibraryResults(all: List<Track>, liked: Set<String>, query: String, 
         }
         if ((kind == SearchType.ALL || kind == SearchType.ARTISTS) && artists.isNotEmpty()) {
             item { SectionHeader(t("Исполнители", "Artists")) }
-            item { LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) { items(artists.take(30)) { a -> ArtistCircle(null, a) { nav.go(Screen.Artist(a)) } } } }
+            item { LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp)) { items(artists.take(30)) { a -> ArtistCircle(null, a) { nav.go(Screen.Artist(a)) } } } }
         }
         if ((kind == SearchType.ALL || kind == SearchType.ALBUMS) && albums.isNotEmpty()) {
             item { SectionHeader(t("Альбомы", "Albums")) }
-            item { LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) { items(albums) { g -> val f = g.first(); Box { Column(Modifier.width(160.dp).clickable { nav.go(Screen.LocalAlbum(f.album!!, f.albumArtist ?: f.artist)) }) { TrackArt(f, Modifier.size(160.dp), 10.dp); Text(f.album!!, maxLines = 2); Text(f.artist, color = LocalPal.current.muted, fontSize = 12.sp) } } } } }
+            item { LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp)) { items(albums) { g -> val f = g.first(); Tile({ TrackArt(f, Modifier.fillMaxSize(), Radius.md) }, f.album!!, f.albumArtist ?: f.artist, Modifier.width(160.dp), onPlay = { graph.player.play(g) }) { nav.go(Screen.LocalAlbum(f.album, f.albumArtist ?: f.artist)) } } } }
         }
         if ((kind == SearchType.ALL || kind == SearchType.TRACKS) && tracks.isNotEmpty()) {
             item { SectionHeader(t("Треки", "Tracks")) }
@@ -179,21 +189,21 @@ private fun RemoteResults(r: SearchResults, kind: SearchType, switchTo: (SearchT
         val bestArtist = (r.best as? SearchHit.Artist)?.artist?.name?.let(::norm)
         val tracks = if (bestArtist == null) r.tracks else r.tracks.sortedByDescending { tr -> tr.artists.any { norm(it) == bestArtist } }
         if (tracks.isNotEmpty() && (kind == SearchType.ALL || kind == SearchType.TRACKS)) {
-            item { SectionHeader(t("Треки", "Tracks")) { if (kind == SearchType.ALL) Text(t("Все", "All"), color = LocalAccent.current, modifier = Modifier.clickable { switchTo(SearchType.TRACKS) }) } }
+            item { SectionHeader(t("Треки", "Tracks")) { if (kind == SearchType.ALL) PButton(t("Все", "All"), { switchTo(SearchType.TRACKS) }, kind = Kind.GHOST, trailingIcon = Icons.AutoMirrored.Rounded.KeyboardArrowRight) } }
             item { RemoteTrackList(if (kind == SearchType.ALL) tracks.take(8) else tracks) }
         }
         val artists = r.artists.filterNot { (r.best as? SearchHit.Artist)?.artist?.id == it.id }
         if (artists.isNotEmpty() && (kind == SearchType.ALL || kind == SearchType.ARTISTS)) {
             item { SectionHeader(t("Исполнители", "Artists")) }
-            item { LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) { items(artists, key = { it.id }) { a -> ArtistCircle(a.coverUrl, a.name) { nav.go(Screen.Artist(a.name, a.id, a.service)) } } } }
+            item { LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp)) { items(artists, key = { it.id }) { a -> ArtistCircle(a.coverUrl, a.name) { nav.go(Screen.Artist(a.name, a.id, a.service)) } } } }
         }
         if (r.albums.isNotEmpty() && (kind == SearchType.ALL || kind == SearchType.ALBUMS)) {
             item { SectionHeader(t("Альбомы", "Albums")) }
-            item { LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) { items(r.albums, key = { it.id }) { a -> AlbumTile(a.coverUrl, a.title, albumLine(a)) { nav.go(Screen.RemoteAlbum(a.id, a.service)) } } } }
+            item { LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp)) { items(r.albums, key = { it.id }) { a -> AlbumTile(a.coverUrl, a.title, albumLine(a)) { nav.go(Screen.RemoteAlbum(a.id, a.service)) } } } }
         }
         if (r.playlists.isNotEmpty() && (kind == SearchType.ALL || kind == SearchType.PLAYLISTS)) {
             item { SectionHeader(t("Плейлисты", "Playlists")) }
-            item { LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) { items(r.playlists, key = { it.id }) { p -> AlbumTile(p.coverUrl, p.title, p.owner.orEmpty()) { nav.go(Screen.RemotePlaylist(p.service, p.id, p.title)) } } } }
+            item { LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp)) { items(r.playlists, key = { it.id }) { p -> AlbumTile(p.coverUrl, p.title, p.owner.orEmpty()) { nav.go(Screen.RemotePlaylist(p.service, p.id, p.title)) } } } }
         }
         if (r.isEmpty) item { EmptyState(t("Ничего не нашлось", "Nothing found"), "") }
     }
