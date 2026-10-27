@@ -26,6 +26,18 @@ dependencies {
     implementation(libs.dbus.java.unixsocket)
 }
 
+// Screenshots of the main screens without a window (see src/test/.../Shots.kt).
+tasks.register<JavaExec>("shots") {
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass = "dev.xvin.palimpsest.desktop.ShotsKt"
+    jvmArgs("-Dfile.encoding=UTF-8")
+    args(
+        providers.gradleProperty("out").getOrElse(layout.buildDirectory.dir("shots").get().asFile.path),
+        providers.gradleProperty("width").getOrElse("1280"),
+        providers.gradleProperty("height").getOrElse("820"),
+    )
+}
+
 val appVersion = providers.provider {
     // One version for the whole app: taken from the Android build.
     Regex("""versionName = "([^"]+)"""").find(rootProject.file("app/build.gradle.kts").readText())!!.groupValues[1]

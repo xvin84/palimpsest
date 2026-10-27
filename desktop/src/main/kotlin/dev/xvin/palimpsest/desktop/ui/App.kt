@@ -310,7 +310,7 @@ private fun ApplicationScope.App(showRequests: kotlinx.coroutines.channels.Recei
 }
 
 @Composable
-private fun Shell() {
+internal fun Shell() {
     val nav = LocalNav.current
     val pal = LocalPal.current
     val snackbar = remember { SnackbarHostState() }
