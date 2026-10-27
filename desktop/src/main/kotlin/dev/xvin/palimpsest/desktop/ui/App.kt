@@ -96,12 +96,17 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.ApplicationScope
 import dev.xvin.palimpsest.desktop.data.Hotkeys
+import dev.xvin.palimpsest.desktop.data.CrashGuard
 import dev.xvin.palimpsest.desktop.data.SingleInstance
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.window.LocalWindowExceptionHandlerFactory
+import androidx.compose.ui.window.WindowExceptionHandler
+import androidx.compose.ui.window.WindowExceptionHandlerFactory
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import dev.xvin.palimpsest.desktop.tray.AwtTray
 import dev.xvin.palimpsest.desktop.tray.TrayController
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.update
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import coil3.ImageLoader
@@ -169,15 +174,37 @@ class Nav {
 /** What a track table lets the window do with its selection. */
 class SelectionHooks(val selectAll: () -> Unit, val clear: () -> Boolean)
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 fun main() {
+    CrashGuard.install()
     // One Palimpsest at a time: launching it again shows the running one (maybe hidden in the tray).
-    val showRequests = MutableStateFlow(0)
-    if (!SingleInstance.claim { showRequests.update { it + 1 } }) return
-    application { App(showRequests) }
+    // The window answers each request, so a launch can tell a working instance from a stuck one.
+    val showRequests = kotlinx.coroutines.channels.Channel<CompletableDeferred<Unit>>(kotlinx.coroutines.channels.Channel.UNLIMITED)
+    if (!SingleInstance.claim {
+            val done = CompletableDeferred<Unit>()
+            showRequests.trySend(done)
+            // While the app is still starting, give it time; after that, a window that can't come up in seconds is stuck.
+            runBlocking { withTimeoutOrNull(if (uiReady) 4_000 else 20_000) { done.await() } } != null
+        }) return
+    CrashGuard.beginStart()
+    try {
+        application(exitProcessOnExit = true) {
+            // An error inside the window: logged and shown, and the process ends. (Compose's own handler
+            // would close the window, which with «close to tray» left a process with no working window.)
+            CompositionLocalProvider(LocalWindowExceptionHandlerFactory provides WindowExceptionHandlerFactory { _ ->
+                WindowExceptionHandler { e -> CrashGuard.fatal("Error in the window", e) }
+            }) { App(showRequests) }
+        }
+    } catch (e: Throwable) {
+        CrashGuard.fatal("Error while starting", e)
+    }
 }
 
+/** The window's first frames are drawn (show requests can expect a quick answer from here on). */
+@Volatile private var uiReady = false
+
 @Composable
-private fun ApplicationScope.App(showRequests: StateFlow<Int>) {
+private fun ApplicationScope.App(showRequests: kotlinx.coroutines.channels.ReceiveChannel<CompletableDeferred<Unit>>) {
     val graph = remember { Graph().also { language = it.settings.value.language } }
     val nav = remember { Nav() }
     val settings by graph.settings.state.collectAsState()
@@ -195,7 +222,7 @@ private fun ApplicationScope.App(showRequests: StateFlow<Int>) {
         TrayController(graph, showOrHide = { if (visible && win.wasFocusedJustNow()) visible = false else show() }, quit = { quit() })
     }
     LaunchedEffect(Unit) { tray.start() }
-    LaunchedEffect(Unit) { showRequests.collect { if (it > 0) show() } }
+    LaunchedEffect(Unit) { for (done in showRequests) { show(); done.complete(Unit) } }
     AwtTray(tray, graph)
     // The keys: stroke → action, from Settings (the user's own) over the defaults.
     val keys = remember(settings.hotkeys) { Hotkeys.effective(settings.hotkeys).flatMap { (a, ks) -> ks.map { it to a } }.toMap() }
@@ -229,6 +256,14 @@ private fun ApplicationScope.App(showRequests: StateFlow<Int>) {
             }
         },
     ) {
+        LaunchedEffect(Unit) {
+            // A few frames drawn and some seconds alive: this start worked (see CrashGuard).
+            repeat(3) { withFrameNanos { } }
+            uiReady = true
+            kotlinx.coroutines.delay(3_000)
+            CrashGuard.started()
+            if (CrashGuard.fellBack) nav.toast(t("Прошлый запуск не удался — рисую без видеокарты. Вернуть: Настройки → О программе", "The last start failed, so drawing without the video card. To undo: Settings → About"))
+        }
         LaunchedEffect(Unit) {
             window.minimumSize = java.awt.Dimension(560, 480)
             win.attach(window)

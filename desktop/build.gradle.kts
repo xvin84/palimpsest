@@ -35,6 +35,8 @@ compose.desktop {
     application {
         mainClass = "dev.xvin.palimpsest.desktop.ui.AppKt"
         jvmArgs += listOf("-Xmx768m", "-Dfile.encoding=UTF-8")
+        // A JVM crash report beside the app (the temp folder when that isn't writable): CrashGuard folds it into crash.log.
+        jvmArgs += "-XX:ErrorFile=\$APPDIR/../palimpsest-crash-%p.log"
         nativeDistributions {
             // Linux packages build here; Windows (.msi/.exe) and macOS (.dmg) on their own CI runners.
             targetFormats(TargetFormat.Deb, TargetFormat.Rpm, TargetFormat.AppImage, TargetFormat.Msi, TargetFormat.Exe, TargetFormat.Dmg)

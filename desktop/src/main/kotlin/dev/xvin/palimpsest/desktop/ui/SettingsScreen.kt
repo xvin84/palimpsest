@@ -574,6 +574,24 @@ private fun settingItems(s: DesktopSettings): List<Item> {
     val mouseHint = t("Двойной клик по треку — играть, клик — выделить (Ctrl и Shift — несколько), правый клик или ⋯ — меню. Колесо над громкостью меняет её.",
         "Double-click a track to play it, click to select (Ctrl and Shift for several), right-click or ⋯ for its menu. The wheel over the volume changes it.")
     add(Category.ABOUT, mouseTitle, mouseHint, "mouse мышь клик click") { Setting(mouseTitle, mouseHint) }
+    val safeTitle = t("Рисовать без видеокарты", "Draw without the video card")
+    val safeHint = t("Если окно не открывается или мигает. Медленнее; действует после перезапуска. Включается само, когда запуск сорвался.",
+        "When the window won't open or flickers. Slower; takes effect after a restart. Turns itself on when a start fails.")
+    add(Category.ABOUT, safeTitle, safeHint, "gpu render graphics software видеокарта отрисовка безопасный safe crash") {
+        var safe by remember { mutableStateOf(dev.xvin.palimpsest.desktop.data.CrashGuard.safeRenderFile.exists()) }
+        Toggle(safeTitle, safeHint, safe) { on ->
+            val f = dev.xvin.palimpsest.desktop.data.CrashGuard.safeRenderFile
+            runCatching { if (on) f.writeText("set in Settings\n") else f.delete() }
+            safe = f.exists()
+        }
+    }
+    val logTitle = t("Журнал ошибок", "Error log")
+    val logHint = t("Что пошло не так (crash.log) — пришли его автору, если что-то ломается", "What went wrong (crash.log) — send it to the author when something breaks")
+    add(Category.ABOUT, logTitle, logHint, "crash log error ошибки журнал лог") {
+        Setting(logTitle, logHint) {
+            TextButton(onClick = { runCatching { java.awt.Desktop.getDesktop().open(dev.xvin.palimpsest.desktop.data.Paths.config) } }) { Text(t("Открыть папку", "Open the folder")) }
+        }
+    }
 
     // --- Keys ---
     add(Category.KEYS, t("Горячие клавиши", "Keyboard shortcuts"), "", "keys shortcuts hotkeys клавиши горячие сбросить reset") { HotkeysIntro() }
