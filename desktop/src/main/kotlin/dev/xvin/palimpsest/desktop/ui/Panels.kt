@@ -176,6 +176,7 @@ private fun LyricsBody(p: ParsedLyrics, track: Track, shown: Lyrics?, big: Boole
     var translating by remember(track.id) { mutableStateOf(false) }
     val pos by rememberSmoothPosition()
     val active = if (p.isSynced) p.indexAt(pos) else -1
+    val karaoke = graph.settings.state.collectAsState().value.lyricsKaraoke
     val list = rememberLazyListState()
     var follow by remember(track.id) { mutableStateOf(true) }
     var gliding by remember { mutableStateOf(false) }
@@ -242,7 +243,7 @@ private fun LyricsBody(p: ParsedLyrics, track: Track, shown: Lyrics?, big: Boole
                         val end = p.lines.getOrNull(i + 1)?.timeMs ?: (line.timeMs + 5000)
                         when {
                             line.text.isBlank() -> PauseDots(isActive, if (big) 10.dp else 7.dp, pal.text)
-                            isActive -> SungLine(line, end, pos, style, pal.text)
+                            isActive && karaoke -> SungLine(line, end, pos, style, pal.text)
                             else -> Text(line.text, style = style, color = pal.text)
                         }
                         translated?.getOrNull(i)?.takeIf { it.isNotBlank() && it != line.text }?.let {

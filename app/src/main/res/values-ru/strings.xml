@@ -681,7 +681,7 @@
     <string name="settings_cat_library_summary">Папки с музыкой, пересканирование, дубликаты, обложки</string>
     <string name="settings_cat_downloads">Загрузки и синхронизация</string>
     <string name="settings_cat_downloads_summary">Куда скачивать, качество, версии, фоновая синхронизация</string>
-    <string name="settings_cat_lyrics_summary">Тексты в файлах, перевод</string>
+    <string name="settings_cat_lyrics_summary">Текущая строка, тексты в файлах, перевод</string>
     <string name="settings_cat_storage">Хранилище и корзина</string>
     <string name="settings_cat_storage_summary">Что занимает место, корзина, кэш стриминга</string>
     <string name="settings_cat_network">Сеть и сервисы</string>
@@ -706,6 +706,10 @@
     <string name="settings_duplicates_hint">Одна песня в нескольких файлах: склеить в один трек, лишние файлы станут его версиями</string>
     <string name="settings_covers_hint">Ищет недостающие обложки в Яндекс Музыке, Deezer, iTunes и MusicBrainz и вшивает их в файлы</string>
     <string name="settings_quality_hint">Для стриминга и скачивания. Lossless — это FLAC, если он есть у сервиса.</string>
+    <string name="settings_lyrics_line">Текущая строка</string>
+    <string name="settings_lyrics_line_hint">Загорается целиком или по словам, как в караоке (для текстов с таймингами слов)</string>
+    <string name="settings_lyrics_by_line">По строчкам</string>
+    <string name="settings_lyrics_by_word">По словам (караоке)</string>
     <string name="settings_embed_lyrics">Сохранять тексты в файлы</string>
     <string name="settings_embed_lyrics_hint">Найденный в сети или выбранный вручную текст сразу записывается в тег файла (синхронный, если есть тайминги) — его увидит любой плеер</string>
     <string name="settings_translation_hint">Синхронный текст в оригинале, с переводом на язык приложения под каждой строкой или только перевод</string>

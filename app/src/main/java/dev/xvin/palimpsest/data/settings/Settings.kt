@@ -107,6 +107,8 @@ data class AppSettings(
     val libraryView: LibraryView,
     /** Found or chosen lyrics are written into the file's tag right away. */
     val embedLyrics: Boolean,
+    /** The sung line fills word by word (karaoke) when the lyrics have word timings; off: the whole line at once. */
+    val lyricsKaraoke: Boolean,
     /** Deleted files go to the trash first (else they're gone at once). */
     val trashEnabled: Boolean,
     /** Days a file stays in the trash (0 = until emptied by hand). */
@@ -164,6 +166,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
         val fadeSec = androidx.datastore.preferences.core.intPreferencesKey("fade_sec")
         val streamCacheMb = androidx.datastore.preferences.core.intPreferencesKey("stream_cache_mb")
         val embedLyrics = booleanPreferencesKey("embed_lyrics")
+        val lyricsKaraoke = booleanPreferencesKey("lyrics_karaoke")
         val trashEnabled = booleanPreferencesKey("trash_enabled")
         val recentSearches = stringPreferencesKey("recent_searches")
         val uiStyle = stringPreferencesKey("ui_style")
@@ -215,6 +218,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
             fadeSec = p[K.fadeSec] ?: 0,
             streamCacheMb = p[K.streamCacheMb] ?: 1024,
             embedLyrics = p[K.embedLyrics] ?: true,
+            lyricsKaraoke = p[K.lyricsKaraoke] ?: false,
             trashEnabled = p[K.trashEnabled] ?: true,
             trashDays = p[K.trashDays] ?: 30,
             trashMaxMb = p[K.trashMaxMb] ?: 2048,
@@ -264,6 +268,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
     }
     suspend fun setBudget(gb: Int, auto: Boolean) = edit { it[K.budgetGb] = gb; it[K.budgetAuto] = auto }
     suspend fun setEmbedLyrics(on: Boolean) = edit { it[K.embedLyrics] = on }
+    suspend fun setLyricsKaraoke(on: Boolean) = edit { it[K.lyricsKaraoke] = on }
     suspend fun setLibraryView(v: LibraryView) = edit {
         if (v.sort == null) it.remove(K.libSort) else it[K.libSort] = v.sort
         if (v.source == null) it.remove(K.libSource) else it[K.libSource] = v.source

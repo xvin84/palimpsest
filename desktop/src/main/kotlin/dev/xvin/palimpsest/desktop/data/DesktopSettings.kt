@@ -45,6 +45,8 @@ data class DesktopSettings(
     val embedLyrics: Boolean = true,
     /** Where lyrics come from first ("LRCLIB", "NetEase", "Genius", "Yandex Music"), or "" for any, timed first. */
     val lyricsSource: String = "",
+    /** The sung line lights up word by word (karaoke); off: the whole line at once. */
+    val lyricsKaraoke: Boolean = false,
     val keepVersions: Boolean = true,
     val lastQueue: List<String> = emptyList(),
     val lastIndex: Int = 0,

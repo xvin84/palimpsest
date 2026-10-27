@@ -474,6 +474,16 @@ private fun settingItems(s: DesktopSettings): List<Item> {
             }
         }
     }
+    val lyrStyleTitle = t("Текущая строка", "The sung line")
+    val lyrStyleHint = t("Строка загорается целиком или по словам, как в караоке", "The line lights up all at once, or word by word like karaoke")
+    add(Category.LIBRARY, lyrStyleTitle, lyrStyleHint, "lyrics karaoke words lines текст караоке слова строки") {
+        Setting(lyrStyleTitle, lyrStyleHint) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Pill(t("По строчкам", "By line"), !s.lyricsKaraoke, { graph.settings.update { it.copy(lyricsKaraoke = false) } })
+                Pill(t("По словам (караоке)", "Word by word (karaoke)"), s.lyricsKaraoke, { graph.settings.update { it.copy(lyricsKaraoke = true) } })
+            }
+        }
+    }
     toggle(Category.LIBRARY, t("Сохранять тексты в файлы", "Save lyrics into files"), t("Найденный текст сразу пишется в тег файла", "Found lyrics go straight into the file’s tag"), s.embedLyrics, "lyrics tags lrc текст теги") { v ->
         graph.settings.update { it.copy(embedLyrics = v) }
     }

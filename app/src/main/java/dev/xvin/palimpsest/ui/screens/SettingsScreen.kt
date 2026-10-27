@@ -575,6 +575,13 @@ private fun settingItems(settings: AppSettings): List<SettingItem> {
     toggle(SettingsCategory.LYRICS, tr(R.string.settings_embed_lyrics), tr(R.string.settings_embed_lyrics_hint), settings.embedLyrics, "lyrics tags lrc текст теги") {
         launch { graph.settings.setEmbedLyrics(it) }
     }
+    val karaokeTitle = tr(R.string.settings_lyrics_line)
+    add(SettingsCategory.LYRICS, karaokeTitle, tr(R.string.settings_lyrics_line_hint), "lyrics karaoke words lines текст караоке слова строки") {
+        ChoiceRow(karaokeTitle, tr(R.string.settings_lyrics_line_hint)) {
+            Pill(tr(R.string.settings_lyrics_by_line), !settings.lyricsKaraoke, { launch { graph.settings.setLyricsKaraoke(false) } })
+            Pill(tr(R.string.settings_lyrics_by_word), settings.lyricsKaraoke, { launch { graph.settings.setLyricsKaraoke(true) } })
+        }
+    }
     val trTitle = tr(R.string.translation)
     add(SettingsCategory.LYRICS, trTitle, tr(R.string.settings_translation_hint), "translate перевод") {
         ChoiceRow(trTitle, tr(R.string.settings_translation_hint)) {

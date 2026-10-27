@@ -672,7 +672,7 @@
     <string name="settings_cat_library_summary">Music folders, rescans, duplicates, covers</string>
     <string name="settings_cat_downloads">Downloads and sync</string>
     <string name="settings_cat_downloads_summary">Where downloads go, quality, versions, background sync</string>
-    <string name="settings_cat_lyrics_summary">Lyrics in files, translation</string>
+    <string name="settings_cat_lyrics_summary">The sung line, lyrics in files, translation</string>
     <string name="settings_cat_storage">Storage and trash</string>
     <string name="settings_cat_storage_summary">What takes space, the trash, the streaming cache</string>
     <string name="settings_cat_network">Network and services</string>
@@ -697,6 +697,10 @@
     <string name="settings_duplicates_hint">The same song in several files: merge them into one track, the extra files become its versions</string>
     <string name="settings_covers_hint">Looks for missing covers on Yandex Music, Deezer, iTunes and MusicBrainz and embeds them into the files</string>
     <string name="settings_quality_hint">For streaming and downloads. Lossless is FLAC where the service has it.</string>
+    <string name="settings_lyrics_line">The sung line</string>
+    <string name="settings_lyrics_line_hint">All at once, or word by word like karaoke (for lyrics with word timings)</string>
+    <string name="settings_lyrics_by_line">By line</string>
+    <string name="settings_lyrics_by_word">Word by word (karaoke)</string>
     <string name="settings_embed_lyrics">Save lyrics into files</string>
     <string name="settings_embed_lyrics_hint">Lyrics found online or picked by hand go straight into the file’s tag (timed when there are timings), so any player shows them</string>
     <string name="settings_translation_hint">Synced lyrics in the original, with a translation into the app’s language under each line, or only the translation</string>

@@ -533,7 +533,7 @@ internal fun LyricsPane(track: TrackEntity?, positionMs: Long, onSeek: (Long) ->
                     val scale by animateFloatAsState(if (active) 1.08f else 1f, tween(350), label = "lyric-scale")
                     val shown = if (only) translation?.getOrNull(i)?.takeIf { it.isNotBlank() && l.text.isNotBlank() } ?: l.text else l.text
                     // Word timings: the sung line fills word by word, like karaoke.
-                    val karaoke = active && !only && l.words != null
+                    val karaoke = active && !only && l.words != null && appSettings?.lyricsKaraoke == true
                     Text(
                         if (karaoke) karaokeText(l, parsed.lines.getOrNull(i + 1)?.timeMs ?: (l.timeMs + 10_000), positionMs, accent, Ink.Text.copy(alpha = 0.45f))
                         else androidx.compose.ui.text.AnnotatedString(shown.ifBlank { "♪" }),
