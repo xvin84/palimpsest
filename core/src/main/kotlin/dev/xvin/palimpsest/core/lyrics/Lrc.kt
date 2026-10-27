@@ -1,5 +1,7 @@
 package dev.xvin.palimpsest.core.lyrics
 
+import dev.xvin.palimpsest.core.model.Lyrics
+
 /** One sung word (with its trailing space) from enhanced LRC; an empty [text] marks where the line ends. */
 data class LrcWord(val timeMs: Long, val text: String)
 
@@ -51,8 +53,42 @@ data class ParsedLyrics(val lines: List<LrcLine>, val isSynced: Boolean) {
     }
 }
 
+/**
+ * [this] without what services send in place of lyrics or around them; null when nothing sung is left.
+ * Every source goes through it, and so does what was saved earlier (a stand-in may already be cached
+ * or written into a file's tag).
+ */
+fun Lyrics.cleaned(): Lyrics? {
+    fun keep(text: String?) = text?.let(Lrc::clean)?.takeIf(Lrc::hasText)
+    val s = keep(synced)
+    val p = keep(plain)
+    return if (s == null && p == null) null else copy(synced = s, plain = p)
+}
+
 object Lrc {
     private val timeTag = Regex("""\[(\d{1,3}):(\d{1,2})(?:[.:](\d{1,3}))?]""")
+    private val leadingTags = Regex("""^(?:\[[\d:.]+]\s*)+""")
+
+    /**
+     * Lines that aren't lyrics: Yandex's «subscribe to Plus» (what an account without Plus gets, as
+     * LRC and as text), NetEase's credits — as JSON lines or as «[00:00] 作词 : …» — and its
+     * «instrumental» / «no lyrics yet» notes.
+     */
+    private val junk = listOf(
+        Regex("""^\{"t":-?\d+,"c":\[.*]}$"""),
+        Regex("""подключите подписку на плюс|subscribe to (?:yandex )?plus""", RegexOption.IGNORE_CASE),
+        Regex("""^(?:作词|作曲|编曲|制作人|混音|母带|和声|吉他|贝斯|鼓|弦乐|录音|监制|出品|Lyricist|Composer|Arranger|Producer)\s*[:：]""", RegexOption.IGNORE_CASE),
+        Regex("""^(?:纯音乐，?请欣赏|暂无歌词|此歌曲为没有填词的纯音乐)"""),
+    )
+
+    /** [text] without the lines in [junk]. */
+    fun clean(text: String): String = text.lineSequence()
+        .filterNot { line -> val bare = line.trim().replace(leadingTags, "").trim(); junk.any { it.containsMatchIn(bare) } }
+        .joinToString("\n")
+        .trim()
+
+    /** Whether there's a sung word in [text] (not just timestamps and pauses). */
+    fun hasText(text: String): Boolean = parse(text).lines.any { l -> l.text.any(Char::isLetterOrDigit) }
     private val offsetTag = Regex("""^\[offset:\s*([+-]?\d+)\s*]""", RegexOption.IGNORE_CASE)
     private val metaTag = Regex("""^\[(ar|ti|al|by|au|length|re|ve|#):.*]$""", RegexOption.IGNORE_CASE)
 

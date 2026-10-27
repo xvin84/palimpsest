@@ -1,5 +1,6 @@
 package dev.xvin.palimpsest.data.remote
 
+import dev.xvin.palimpsest.core.lyrics.cleaned
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -198,8 +199,7 @@ class Downloads(
             // Tags: everything we know, so the file stands on its own in any player.
             val cover = (meta?.coverUrl ?: track.coverUrl)?.let { url -> runCatching { get(url) }.getOrNull() }
             // Lyrics already found or picked in the app win; otherwise the service's own.
-            val lyrics = db.lyrics().get(track.id)?.let { dev.xvin.palimpsest.core.model.Lyrics(it.plain, it.synced, it.source) }
-                ?.takeIf { !(it.synced ?: it.plain).isNullOrBlank() }
+            val lyrics = db.lyrics().get(track.id)?.let { dev.xvin.palimpsest.core.model.Lyrics(it.plain, it.synced, it.source).cleaned() }
                 ?: runCatching { provider.lyrics(remoteId) }.getOrNull()
             // FLAC packed in MP4 («flac-mp4») is still FLAC: unpacked into a real .flac, bit for bit.
             val flacInMp4 = dev.xvin.palimpsest.core.audio.FlacMp4.isFlacInMp4(tmp)

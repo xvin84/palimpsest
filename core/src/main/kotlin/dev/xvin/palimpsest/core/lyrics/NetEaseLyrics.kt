@@ -43,7 +43,7 @@ class NetEaseLyrics(private val http: OkHttpClient = Http.client) {
         val wordLrc = resp.yrc?.lyric?.let(Lrc::fromYrc)?.let(::clean)?.takeIf { it.isNotBlank() }
         val text = wordLrc ?: lineLrc ?: return null
         if (INSTRUMENTAL in text) return null
-        return if (Lrc.looksSynced(text)) Lyrics(plain = null, synced = text, source = "NetEase") else Lyrics(plain = text, synced = null, source = "NetEase")
+        return (if (Lrc.looksSynced(text)) Lyrics(plain = null, synced = text, source = "NetEase") else Lyrics(plain = text, synced = null, source = "NetEase")).cleaned()
     }
 
     private fun request(url: String) = Request.Builder().url(url)
@@ -56,12 +56,7 @@ class NetEaseLyrics(private val http: OkHttpClient = Http.client) {
         private const val MIN_SCORE = 0.62
         private const val INSTRUMENTAL = "纯音乐"
 
-        /** Credit lines NetEase puts at the top ("作词 : …", "作曲 : …") aren't lyrics. */
-        private val credit = Regex("""^\[[\d:.]+]\s*(作词|作曲|编曲|制作人|混音|母带|和声|吉他|贝斯|鼓|弦乐|录音|监制|出品|Lyricist|Composer|Arranger|Producer)\s*[:：].*$""", RegexOption.IGNORE_CASE)
-
-        internal fun clean(lrc: String): String = lrc.lineSequence()
-            .filterNot { credit.matches(it.trim()) }
-            .joinToString("\n")
-            .trim()
+        /** Credits at the top (JSON lines or «作词 : …») aren't lyrics. */
+        internal fun clean(lrc: String): String = Lrc.clean(lrc)
     }
 }

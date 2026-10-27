@@ -1,6 +1,7 @@
 package dev.xvin.palimpsest.desktop.data
 
 import dev.xvin.palimpsest.core.lyrics.Lrc
+import dev.xvin.palimpsest.core.lyrics.cleaned
 import dev.xvin.palimpsest.core.model.Lyrics
 import dev.xvin.palimpsest.core.model.Service
 import kotlinx.coroutines.Dispatchers
@@ -23,10 +24,14 @@ class LyricsService(private val graph: Graph) {
     private val cacheFile = JsonFile(File(Paths.config, "lyrics.json"), MapSerializer(String.serializer(), String.serializer())) { emptyMap() }
     private val cache = cacheFile.load().toMutableMap()
 
-    private fun fromText(text: String, source: String) = if (Lrc.looksSynced(text)) Lyrics(null, text, source) else Lyrics(text, null, source)
+    /**
+     * Lyrics from text, without what services put in place of lyrics — a stand-in («subscribe to Plus»)
+     * may have been saved or written into a file before it was recognised; then there's nothing.
+     */
+    private fun fromText(text: String, source: String) = (if (Lrc.looksSynced(text)) Lyrics(null, text, source) else Lyrics(text, null, source)).cleaned()
 
     suspend fun local(t: Track): Lyrics? = withContext(Dispatchers.IO) {
-        cache[t.id]?.let { return@withContext fromText(it, cache[SOURCE + t.id] ?: SAVED) }
+        cache[t.id]?.let { fromText(it, cache[SOURCE + t.id] ?: SAVED) }?.let { return@withContext it }
         inFiles(t).let { all -> all.firstOrNull { it.synced != null } ?: all.firstOrNull() }
     }
 
@@ -55,7 +60,7 @@ class LyricsService(private val graph: Graph) {
             { graph.netEase.find(t.artist, title, t.durationMs) },
             { graph.genius.find(t.artist, title) },
         )
-        sources.map { s -> async(Dispatchers.IO) { runCatching { withTimeout(20_000) { s() } }.getOrNull() } }.awaitAll().filterNotNull()
+        sources.map { s -> async(Dispatchers.IO) { runCatching { withTimeout(20_000) { s() } }.getOrNull() } }.awaitAll().mapNotNull { it?.cleaned() }
     }
 
     /** What to show: what's on disk if it's timed, else the best online variant (saved). */

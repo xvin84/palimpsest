@@ -1,6 +1,7 @@
 package dev.xvin.palimpsest.data.lyrics
 
 import dev.xvin.palimpsest.core.lyrics.LrcLibClient
+import dev.xvin.palimpsest.core.lyrics.cleaned
 import dev.xvin.palimpsest.core.model.Lyrics
 import dev.xvin.palimpsest.core.model.Service
 import dev.xvin.palimpsest.core.yandex.YandexMusicProvider
@@ -99,12 +100,13 @@ class LyricsRepository(
 
     /** What's on the phone: saved in the app, the file's tag, a sidecar `.lrc`. */
     private suspend fun localAll(track: TrackEntity): List<Lyrics> = buildList {
-        db.lyrics().get(track.id)?.let { add(Lyrics(it.plain, it.synced, it.source)) }
+        // Cleaned on the way in too: a service's stand-in («subscribe to Plus») may be saved from before.
+        db.lyrics().get(track.id)?.let { Lyrics(it.plain, it.synced, it.source).cleaned() }?.let(::add)
         val path = track.path ?: return@buildList
         val file = File(path)
-        runCatching { TagIO.read(file).lyrics }.getOrNull()?.takeIf { it.isNotBlank() }?.let { add(fromText(it, tr(R.string.lyrics_src_tag))) }
+        runCatching { TagIO.read(file).lyrics }.getOrNull()?.takeIf { it.isNotBlank() }?.let { fromText(it, tr(R.string.lyrics_src_tag)).cleaned() }?.let(::add)
         val lrc = File(file.parentFile, file.nameWithoutExtension + ".lrc")
-        if (lrc.isFile) add(fromText(lrc.readText(), tr(R.string.lyrics_src_lrc)))
+        if (lrc.isFile) fromText(lrc.readText(), tr(R.string.lyrics_src_lrc)).cleaned()?.let(::add)
     }
 
     /**
@@ -130,7 +132,7 @@ class LyricsRepository(
             add { netEase.find(track.artist, title, track.durationMs) }
             if (includePlainOnly) add { genius.find(track.artist, title) }
         }
-        sources.map { source -> async(Dispatchers.IO) { runCatching { withTimeout(20_000) { source() } }.getOrNull() } }.awaitAll().filterNotNull()
+        sources.map { source -> async(Dispatchers.IO) { runCatching { withTimeout(20_000) { source() } }.getOrNull() } }.awaitAll().mapNotNull { it?.cleaned() }
     }
 
     /**

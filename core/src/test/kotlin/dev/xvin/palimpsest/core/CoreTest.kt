@@ -1,5 +1,6 @@
 package dev.xvin.palimpsest.core
 
+import dev.xvin.palimpsest.core.lyrics.cleaned
 import dev.xvin.palimpsest.core.crypto.AesCtr
 import dev.xvin.palimpsest.core.dsp.AutoEqParser
 import dev.xvin.palimpsest.core.dsp.EqFilter
@@ -293,6 +294,20 @@ class TranslatorTest {
     @Test fun netEaseDropsCredits() {
         val lrc = "[00:00.000] 作词 : Chris Martin\n[00:01.000] 作曲 : Coldplay\n[00:33.79]Look at the stars"
         assertEquals("[00:33.79]Look at the stars", dev.xvin.palimpsest.core.lyrics.NetEaseLyrics.clean(lrc))
+    }
+
+    @Test fun netEaseDropsJsonCredits() {
+        val lrc = "{\"t\":0,\"c\":[{\"tx\":\"作词: \"},{\"tx\":\"Иван\"}]}\n{\"t\":84,\"c\":[{\"tx\":\"作曲: \"},{\"tx\":\"Иван\"}]}\n[00:00.168]Я не могу с её ног"
+        assertEquals("[00:00.168]Я не могу с её ног", dev.xvin.palimpsest.core.lyrics.NetEaseLyrics.clean(lrc))
+    }
+
+    @Test fun standInLyricsAreNoLyrics() {
+        fun l(synced: String?, plain: String?) = dev.xvin.palimpsest.core.model.Lyrics(plain, synced, "x").cleaned()
+        assertEquals(null, l("[00:01.00] Подключите подписку на Плюс, чтобы видеть тексты песен  \n[59:59.59] ", null))
+        assertEquals(null, l(null, "Подключите подписку на Плюс, чтобы видеть тексты песен\n"))
+        assertEquals(null, l(null, "{\"t\":-1,\"c\":[{\"tx\":\"作词: \"},{\"tx\":\"Смирнов\"}]}\n{\"t\":-1,\"c\":[{\"tx\":\"作曲: \"},{\"tx\":\"Смирнов\"}]}"))
+        assertEquals("[00:12.00]Обнимай меня", l("[00:12.00]Обнимай меня", null)?.synced)
+        assertEquals("Look at the stars", l(null, "Look at the stars")?.plain)
     }
 
     @Test fun geniusExtractsLyricsContainers() {

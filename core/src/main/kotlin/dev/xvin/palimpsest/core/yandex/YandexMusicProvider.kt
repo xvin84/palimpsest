@@ -1,5 +1,6 @@
 package dev.xvin.palimpsest.core.yandex
 
+import dev.xvin.palimpsest.core.lyrics.cleaned
 import dev.xvin.palimpsest.core.library.YandexLinks
 import dev.xvin.palimpsest.core.match.TrackMatcher
 import dev.xvin.palimpsest.core.model.AlbumWithTracks
@@ -313,7 +314,8 @@ class YandexMusicProvider(
         val synced = fetch("LRC")
         val plain = if (synced == null) fetch("TEXT") else null
         if (synced == null && plain == null) return null
-        return Lyrics(plain = plain, synced = synced, source = "Yandex Music")
+        // Without Plus the «lyrics» are a line asking to subscribe: that's no lyrics.
+        return Lyrics(plain = plain, synced = synced, source = "Yandex Music").cleaned()
     }
 
     // --- HTTP plumbing -------------------------------------------------------------------------
