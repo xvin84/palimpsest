@@ -138,10 +138,16 @@ fun HandoffFlight() {
         )
         // The cover: from its place to the phone's screen (sent), or back (received).
         val target = Rect(phoneX + phoneW * 0.15f, phoneY + phoneH * 0.3f, phoneX + phoneW * 0.85f, phoneY + phoneH * 0.3f + phoneW * 0.7f)
-        fun at(k: Float): Rect = Rect(
-            from.left + (target.left - from.left) * k, from.top + (target.top - from.top) * k,
-            from.right + (target.right - from.right) * k, from.bottom + (target.bottom - from.bottom) * k,
-        )
+        fun at(k: Float): Rect {
+            val r = Rect(
+                from.left + (target.left - from.left) * k, from.top + (target.top - from.top) * k,
+                from.right + (target.right - from.right) * k, from.bottom + (target.bottom - from.bottom) * k,
+            )
+            // The bar's cover is small: it swells on the way, so the flight reads from across the room.
+            val grow = 1f + 1.6f * sin(k * Math.PI).toFloat() * (with(d) { 120.dp.toPx() } / maxOf(from.width, 1f)).coerceAtMost(1.5f).coerceAtLeast(0f)
+            val c = r.center
+            return Rect(c.x - r.width * grow / 2, c.y - r.height * grow / 2, c.x + r.width * grow / 2, c.y + r.height * grow / 2)
+        }
         @Composable
         fun copy(k: Float, alpha: Float) {
             val r = at(k)
