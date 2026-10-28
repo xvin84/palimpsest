@@ -457,7 +457,9 @@ private fun MyWaveCard(wave: dev.xvin.palimpsest.data.settings.WavePrefs) {
         IconButton(onClick = { tuning = true }) { Icon(Icons.Rounded.Tune, tr(R.string.wave_tune), tint = Ink.Text) }
         Box(Modifier.size(48.dp).clip(CircleShape).background(Ink.Text), contentAlignment = Alignment.Center) {
             if (starting) androidx.compose.material3.CircularProgressIndicator(Modifier.size(22.dp), color = Ink.Paper, strokeWidth = 2.dp)
-            else Text(if (active) "≋" else "▶", color = Ink.Paper, style = MaterialTheme.typography.titleLarge)
+            // While it plays, the button shakes the wave up instead.
+            else if (active) dev.xvin.palimpsest.ui.components.ShakeWaveButton(Ink.Paper)
+            else Text("▶", color = Ink.Paper, style = MaterialTheme.typography.titleLarge)
         }
     }
 }

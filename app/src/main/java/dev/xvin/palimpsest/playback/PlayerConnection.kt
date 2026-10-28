@@ -78,6 +78,9 @@ class PlayerConnection(
     /** Called when the user replaces the queue (plays something new) — e.g. to end a radio station. */
     var onQueueReplaced: (() -> Unit)? = null
 
+    /** False while a radio feeds the queue: it never loops, it brings new tracks instead. */
+    var repeatAllAllowed: () -> Boolean = { true }
+
     /** Playback failures, for the error journal and the explained error sheet. */
     var onError: ((Throwable) -> Unit)? = null
 
@@ -216,7 +219,28 @@ class PlayerConnection(
     fun enqueue(tracks: List<TrackEntity>) = scope.launch {
         val c = ctrl()
         if (c.mediaItemCount == 0) { playInternal(tracks, 0, false); return@launch }
+        val first = c.mediaItemCount
         c.addMediaItems(tracks.map { bare(it.id.toString()) })
+        // The queue ran out (or its last track failed) before these arrived: carry on with them.
+        if (c.playbackState == Player.STATE_ENDED || (c.playerError != null && c.currentMediaItemIndex == first - 1)) {
+            c.seekTo(first, 0)
+            c.prepare()
+            c.play()
+        }
+    }
+
+    /** Swaps everything after the current track for [tracks] and, with [playNow], jumps to them. */
+    fun replaceUpcoming(tracks: List<TrackEntity>, playNow: Boolean) = scope.launch {
+        val c = ctrl()
+        if (c.mediaItemCount == 0) { playInternal(tracks, 0, false); return@launch }
+        val at = c.currentMediaItemIndex + 1
+        if (at < c.mediaItemCount) c.removeMediaItems(at, c.mediaItemCount)
+        c.addMediaItems(tracks.map { bare(it.id.toString()) })
+        if (playNow) {
+            c.seekTo(at, 0)
+            c.prepare()
+            c.play()
+        }
     }
 
     /** Plays a file handed to us by another app (file manager, Telegram, …). */
@@ -303,11 +327,13 @@ class PlayerConnection(
     fun cycleRepeat() = scope.launch {
         val c = ctrl()
         c.repeatMode = when (c.repeatMode) {
-            Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
+            Player.REPEAT_MODE_OFF -> if (repeatAllAllowed()) Player.REPEAT_MODE_ALL else Player.REPEAT_MODE_ONE
             Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
             else -> Player.REPEAT_MODE_OFF
         }
     }
+
+    fun setRepeat(mode: Int) = scope.launch { ctrl().repeatMode = mode }
 
     fun toggleShuffle() = scope.launch { ctrl().let { it.shuffleModeEnabled = !it.shuffleModeEnabled } }
 

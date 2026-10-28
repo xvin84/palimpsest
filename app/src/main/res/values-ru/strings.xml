@@ -301,6 +301,8 @@
     <string name="queue">Очередь</string>
     <string name="radio">Радио</string>
     <string name="radio_empty">Станция пока пустая</string>
+    <string name="wave_shake">Встряхнуть волну</string>
+    <string name="wave_shaken">Встряхнул — дальше свежие треки</string>
     <string name="radio_title">Радио: %1$s</string>
     <string name="release_new">Новый релиз</string>
     <string name="release_new_single">Новый сингл</string>

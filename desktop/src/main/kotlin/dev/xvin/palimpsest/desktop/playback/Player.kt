@@ -4,6 +4,10 @@ import dev.xvin.palimpsest.core.crypto.AesCtr
 import dev.xvin.palimpsest.core.dsp.EqProfile
 import dev.xvin.palimpsest.core.model.RemoteTrack
 import dev.xvin.palimpsest.core.model.Service
+import dev.xvin.palimpsest.core.radio.RadioFeed
+import dev.xvin.palimpsest.core.radio.StationSource
+import dev.xvin.palimpsest.core.radio.StationSpec
+import dev.xvin.palimpsest.core.radio.YandexStation
 import dev.xvin.palimpsest.desktop.data.Graph
 import dev.xvin.palimpsest.desktop.data.Paths
 import dev.xvin.palimpsest.desktop.data.Play
@@ -56,8 +60,13 @@ class Player(private val graph: Graph) {
     private var listenedMs = 0L
     private var logged = false
     private var lastTick = 0L
-    private var radioSession: String? = null
-    private var radioBatch: String? = null
+    /** The station feeding the queue, while one does. */
+    @Volatile private var feed: RadioFeed? = null
+    private var topping: Job? = null
+    /** The radio track playing now and since when, for the station's listening feedback. */
+    private var radioPlaying: Pair<Track, Long>? = null
+    private val _shaking = MutableStateFlow(false)
+    val shaking: StateFlow<Boolean> = _shaking
     /** Shuffle order: indices of [PlayerState.queue] in play order. */
     private var order: List<Int> = emptyList()
 
@@ -92,14 +101,22 @@ class Player(private val graph: Graph) {
     private fun restoreQueue() {
         val s = graph.settings.value
         val tracks = s.lastQueue.mapNotNull(graph.library::get)
-        if (tracks.isNotEmpty()) _state.value = PlayerState(queue = tracks, index = s.lastIndex.coerceIn(0, tracks.lastIndex), positionMs = s.lastPositionMs)
+        if (tracks.isEmpty()) return
+        val station = s.lastStation?.let { saved -> sourceFor(saved.spec)?.let { RadioFeed(saved.spec, it, saved.heard) } }
+        feed = station
+        _state.value = PlayerState(queue = tracks, index = s.lastIndex.coerceIn(0, tracks.lastIndex), positionMs = s.lastPositionMs, radio = station?.spec?.title)
         order = tracks.indices.toList()
     }
 
     private fun saveQueue() {
         val st = _state.value
         if (st.queue.isEmpty()) return
-        graph.settings.update { it.copy(lastQueue = st.queue.map { t -> t.id }.take(1000), lastIndex = st.index, lastPositionMs = st.positionMs) }
+        // A long radio queue keeps its tail: that's where it goes on from.
+        val ids = st.queue.map { t -> t.id }
+        val from = if (ids.size > 1000) (st.index - 500).coerceIn(0, ids.size - 1000) else 0
+        graph.settings.update {
+            it.copy(lastQueue = ids.subList(from, minOf(ids.size, from + 1000)), lastIndex = st.index - from, lastPositionMs = st.positionMs, lastStation = feed?.save())
+        }
     }
 
     private fun applyEffects(t: Track?) {
@@ -118,7 +135,7 @@ class Player(private val graph: Graph) {
 
     fun play(tracks: List<Track>, startIndex: Int = 0, shuffle: Boolean = false, radio: String? = null) {
         if (tracks.isEmpty()) return
-        if (radio == null) { radioSession = null; radioBatch = null }
+        if (radio == null) endRadio()
         val start = if (shuffle) tracks.indices.random() else startIndex.coerceIn(0, tracks.lastIndex)
         _state.value = _state.value.copy(queue = tracks, index = start, shuffle = shuffle, radio = radio, error = null)
         order = if (shuffle) listOf(start) + tracks.indices.filter { it != start }.shuffled() else tracks.indices.toList()
@@ -127,7 +144,7 @@ class Player(private val graph: Graph) {
 
     /** [t] alone from [fromMs]: comparing two files of the same song at the same moment. */
     fun playAlone(t: Track, fromMs: Long) {
-        radioSession = null; radioBatch = null
+        endRadio()
         _state.value = _state.value.copy(queue = listOf(t), index = 0, shuffle = false, radio = null, error = null)
         order = listOf(0)
         startCurrent(fromMs)
@@ -212,13 +229,19 @@ class Player(private val graph: Graph) {
         val p = pos + step
         return when {
             p in order.indices -> order[p]
-            st.repeat == Repeat.ALL -> order[(p + order.size) % order.size]
+            // A radio never loops: it brings new tracks instead (see onEnded).
+            st.repeat == Repeat.ALL && st.radio == null -> order[(p + order.size) % order.size]
             else -> null
         }
     }
 
     private fun advance(step: Int, user: Boolean) {
-        val i = nextIndex(step) ?: run { if (!user) engine.stop(); return }
+        val i = nextIndex(step) ?: run {
+            // The radio ran dry before the next batch came: wait for it, then carry on.
+            if (step > 0 && feed != null) { topUpRadio(thenAdvance = true); return }
+            if (!user) engine.stop()
+            return
+        }
         _state.value = _state.value.copy(index = i)
         startCurrent(0)
     }
@@ -231,6 +254,7 @@ class Player(private val graph: Graph) {
 
     private fun startCurrent(fromMs: Long) {
         val t = _state.value.current ?: return
+        radioTrackChanged(t)
         listenedMs = 0; logged = false
         applyEffects(t)
         loadJob?.cancel()
@@ -241,11 +265,12 @@ class Player(private val graph: Graph) {
                 _state.value = _state.value.copy(loading = null, error = null)
                 engine.play(file, fromMs)
                 prefetchNext()
-                topUpRadio()
+                if (_state.value.index >= _state.value.queue.size - 2) topUpRadio()
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
                 _state.value = _state.value.copy(loading = null, error = "${t.title}: ${e.message ?: e.javaClass.simpleName}")
+                System.err.println("Palimpsest: couldn't play ${t.id}: $e")
                 // A cloud track that can't load shouldn't stop the music.
                 delay(1500)
                 if (_state.value.current?.id == t.id) advance(+1, user = false)
@@ -261,14 +286,17 @@ class Player(private val graph: Graph) {
         t.path?.let { p -> File(p).takeIf { it.isFile }?.let { return it } }
         val rid = t.remoteId ?: throw IllegalStateException("no file")
         val provider = graph.provider(t.service) ?: throw IllegalStateException("${t.service.displayName} unavailable")
-        val cached = cacheDir.listFiles { f -> f.nameWithoutExtension == key(t) }?.firstOrNull()
+        // «.part» is a download in progress or one that broke off: never play it as if it were whole.
+        fun cachedFile() = cacheDir.listFiles { f -> f.nameWithoutExtension == key(t) && f.extension != "part" }?.firstOrNull()
+        val cached = cachedFile()
         if (cached != null) { cached.setLastModified(System.currentTimeMillis()); return cached }
         return fetchLock.withLock {
             withContext(Dispatchers.IO) {
-                cacheDir.listFiles { f -> f.nameWithoutExtension == key(t) }?.firstOrNull()?.let { return@withContext it }
+                cachedFile()?.let { return@withContext it }
                 val info = provider.resolveStream(rid, graph.settings.value.quality)
                 val tmp = File(cacheDir, key(t) + ".part")
                 val req = Request.Builder().url(info.url).apply { info.headers.forEach { (k, v) -> header(k, v) } }.build()
+                try {
                 graph.http.newCall(req).execute().use { resp ->
                     if (!resp.isSuccessful) throw java.io.IOException("HTTP ${resp.code}")
                     val total = resp.body.contentLength()
@@ -281,7 +309,13 @@ class Player(private val graph: Graph) {
                             out.write(buf, 0, n); done += n
                             if (total > 0) onProgress(done.toFloat() / total)
                         }
+                        // A connection that drops mid-file can look like a normal end.
+                        if (total > 0 && done < total) throw java.io.IOException("download cut off at $done of $total bytes")
                     }
+                }
+                } catch (e: Throwable) {
+                    tmp.delete()
+                    throw e
                 }
                 val out = File(cacheDir, key(t) + "." + info.extension)
                 tmp.renameTo(out)
@@ -310,22 +344,77 @@ class Player(private val graph: Graph) {
 
     /** Starts a Yandex radio station («Моя волна» is `user:onyourwave`). */
     suspend fun startRadio(seed: String, title: String, extraSeeds: List<String> = emptyList()) {
-        val batch = graph.yandex.radioStart(listOf(seed) + extraSeeds)
-        radioSession = batch.sessionId
-        radioBatch = batch.batchId
-        play(batch.tracks.map(graph.library::ensureRemote), 0, radio = title)
-        radioSession = batch.sessionId
-        radioBatch = batch.batchId
+        val spec = StationSpec(StationSpec.YANDEX, listOf(seed) + extraSeeds, title)
+        // Starting the same station again remembers what it already played.
+        val heard = (feed?.save() ?: graph.settings.value.lastStation)?.takeIf { it.spec.seed == seed }?.heard.orEmpty()
+        val f = RadioFeed(spec, sourceFor(spec) ?: error("Sign in to Yandex Music first"), heard)
+        val tracks = f.start().map(graph.library::ensureRemote)
+        endRadio()
+        feed = f
+        play(tracks, 0, radio = title)
+        saveQueue()
     }
 
-    private suspend fun topUpRadio() {
-        val session = radioSession ?: return
-        val st = _state.value
-        if (st.radio == null || st.index < st.queue.size - 2) return
-        runCatching {
-            val more = graph.yandex.radioMore(session, st.queue.mapNotNull { it.remoteId }.takeLast(20))
-            radioBatch = more.batchId
-            enqueue(more.tracks.map(graph.library::ensureRemote))
+    /** «Встряхнуть»: a new session that avoids everything heard, playing from its first track now. */
+    suspend fun shakeRadio() {
+        val f = feed ?: return
+        _shaking.value = true
+        try {
+            val tracks = f.shake().map(graph.library::ensureRemote)
+            val st = _state.value
+            val keep = st.queue.take(st.index + 1)
+            _state.value = st.copy(queue = keep + tracks, index = keep.size, error = null)
+            order = (keep + tracks).indices.toList()
+            startCurrent(0)
+            saveQueue()
+        } finally {
+            _shaking.value = false
+        }
+    }
+
+    private fun sourceFor(spec: StationSpec): StationSource? = when (spec.source) {
+        StationSpec.YANDEX -> YandexStation(graph.yandex, spec.seeds).takeIf { graph.yandex.isReady }
+        else -> null
+    }
+
+    private fun endRadio() {
+        feed = null
+        topping?.cancel()
+        radioPlaying = null
+    }
+
+    /** Tells the station what was heard and what was skipped, so it adapts. */
+    private fun radioTrackChanged(t: Track) {
+        val f = feed ?: return
+        val now = System.currentTimeMillis()
+        val prev = radioPlaying
+        if (prev?.first?.id == t.id) return
+        radioPlaying = t to now
+        graph.scope.launch {
+            prev?.let { (p, at) -> p.asRemote()?.let { f.ended(it, now - at, p.durationMs) } }
+            t.asRemote()?.let { f.started(it) }
+        }
+    }
+
+    private fun Track.asRemote() = remoteId?.let { RemoteTrack(service, it, title, listOf(artist), durationMs = durationMs) }
+
+    /** Brings the next batch; failures are retried a few times so the music doesn't just stop. */
+    private fun topUpRadio(thenAdvance: Boolean = false) {
+        val f = feed ?: return
+        if (topping?.isActive == true) return
+        topping = graph.scope.launch {
+            for (wait in listOf(0L, 3_000L, 10_000L, 30_000L)) {
+                delay(wait)
+                if (feed !== f) return@launch
+                val fresh = runCatching { f.next() }.getOrDefault(emptyList())
+                if (fresh.isEmpty()) continue
+                if (feed !== f) return@launch
+                val atEnd = _state.value.index >= _state.value.queue.size - 1
+                enqueue(fresh.map(graph.library::ensureRemote))
+                saveQueue()
+                if (thenAdvance && atEnd) advance(+1, user = false)
+                return@launch
+            }
         }
     }
 

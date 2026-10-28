@@ -1,23 +1,35 @@
 package dev.xvin.palimpsest.playback
 
+import androidx.media3.common.Player
+import dev.xvin.palimpsest.R
+import dev.xvin.palimpsest.core.model.RemoteTrack
+import dev.xvin.palimpsest.core.radio.GuardedStation
+import dev.xvin.palimpsest.core.radio.RadioFeed
+import dev.xvin.palimpsest.core.radio.SavedStation
+import dev.xvin.palimpsest.core.radio.StationSource
+import dev.xvin.palimpsest.core.radio.StationSpec
+import dev.xvin.palimpsest.core.radio.YandexStation
 import dev.xvin.palimpsest.data.db.AppDatabase
 import dev.xvin.palimpsest.data.remote.RemoteRepository
+import dev.xvin.palimpsest.data.settings.Settings
+import dev.xvin.palimpsest.i18n.tr
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import dev.xvin.palimpsest.R
-import dev.xvin.palimpsest.i18n.tr
 
 /**
- * Endless radio from Yandex ("Моя волна", radio by track or artist). Fills the queue batch by
- * batch as it runs low and reports what was finished or skipped, so the station adapts.
+ * Endless radio («Моя волна», radio by track or artist). Fills the queue batch by batch as it runs
+ * low and reports what was finished or skipped, so the station adapts. The station is saved with
+ * the queue, so after a restart it carries on instead of the last batch going round in circles.
  * Playing anything else ends the radio.
  */
 class RadioController(
     private val remote: RemoteRepository,
     private val db: AppDatabase,
     private val player: PlayerConnection,
+    private val settings: Settings,
     private val scope: CoroutineScope,
 ) {
     data class Station(val seed: String, val title: String)
@@ -25,76 +37,119 @@ class RadioController(
     private val _station = MutableStateFlow<Station?>(null)
     val station: StateFlow<Station?> = _station
 
-    private var sessionId: String? = null
-    private var batchId: String? = null
-    private val received = ArrayList<String>()
+    private val _shaking = MutableStateFlow(false)
+    val shaking: StateFlow<Boolean> = _shaking
+
+    @Volatile private var feed: RadioFeed? = null
     private var loading = false
     private var lastIndex = -1
-    private var lastRemoteId: String? = null
-    private var lastStartedAt = 0L
-    private var lastDurationMs = 0L
+    private var lastMediaId: String? = null
+    private var playing: RemoteTrack? = null
+    private var startedAt = 0L
+    private var durationMs = 0L
 
     init {
         player.onQueueReplaced = { stop() }
-        scope.launch { player.state.collect { onState(it) } }
+        player.repeatAllAllowed = { feed == null }
+        scope.launch {
+            settings.loadStation()?.let { saved -> source(saved.spec)?.let { attach(RadioFeed(saved.spec, it, saved.heard)) } }
+            player.state.collect { onState(it) }
+        }
     }
 
     suspend fun start(seed: String, title: String, extraSeeds: List<String> = emptyList()): Result<Unit> = runCatching {
-        // Settings seeds are best effort: if the server doesn't take them, fall back to the plain station.
-        val batch = if (extraSeeds.isEmpty()) remote.radioStart(listOf(seed))
-        else runCatching { remote.radioStart(listOf(seed) + extraSeeds) }.getOrNull()?.takeIf { it.tracks.isNotEmpty() }
-            ?: remote.radioStart(listOf(seed))
-        if (batch.tracks.isEmpty()) error(tr(R.string.radio_empty))
-        val rows = batch.tracks.map { remote.ensureTrack(it) }
-        player.play(rows) // replaces the queue → would stop a previous station
-        received.clear(); received += batch.tracks.map { it.id }
-        sessionId = batch.sessionId
-        batchId = batch.batchId
-        lastIndex = -1
-        _station.value = Station(seed, title)
-        remote.radioFeedback(batch.sessionId, batch.batchId, "radioStarted")
+        val spec = StationSpec(StationSpec.YANDEX, listOf(seed) + extraSeeds, title)
+        // Starting the same station again remembers what it already played.
+        val heard = feed?.save()?.takeIf { it.spec.seed == seed }?.heard ?: settings.loadStation()?.takeIf { it.spec.seed == seed }?.heard.orEmpty()
+        val f = RadioFeed(spec, source(spec) ?: error(tr(R.string.radio_empty)), heard)
+        val rows = f.start().map { remote.ensureTrack(it) }
+        player.play(rows) // replaces the queue → stops a previous station
+        attach(f)
+    }
+
+    /** «Встряхнуть»: a new session that avoids everything heard, playing from its first track now. */
+    suspend fun shake(): Result<Unit> = runCatching {
+        val f = feed ?: error(tr(R.string.radio_empty))
+        _shaking.value = true
+        try {
+            val rows = f.shake().map { remote.ensureTrack(it) }
+            player.replaceUpcoming(rows, playNow = true)
+            persist()
+        } finally {
+            _shaking.value = false
+        }
     }
 
     fun stop() {
+        if (feed == null && _station.value == null) return
+        feed = null
         _station.value = null
-        sessionId = null
+        playing = null
+        scope.launch { settings.saveStation(null) }
+    }
+
+    private fun attach(f: RadioFeed) {
+        feed = f
+        lastIndex = -1
+        lastMediaId = null
+        playing = null
+        _station.value = Station(f.spec.seed, f.spec.title)
+        if (player.state.value.repeatMode == Player.REPEAT_MODE_ALL) player.setRepeat(Player.REPEAT_MODE_OFF)
+        persist()
+    }
+
+    private fun persist() {
+        val saved: SavedStation = feed?.save() ?: return
+        scope.launch { settings.saveStation(saved) }
+    }
+
+    private fun source(spec: StationSpec): StationSource? = when (spec.source) {
+        StationSpec.YANDEX -> GuardedStation(YandexStation(remote.yandex, spec.seeds)) { call -> remote.withYandex { call() } }
+        else -> null
     }
 
     private suspend fun onState(s: PlayerUiState) {
-        val session = sessionId ?: return
-        if (_station.value == null) return
-        if (s.index != lastIndex && s.nowPlaying != null) {
+        val f = feed ?: return
+        if (s.repeatMode == Player.REPEAT_MODE_ALL) player.setRepeat(Player.REPEAT_MODE_OFF)
+        val np = s.nowPlaying
+        if (np != null && (s.index != lastIndex || np.mediaId != lastMediaId)) {
             val now = System.currentTimeMillis()
-            lastRemoteId?.let { prev ->
-                val played = (now - lastStartedAt) / 1000.0
-                val finished = lastDurationMs > 0 && played * 1000 >= lastDurationMs - 8_000
-                remote.radioFeedback(session, batchId, if (finished) "trackFinished" else "skip", prev, played)
-            }
-            val track = s.nowPlaying.trackId?.let { db.tracks().get(it) }
-            lastRemoteId = track?.remoteId
-            lastStartedAt = now
-            lastDurationMs = s.nowPlaying.durationMs
+            playing?.let { prev -> scope.launch { f.ended(prev, now - startedAt, durationMs) } }
+            val track = np.trackId?.let { db.tracks().get(it) }
+            playing = track?.remoteId?.let { RemoteTrack(track.service, it, track.title, listOf(track.artist)) }
+            startedAt = now
+            durationMs = track?.durationMs?.takeIf { it > 0 } ?: np.durationMs
             lastIndex = s.index
-            lastRemoteId?.let { remote.radioFeedback(session, batchId, "trackStarted", it) }
+            lastMediaId = np.mediaId
+            playing?.let { cur -> scope.launch { f.started(cur) } }
+            persist()
         }
-        if (s.queueSize - s.index <= 2 && !loading) loadMore(session)
+        if (s.queueSize - s.index <= 2) topUp(f)
     }
 
-    private fun loadMore(session: String) {
+    /** Brings the next tracks; a failed or empty answer is retried a few times, so the music doesn't just stop. */
+    private fun topUp(f: RadioFeed) {
+        if (loading) return
         loading = true
         scope.launch {
-            runCatching {
-                val batch = remote.radioMore(session, received)
-                batchId = batch.batchId ?: batchId
-                val fresh = batch.tracks.filter { it.id !in received }
-                received += fresh.map { it.id }
-                if (sessionId == session && fresh.isNotEmpty()) player.enqueue(fresh.map { remote.ensureTrack(it) })
+            try {
+                for (wait in listOf(0L, 3_000L, 10_000L, 30_000L)) {
+                    delay(wait)
+                    if (feed !== f) return@launch
+                    val fresh = runCatching { f.next() }.getOrDefault(emptyList())
+                    if (fresh.isEmpty()) continue
+                    val rows = fresh.map { remote.ensureTrack(it) }
+                    if (feed === f) player.enqueue(rows)
+                    persist()
+                    return@launch
+                }
+            } finally {
+                loading = false
             }
-            loading = false
         }
     }
 
     companion object {
-        const val MY_WAVE = "user:onyourwave"
+        const val MY_WAVE = StationSpec.MY_WAVE
     }
 }

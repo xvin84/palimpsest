@@ -149,6 +149,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
         val proxy = stringPreferencesKey("proxy")
         val keepVersions = booleanPreferencesKey("keep_versions")
         val queue = stringPreferencesKey("saved_queue")
+        val station = stringPreferencesKey("radio_station")
         val lastScan = longPreferencesKey("last_scan")
         val autoSync = booleanPreferencesKey("auto_sync")
         val checkUpdates = booleanPreferencesKey("check_updates")
@@ -295,6 +296,16 @@ class Settings(private val context: Context, scope: CoroutineScope) {
     suspend fun loadQueue(): SavedQueue? {
         val raw = context.dataStore.data.first()[K.queue]
         return raw?.let { runCatching { json.decodeFromString<SavedQueue>(it) }.getOrNull() }
+    }
+
+    /** The radio feeding the saved queue, so it carries on after a restart; null clears it. */
+    suspend fun saveStation(s: dev.xvin.palimpsest.core.radio.SavedStation?) = edit {
+        if (s == null) it.remove(K.station) else it[K.station] = json.encodeToString(s)
+    }
+
+    suspend fun loadStation(): dev.xvin.palimpsest.core.radio.SavedStation? {
+        val raw = context.dataStore.data.first()[K.station]
+        return raw?.let { runCatching { json.decodeFromString<dev.xvin.palimpsest.core.radio.SavedStation>(it) }.getOrNull() }
     }
 
     private suspend fun edit(block: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {

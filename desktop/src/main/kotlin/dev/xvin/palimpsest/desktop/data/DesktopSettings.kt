@@ -53,6 +53,8 @@ data class DesktopSettings(
     val lastQueue: List<String> = emptyList(),
     val lastIndex: Int = 0,
     val lastPositionMs: Long = 0,
+    /** The radio feeding [lastQueue], so it carries on after a restart instead of the last batch looping. */
+    val lastStation: dev.xvin.palimpsest.core.radio.SavedStation? = null,
     val recentSearches: List<String> = emptyList(),
     val sidebarWidth: Int = 230,
     /** An icon in the tray (the system's notification area or menu bar) while the app runs. */

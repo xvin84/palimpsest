@@ -19,6 +19,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.material.icons.rounded.Autorenew
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.xvin.palimpsest.core.model.WaveStation
@@ -87,4 +89,32 @@ fun WaveTuningDialog(onDismiss: () -> Unit) {
             }
         }
     }
+}
+
+/**
+ * «Встряхнуть волну»: a new session that avoids everything already heard, from its first track
+ * now — for when the station keeps circling the same few songs. Spins while it works.
+ */
+@Composable
+fun ShakeWaveButton(size: androidx.compose.ui.unit.Dp = 22.dp, iconSize: androidx.compose.ui.unit.Dp = 14.dp, tint: androidx.compose.ui.graphics.Color? = null) {
+    val graph = LocalGraph.current
+    val nav = LocalNav.current
+    val shaking by graph.player.shaking.collectAsState()
+    val turn = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(0f) }
+    androidx.compose.runtime.LaunchedEffect(shaking) {
+        if (shaking) turn.animateTo(turn.value + 360f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(700, easing = androidx.compose.animation.core.LinearEasing)))
+        else turn.animateTo(((turn.value / 360f).toInt() + 1) * 360f, androidx.compose.animation.core.tween(300))
+    }
+    PIconButton(
+        androidx.compose.material.icons.Icons.Rounded.Autorenew, t("Встряхнуть волну", "Shake up the wave"),
+        {
+            if (!shaking) graph.scope.launch {
+                runCatching { graph.player.shakeRadio() }
+                    .onSuccess { withContext(Dispatchers.Main) { nav.toast(t("Встряхнул — дальше свежие треки", "Shook it up — fresh tracks ahead")) } }
+                    .onFailure { withContext(Dispatchers.Main) { nav.toast(t("Не вышло встряхнуть: ", "Couldn’t shake it up: ") + (it.message ?: it.javaClass.simpleName)) } }
+            }
+        },
+        size = size, iconSize = iconSize, tint = tint,
+        iconModifier = Modifier.graphicsLayer { rotationZ = turn.value },
+    )
 }

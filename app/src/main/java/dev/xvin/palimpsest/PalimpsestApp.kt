@@ -198,7 +198,7 @@ class AppGraph(val app: Application) {
         val length = androidx.media3.datasource.cache.ContentMetadata.getContentLength(streamCache.getContentMetadata(key))
         length > 0 && streamCache.isCached(key, 0, length)
     }.getOrDefault(false)
-    val radio = dev.xvin.palimpsest.playback.RadioController(remote, db, player, mainScope)
+    val radio = dev.xvin.palimpsest.playback.RadioController(remote, db, player, settings, mainScope)
     val offlineWave = dev.xvin.palimpsest.playback.OfflineWave(db)
     val backups = dev.xvin.palimpsest.data.Backups(app, db, settings)
     val updater = dev.xvin.palimpsest.data.update.AppUpdater(app, http)

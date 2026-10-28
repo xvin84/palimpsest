@@ -86,6 +86,9 @@ class RemoteRepository(
      * Runs a Yandex call; if the token was rejected and we have a refresh token, renews the
      * token once and retries. Tokens live about a year, so this is rare but keeps sync silent.
      */
+    /** A Yandex call that refreshes an expired token once, for code outside this class (radio). */
+    suspend fun <T> withYandex(block: suspend () -> T): T = withContext(Dispatchers.IO) { yandexCall(block) }
+
     private suspend fun <T> yandexCall(block: suspend () -> T): T = try {
         block()
     } catch (e: AuthRequiredException) {

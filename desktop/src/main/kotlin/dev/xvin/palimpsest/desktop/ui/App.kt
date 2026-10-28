@@ -508,7 +508,10 @@ private fun WaveItem(compact: Boolean) {
     val nav = LocalNav.current
     val st by graph.player.state.collectAsState()
     val on = st.radio == t("Моя волна", "My Wave")
-    val tune = @Composable { PIconButton(Icons.Rounded.Tune, t("Настроить волну", "Tune the wave"), { nav.waveTuning = true }, size = 26.dp, iconSize = 16.dp, tint = LocalPal.current.faint) }
+    val tune = @Composable {
+        if (on) ShakeWaveButton(size = 26.dp, iconSize = 16.dp, tint = LocalPal.current.faint)
+        PIconButton(Icons.Rounded.Tune, t("Настроить волну", "Tune the wave"), { nav.waveTuning = true }, size = 26.dp, iconSize = 16.dp, tint = LocalPal.current.faint)
+    }
     NavItem(null, t("Моя волна", "My Wave"), on, compact, tune, art = "wave") { if (on) graph.player.toggle() else startMyWave(graph, nav) }
 }
 
@@ -573,6 +576,8 @@ private fun PlayerBar(compact: Boolean) {
                             Art("wave", Modifier.size(12.dp), pal.faint)
                             Spacer(Modifier.width(4.dp))
                             Text(it, style = Type.meta, color = pal.faint, maxLines = 1)
+                            Spacer(Modifier.width(2.dp))
+                            ShakeWaveButton(size = 18.dp, iconSize = 12.dp, tint = pal.faint)
                         }
                     }
                 }

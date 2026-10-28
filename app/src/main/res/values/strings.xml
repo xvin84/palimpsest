@@ -302,6 +302,8 @@
     <string name="queue">Queue</string>
     <string name="radio">Radio</string>
     <string name="radio_empty">The station is empty for now</string>
+    <string name="wave_shake">Shake up the wave</string>
+    <string name="wave_shaken">Shook it up — fresh tracks ahead</string>
     <string name="radio_title">Radio: %1$s</string>
     <string name="release_new">New release</string>
     <string name="release_new_single">New single</string>

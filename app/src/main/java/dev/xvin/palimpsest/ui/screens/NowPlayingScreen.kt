@@ -218,6 +218,7 @@ fun NowPlayingScreen(onClose: () -> Unit) {
                         style = MaterialTheme.typography.labelSmall, color = Ink.Faint, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                 }
+                dev.xvin.palimpsest.ui.components.ShakeWaveButton(Ink.Text)
                 Box {
                     IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, tr(R.string.more)) }
                     DropdownMenu(menu, onDismissRequest = { menu = false }) {
