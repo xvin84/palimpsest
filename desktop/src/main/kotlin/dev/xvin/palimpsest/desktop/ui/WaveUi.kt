@@ -33,14 +33,27 @@ import kotlinx.coroutines.withContext
 
 /** «Моя волна» with the tuning from its settings; says what to do when Yandex isn't signed in. */
 fun startMyWave(graph: Graph, nav: Nav, station: WaveStation? = null) {
-    if (!graph.yandex.isReady) { nav.toast(t("Нужно войти в Яндекс Музыку (Сервисы)", "Sign in to Yandex Music first (Services)")); return }
+    val w = graph.settings.value.wave
+    val needsYandex = station != null || w.source == dev.xvin.palimpsest.core.radio.StationSpec.YANDEX
+    if (needsYandex && !graph.yandex.isReady) { nav.toast(t("Нужно войти в Яндекс Музыку (Сервисы)", "Sign in to Yandex Music first (Services)")); return }
     graph.scope.launch {
         runCatching {
             if (station != null) graph.player.startRadio(station.seed, station.name)
-            else graph.player.startRadio(Player.MY_WAVE, t("Моя волна", "My Wave"), graph.settings.value.wave.seeds())
+            else {
+                // YouTube starts from a few of your own songs: liked ones, or the most played.
+                val favourites = if (w.source == dev.xvin.palimpsest.core.radio.Waves.YOUTUBE || w.source == dev.xvin.palimpsest.core.radio.Waves.MIX) {
+                    val lib = graph.library
+                    val liked = lib.liked.value.mapNotNull(lib::get)
+                    val pool = liked.ifEmpty { graph.history.plays.value.groupingBy { it.trackId }.eachCount().entries.sortedByDescending { it.value }.take(50).mapNotNull { lib.get(it.key) } }
+                    pool.shuffled().take(6).map { tr -> if (tr.service == dev.xvin.palimpsest.core.model.Service.YOUTUBE && tr.remoteId != null) "yt:${tr.remoteId}" else "q:${tr.artist} ${tr.title}" }
+                } else emptyList()
+                graph.player.startRadio(dev.xvin.palimpsest.core.radio.Waves.spec(w.source, t("Моя волна", "My Wave"), w.seeds(), favourites, w.bandcampTag, w.shares))
+            }
         }.onFailure { withContext(Dispatchers.Main) { nav.toast(t("Волна не запустилась: ", "My Wave didn’t start: ") + (it.message ?: it.javaClass.simpleName)) } }
     }
 }
+
+private val BANDCAMP_TAGS = listOf("ambient", "electronic", "experimental", "jazz", "rock", "metal", "hip-hop-rap", "lo-fi", "folk", "indie", "synthwave", "classical")
 
 /** «Настроить волну»: character, mood, language — as on the phone — plus Yandex's ready-made stations. */
 @OptIn(ExperimentalLayoutApi::class)
@@ -75,9 +88,37 @@ fun WaveTuningDialog(onDismiss: () -> Unit) {
         },
     ) {
         Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState())) {
+            Group(t("Источник", "Source"), w.source, listOf(
+                dev.xvin.palimpsest.core.radio.StationSpec.YANDEX to t("Яндекс", "Yandex"),
+                dev.xvin.palimpsest.core.radio.Waves.YOUTUBE to "YouTube Music",
+                dev.xvin.palimpsest.core.radio.Waves.BANDCAMP to "Bandcamp",
+                dev.xvin.palimpsest.core.radio.Waves.MIX to t("Смешанная", "Mixed"),
+            )) { set(w.copy(source = it)) }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                when (w.source) {
+                    dev.xvin.palimpsest.core.radio.Waves.YOUTUBE -> t("Бесконечный микс YouTube Music от нескольких твоих любимых песен. Из России нужен прокси (Настройки → Сеть).", "YouTube Music’s endless mix, started from a few of your favourite songs. From Russia it needs the proxy (Settings → Network).")
+                    dev.xvin.palimpsest.core.radio.Waves.BANDCAMP -> t("Независимые артисты: по песне из лучших альбомов жанра на Bandcamp. Из России нужен прокси.", "Independent artists: a song from each of the genre’s top albums on Bandcamp. From Russia it needs the proxy.")
+                    dev.xvin.palimpsest.core.radio.Waves.MIX -> t("Несколько волн в одной, в долях, которые выставишь.", "Several waves as one, in the shares you set.")
+                    else -> t("Волна Яндекс Музыки, подстроенная под то, что ты там слушаешь и лайкаешь.", "Yandex Music’s own wave, tuned by what you like there.")
+                },
+                style = MaterialTheme.typography.bodySmall, color = LocalPal.current.muted,
+            )
+            if (w.source == dev.xvin.palimpsest.core.radio.Waves.BANDCAMP || (w.source == dev.xvin.palimpsest.core.radio.Waves.MIX && w.mixBandcamp > 0)) {
+                Group(t("Жанр", "Genre"), w.bandcampTag, BANDCAMP_TAGS.map { it to it }) { set(w.copy(bandcampTag = it)) }
+            }
+            if (w.source == dev.xvin.palimpsest.core.radio.Waves.MIX) {
+                val zero = listOf("0" to "—", "1" to "1", "2" to "2", "3" to "3")
+                Group(t("Мои файлы", "My files"), "${w.mixLocal}", zero) { set(w.copy(mixLocal = it.toInt())) }
+                Group(t("Яндекс", "Yandex"), "${w.mixYandex}", zero) { set(w.copy(mixYandex = it.toInt())) }
+                Group("YouTube Music", "${w.mixYouTube}", zero) { set(w.copy(mixYouTube = it.toInt())) }
+                Group("Bandcamp", "${w.mixBandcamp}", zero) { set(w.copy(mixBandcamp = it.toInt())) }
+            }
+            if (w.source == dev.xvin.palimpsest.core.radio.StationSpec.YANDEX || w.source == dev.xvin.palimpsest.core.radio.Waves.MIX) {
             Group(t("Характер", "Character"), w.diversity, listOf("" to t("Любой", "Any"), "favorite" to t("Любимое", "Favourite"), "discover" to t("Незнакомое", "Unfamiliar"), "popular" to t("Популярное", "Popular"))) { set(w.copy(diversity = it)) }
             Group(t("Настроение", "Mood"), w.mood, listOf("" to t("Любое", "Any"), "active" to t("Бодрое", "Upbeat"), "fun" to t("Весёлое", "Fun"), "calm" to t("Спокойное", "Calm"), "sad" to t("Грустное", "Sad"))) { set(w.copy(mood = it)) }
             Group(t("Язык", "Language"), w.language, listOf("" to t("Любой", "Any"), "russian" to t("Русский", "Russian"), "not-russian" to t("Иностранный", "Foreign"), "without-words" to t("Без слов", "Instrumental"))) { set(w.copy(language = it)) }
+            }
             val list = stations
             if (!list.isNullOrEmpty()) {
                 Spacer(Modifier.height(20.dp))

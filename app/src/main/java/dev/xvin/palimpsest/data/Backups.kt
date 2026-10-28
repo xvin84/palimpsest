@@ -95,7 +95,7 @@ class Backups(private val context: Context, private val db: AppDatabase, private
                 settings.setEqProfile(s.eqProfile); settings.setCustomEqProfiles(s.customEqProfiles); settings.setDeviceEq(s.deviceEq)
                 settings.setVisualizer(s.visualizer); settings.setDynamicColor(s.dynamicColor); settings.setKeepVersions(s.keepVersions)
                 settings.setAutoDownloadLikes(s.autoDownloadLikes); settings.setFadeSec(s.fadeSec)
-                settings.setWave(WavePrefs(s.waveDiversity, s.waveMood, s.waveLanguage))
+                settings.setWave((settings.state.value?.wave ?: WavePrefs()).copy(diversity = s.waveDiversity, mood = s.waveMood, language = s.waveLanguage))
             }
             val entry = zip.getEntry(DB) ?: error(tr(R.string.backup_no_db))
             db.close()

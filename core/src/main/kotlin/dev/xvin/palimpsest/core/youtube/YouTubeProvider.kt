@@ -125,6 +125,23 @@ class YouTubeProvider(http: OkHttpClient = Http.client) : MusicProvider, dev.xvi
         }
     }
 
+    /**
+     * YouTube Music's endless mix from a song («RDAMVM» + its id): one page of songs and where the
+     * next one starts (null at the end, when the mix has to be started again from another song).
+     */
+    suspend fun mix(videoId: String, page: org.schabi.newpipe.extractor.Page? = null): Pair<List<RemoteTrack>, org.schabi.newpipe.extractor.Page?> = guarded {
+        withContext(Dispatchers.IO) {
+            val url = "https://www.youtube.com/watch?v=$videoId&list=RDAMVM$videoId"
+            if (page == null) {
+                val info = PlaylistInfo.getInfo(ServiceList.YouTube, url)
+                info.relatedItems.filterIsInstance<StreamInfoItem>().map { it.toRemote() } to info.nextPage
+            } else {
+                val more = PlaylistInfo.getMoreItems(ServiceList.YouTube, url, page)
+                more.items.filterIsInstance<StreamInfoItem>().map { it.toRemote() } to more.nextPage
+            }
+        }
+    }
+
     /** An artist page: songs and albums found under the artist's name, and the channel's description. */
     override suspend fun artist(id: String, name: String): ArtistInfo = artistImpl(id, name)
 

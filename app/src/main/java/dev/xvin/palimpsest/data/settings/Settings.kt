@@ -30,7 +30,21 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore("s
 enum class ReplayGainMode(private val labelRes: Int) { OFF(R.string.off_short), TRACK(R.string.rg_track), ALBUM(R.string.rg_album); val label: String get() = tr(labelRes) }
 
 /** «Моя волна» tuning, sent as extra seeds. "" = no preference. */
-data class WavePrefs(val diversity: String = "", val mood: String = "", val language: String = "") {
+data class WavePrefs(
+    val diversity: String = "",
+    val mood: String = "",
+    val language: String = "",
+    /** Where «Моя волна» comes from: Yandex (default), YouTube Music, Bandcamp or a mix — see [dev.xvin.palimpsest.core.radio.Waves]. */
+    val source: String = dev.xvin.palimpsest.core.radio.StationSpec.YANDEX,
+    val bandcampTag: String = "ambient",
+    /** The mixed wave's shares: own files, Yandex, YouTube, Bandcamp. */
+    val mixLocal: Int = 1,
+    val mixYandex: Int = 2,
+    val mixYouTube: Int = 1,
+    val mixBandcamp: Int = 0,
+) {
+    val shares: Map<String, Int> get() = mapOf("local" to mixLocal, "yandex" to mixYandex, "youtube" to mixYouTube, "bandcamp" to mixBandcamp)
+
     fun seeds(): List<String> = listOfNotNull(
         diversity.ifEmpty { null }?.let { "settingDiversity:$it" },
         mood.ifEmpty { null }?.let { "settingMoodEnergy:$it" },
@@ -166,6 +180,9 @@ class Settings(private val context: Context, scope: CoroutineScope) {
         val waveDiversity = stringPreferencesKey("wave_diversity")
         val waveMood = stringPreferencesKey("wave_mood")
         val waveLanguage = stringPreferencesKey("wave_language")
+        val waveSource = stringPreferencesKey("wave_source")
+        val waveTag = stringPreferencesKey("wave_bandcamp_tag")
+        val waveMix = stringPreferencesKey("wave_mix")
         val fadeSec = androidx.datastore.preferences.core.intPreferencesKey("fade_sec")
         val streamCacheMb = androidx.datastore.preferences.core.intPreferencesKey("stream_cache_mb")
         val embedLyrics = booleanPreferencesKey("embed_lyrics")
@@ -217,7 +234,12 @@ class Settings(private val context: Context, scope: CoroutineScope) {
             deviceEq = p[K.deviceEq]?.let { runCatching { json.decodeFromString<Map<String, String>>(it) }.getOrNull() } ?: emptyMap(),
             listenBrainzToken = p[K.lbToken],
             listenBrainzUser = p[K.lbUser],
-            wave = WavePrefs(p[K.waveDiversity].orEmpty(), p[K.waveMood].orEmpty(), p[K.waveLanguage].orEmpty()),
+            wave = (p[K.waveMix]?.split(',')?.mapNotNull { it.toIntOrNull() }?.takeIf { it.size == 4 } ?: listOf(1, 2, 1, 0)).let { m ->
+                WavePrefs(
+                    p[K.waveDiversity].orEmpty(), p[K.waveMood].orEmpty(), p[K.waveLanguage].orEmpty(),
+                    p[K.waveSource] ?: dev.xvin.palimpsest.core.radio.StationSpec.YANDEX, p[K.waveTag] ?: "ambient", m[0], m[1], m[2], m[3],
+                )
+            },
             fadeSec = p[K.fadeSec] ?: 0,
             streamCacheMb = p[K.streamCacheMb] ?: 1024,
             embedLyrics = p[K.embedLyrics] ?: true,
@@ -280,6 +302,8 @@ class Settings(private val context: Context, scope: CoroutineScope) {
     }
     suspend fun setWave(w: WavePrefs) = edit {
         it[K.waveDiversity] = w.diversity; it[K.waveMood] = w.mood; it[K.waveLanguage] = w.language
+        it[K.waveSource] = w.source; it[K.waveTag] = w.bandcampTag
+        it[K.waveMix] = listOf(w.mixLocal, w.mixYandex, w.mixYouTube, w.mixBandcamp).joinToString(",")
     }
     suspend fun setListenBrainz(token: String?, user: String?) = edit {
         if (token == null) { it.remove(K.lbToken); it.remove(K.lbUser) } else { it[K.lbToken] = token; if (user != null) it[K.lbUser] = user }

@@ -14,7 +14,21 @@ enum class TrayStyle { LETTER, BARS, VINYL, MONO }
 
 /** «Моя волна» tuning, sent as extra seeds (as on the phone). "" = no preference. */
 @Serializable
-data class WavePrefs(val diversity: String = "", val mood: String = "", val language: String = "") {
+data class WavePrefs(
+    val diversity: String = "",
+    val mood: String = "",
+    val language: String = "",
+    /** Where «Моя волна» comes from: Yandex (default), YouTube Music, Bandcamp or a mix — see [dev.xvin.palimpsest.core.radio.Waves]. */
+    val source: String = dev.xvin.palimpsest.core.radio.StationSpec.YANDEX,
+    val bandcampTag: String = "ambient",
+    /** The mixed wave's shares: own files, Yandex, YouTube, Bandcamp. */
+    val mixLocal: Int = 1,
+    val mixYandex: Int = 2,
+    val mixYouTube: Int = 1,
+    val mixBandcamp: Int = 0,
+) {
+    val shares: Map<String, Int> get() = mapOf("local" to mixLocal, "yandex" to mixYandex, "youtube" to mixYouTube, "bandcamp" to mixBandcamp)
+
     fun seeds(): List<String> = listOfNotNull(
         diversity.ifEmpty { null }?.let { "settingDiversity:$it" },
         mood.ifEmpty { null }?.let { "settingMoodEnergy:$it" },

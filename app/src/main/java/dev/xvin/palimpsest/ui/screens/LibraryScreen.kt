@@ -423,7 +423,7 @@ private fun MyWaveCard(wave: dev.xvin.palimpsest.data.settings.WavePrefs) {
     var tuning by remember { mutableStateOf(false) }
     if (tuning) WaveTuningSheet(onDismiss = { tuning = false })
     val accent = LocalAccent.current
-    val active = station?.seed == dev.xvin.palimpsest.playback.RadioController.MY_WAVE
+    val active = station?.title == tr(R.string.my_wave)
     Row(
         Modifier
             .fillMaxWidth()
@@ -434,7 +434,7 @@ private fun MyWaveCard(wave: dev.xvin.palimpsest.data.settings.WavePrefs) {
                 if (active) { nav.openPlayer(); return@clickable }
                 starting = true
                 scope.launch {
-                    graph.radio.start(dev.xvin.palimpsest.playback.RadioController.MY_WAVE, tr(R.string.my_wave), wave.seeds())
+                    graph.startMyWave()
                         .onSuccess { nav.openPlayer() }
                         .onFailure { e ->
                             // No network? Don't leave the user in silence — play the offline mix instead.

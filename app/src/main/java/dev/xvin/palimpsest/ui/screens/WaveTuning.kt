@@ -9,6 +9,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -51,15 +55,43 @@ fun WaveTuningSheet(onDismiss: () -> Unit) {
         Column(Modifier.navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 16.dp).verticalScroll(rememberScrollState())) {
             Text(tr(R.string.my_wave), style = MaterialTheme.typography.headlineSmall)
             Text(tr(R.string.wave_settings_hint), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
+            // Where the wave comes from; Yandex's tuning only matters when Yandex is part of it.
+            Group(tr(R.string.wave_source), w.source, listOf(
+                dev.xvin.palimpsest.core.radio.StationSpec.YANDEX to tr(R.string.wave_src_yandex),
+                dev.xvin.palimpsest.core.radio.Waves.YOUTUBE to "YouTube Music",
+                dev.xvin.palimpsest.core.radio.Waves.BANDCAMP to "Bandcamp",
+                dev.xvin.palimpsest.core.radio.Waves.MIX to tr(R.string.wave_src_mix),
+            )) { set(w.copy(source = it)) }
+            Text(
+                when (w.source) {
+                    dev.xvin.palimpsest.core.radio.Waves.YOUTUBE -> tr(R.string.wave_src_youtube_hint)
+                    dev.xvin.palimpsest.core.radio.Waves.BANDCAMP -> tr(R.string.wave_src_bandcamp_hint)
+                    dev.xvin.palimpsest.core.radio.Waves.MIX -> tr(R.string.wave_src_mix_hint)
+                    else -> tr(R.string.wave_src_yandex_hint)
+                },
+                style = MaterialTheme.typography.bodySmall, color = Ink.Muted, modifier = Modifier.padding(top = 6.dp),
+            )
+            if (w.source == dev.xvin.palimpsest.core.radio.Waves.BANDCAMP || (w.source == dev.xvin.palimpsest.core.radio.Waves.MIX && w.mixBandcamp > 0)) {
+                Group(tr(R.string.wave_genre), w.bandcampTag, BANDCAMP_TAGS.map { it to it }) { set(w.copy(bandcampTag = it)) }
+            }
+            if (w.source == dev.xvin.palimpsest.core.radio.Waves.MIX) {
+                Spacer(Modifier.height(16.dp))
+                Text(tr(R.string.wave_shares).uppercase(), style = MaterialTheme.typography.labelSmall, color = Ink.Muted)
+                Share(tr(R.string.wave_share_local), w.mixLocal) { set(w.copy(mixLocal = it)) }
+                Share(tr(R.string.wave_src_yandex), w.mixYandex) { set(w.copy(mixYandex = it)) }
+                Share("YouTube Music", w.mixYouTube) { set(w.copy(mixYouTube = it)) }
+                Share("Bandcamp", w.mixBandcamp) { set(w.copy(mixBandcamp = it)) }
+            }
+            if (w.source == dev.xvin.palimpsest.core.radio.StationSpec.YANDEX || w.source == dev.xvin.palimpsest.core.radio.Waves.MIX) {
             Group(tr(R.string.wave_character), w.diversity, listOf("" to tr(R.string.wave_any_m), "favorite" to tr(R.string.favorite), "discover" to tr(R.string.wave_discover), "popular" to tr(R.string.artist_popular))) { set(w.copy(diversity = it)) }
             Group(tr(R.string.wave_mood), w.mood, listOf("" to tr(R.string.wave_any_n), "active" to tr(R.string.wave_mood_active), "fun" to tr(R.string.wave_mood_fun), "calm" to tr(R.string.wave_mood_calm), "sad" to tr(R.string.wave_mood_sad))) { set(w.copy(mood = it)) }
             Group(tr(R.string.language), w.language, listOf("" to tr(R.string.wave_any_m), "russian" to tr(R.string.wave_lang_russian), "not-russian" to tr(R.string.wave_lang_foreign), "without-words" to tr(R.string.wave_lang_instrumental))) { set(w.copy(language = it)) }
+            }
             Spacer(Modifier.height(16.dp))
             Button(onClick = {
                 // The sheet closes right away, so its own scope would cancel the start mid-request.
                 graph.mainScope.launch {
-                    graph.radio.start(RadioController.MY_WAVE, tr(R.string.my_wave), w.seeds())
-                        .onSuccess { nav.openPlayer() }.onFailure { nav.error(it, tr(R.string.my_wave)) }
+                    graph.startMyWave().onSuccess { nav.openPlayer() }.onFailure { nav.error(it, tr(R.string.my_wave)) }
                 }
                 onDismiss()
             }, modifier = Modifier.fillMaxWidth()) { Text(tr(R.string.wave_start)) }
@@ -78,6 +110,24 @@ fun WaveTuningSheet(onDismiss: () -> Unit) {
                     }
                 }
             }
+        }
+    }
+}
+
+private val BANDCAMP_TAGS = listOf("ambient", "electronic", "experimental", "jazz", "rock", "metal", "hip-hop-rap", "lo-fi", "folk", "indie", "synthwave", "classical")
+
+/** One part of the mixed wave: how big its share is, 0 (off) to 3. */
+@Composable
+private fun Share(label: String, value: Int, onChange: (Int) -> Unit) {
+    androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        (0..3).forEach { n ->
+            val on = n == value
+            androidx.compose.foundation.layout.Box(
+                Modifier.padding(start = 6.dp).size(36.dp).clip(androidx.compose.foundation.shape.CircleShape)
+                    .background(if (on) Ink.Text else Ink.Paper3).clickable { onChange(n) },
+                contentAlignment = androidx.compose.ui.Alignment.Center,
+            ) { Text(if (n == 0) "—" else "$n", color = if (on) Ink.Paper else Ink.Text, style = MaterialTheme.typography.labelLarge) }
         }
     }
 }

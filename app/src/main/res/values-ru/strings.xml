@@ -325,6 +325,16 @@
     <string name="iradio_star">В избранное</string>
     <string name="iradio_nothing">Станций не нашлось</string>
     <string name="iradio_catalog_error">Каталог станций не отвечает. Избранные станции и ссылки всё равно играют.</string>
+    <string name="wave_source">Источник</string>
+    <string name="wave_src_yandex">Яндекс</string>
+    <string name="wave_src_mix">Смешанная</string>
+    <string name="wave_src_yandex_hint">Волна Яндекс Музыки, подстроенная под то, что ты там слушаешь и лайкаешь.</string>
+    <string name="wave_src_youtube_hint">Бесконечный микс YouTube Music от нескольких твоих любимых песен. Из России нужен прокси (Настройки → Сеть).</string>
+    <string name="wave_src_bandcamp_hint">Независимые артисты: по песне из лучших альбомов жанра на Bandcamp. Из России нужен прокси.</string>
+    <string name="wave_src_mix_hint">Несколько волн в одной, в долях, которые выставишь: твои файлы, Яндекс, YouTube, Bandcamp.</string>
+    <string name="wave_genre">Жанр</string>
+    <string name="wave_shares">Доли</string>
+    <string name="wave_share_local">Мои файлы</string>
     <string name="radio_title">Радио: %1$s</string>
     <string name="release_new">Новый релиз</string>
     <string name="release_new_single">Новый сингл</string>

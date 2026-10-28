@@ -326,6 +326,16 @@
     <string name="iradio_star">Star</string>
     <string name="iradio_nothing">No stations found</string>
     <string name="iradio_catalog_error">The station catalog doesn’t answer. Starred stations and links still play.</string>
+    <string name="wave_source">Source</string>
+    <string name="wave_src_yandex">Yandex</string>
+    <string name="wave_src_mix">Mixed</string>
+    <string name="wave_src_yandex_hint">Yandex Music’s own wave, tuned by what you like there.</string>
+    <string name="wave_src_youtube_hint">YouTube Music’s endless mix, started from a few of your favourite songs. From Russia it needs the proxy (Settings → Network).</string>
+    <string name="wave_src_bandcamp_hint">Independent artists: a song from each of the genre’s top albums on Bandcamp. From Russia it needs the proxy.</string>
+    <string name="wave_src_mix_hint">Several waves as one, in the shares you set: your own files, Yandex, YouTube, Bandcamp.</string>
+    <string name="wave_genre">Genre</string>
+    <string name="wave_shares">Shares</string>
+    <string name="wave_share_local">My files</string>
     <string name="radio_title">Radio: %1$s</string>
     <string name="release_new">New release</string>
     <string name="release_new_single">New single</string>

@@ -485,12 +485,15 @@ class Player(private val graph: Graph) {
     // --- Radio -------------------------------------------------------------------------------------
 
     /** Starts a Yandex radio station («Моя волна» is `user:onyourwave`). */
-    suspend fun startRadio(seed: String, title: String, extraSeeds: List<String> = emptyList()) {
-        val spec = StationSpec(StationSpec.YANDEX, listOf(seed) + extraSeeds, title)
+    suspend fun startRadio(seed: String, title: String, extraSeeds: List<String> = emptyList()) =
+        startRadio(StationSpec(StationSpec.YANDEX, listOf(seed) + extraSeeds, title))
+
+    suspend fun startRadio(spec: StationSpec) {
+        val title = spec.title
         // Starting the same station again remembers what it already played.
-        val heard = (feed?.save() ?: graph.settings.value.lastStation)?.takeIf { it.spec.seed == seed }?.heard.orEmpty()
+        val heard = (feed?.save() ?: graph.settings.value.lastStation)?.takeIf { it.spec.source == spec.source && it.spec.seed == spec.seed }?.heard.orEmpty()
         val f = RadioFeed(spec, sourceFor(spec) ?: error("Sign in to Yandex Music first"), heard)
-        val tracks = f.start().map(graph.library::ensureRemote)
+        val tracks = f.start().mapNotNull(::trackFor)
         endRadio()
         feed = f
         play(tracks, 0, radio = title)
@@ -502,7 +505,7 @@ class Player(private val graph: Graph) {
         val f = feed ?: return
         _shaking.value = true
         try {
-            val tracks = f.shake().map(graph.library::ensureRemote)
+            val tracks = f.shake().mapNotNull(::trackFor)
             val st = _state.value
             val keep = st.queue.take(st.index + 1)
             _state.value = st.copy(queue = keep + tracks, index = keep.size, error = null)
@@ -514,9 +517,33 @@ class Player(private val graph: Graph) {
         }
     }
 
-    private fun sourceFor(spec: StationSpec): StationSource? = when (spec.source) {
-        StationSpec.YANDEX -> YandexStation(graph.yandex, spec.seeds).takeIf { graph.yandex.isReady }
-        else -> null
+    private fun sourceFor(spec: StationSpec): StationSource? = dev.xvin.palimpsest.core.radio.Waves.source(
+        spec,
+        yandex = if (graph.yandex.isReady) { seeds -> YandexStation(graph.yandex, seeds) } else null,
+        youtube = graph.youtube as? dev.xvin.palimpsest.core.youtube.YouTubeProvider,
+        bandcamp = graph.bandcamp as? dev.xvin.palimpsest.core.model.BrowsableProvider,
+        local = { LocalStation() },
+        http = graph.http,
+    )
+
+    /** A station's song as a library track: this computer's own file for the mixed wave's local part, else the service track. */
+    private fun trackFor(r: RemoteTrack): Track? = if (r.service == Service.LOCAL) graph.library.get(r.id) else graph.library.ensureRemote(r)
+
+    /**
+     * The mixed wave's own-files part: songs from the library, liked ones more often, none heard in
+     * the last hours (the history knows).
+     */
+    private inner class LocalStation : StationSource {
+        private fun pick(): List<RemoteTrack> {
+            val recent = graph.history.plays.value.filter { it.at > System.currentTimeMillis() - 6 * 3_600_000L }.mapTo(HashSet()) { it.trackId }
+            val liked = graph.library.liked.value
+            return graph.library.tracks.value.filter { it.isLocal && it.id !in recent }
+                .map { it to Math.pow(Math.random(), 1.0 / (if (it.id in liked) 3.0 else 1.0)) }
+                .sortedByDescending { it.second }.take(12)
+                .map { (t, _) -> RemoteTrack(Service.LOCAL, t.id, t.title, listOf(t.artist), durationMs = t.durationMs) }
+        }
+        override suspend fun open(avoid: List<String>) = pick()
+        override suspend fun more(avoid: List<String>) = pick()
     }
 
     private fun endRadio() {
@@ -552,7 +579,7 @@ class Player(private val graph: Graph) {
                 if (fresh.isEmpty()) continue
                 if (feed !== f) return@launch
                 val atEnd = _state.value.index >= _state.value.queue.size - 1
-                enqueue(fresh.map(graph.library::ensureRemote))
+                enqueue(fresh.mapNotNull(::trackFor))
                 saveQueue()
                 if (thenAdvance && atEnd) advance(+1, user = false)
                 return@launch

@@ -62,3 +62,18 @@ class RadioTest {
         feed.ended(t("1"), 20_000, 180_000); assertEquals(false, last)
     }
 }
+
+class MixedStationTest {
+    private fun t(s: String) = dev.xvin.palimpsest.core.model.RemoteTrack(dev.xvin.palimpsest.core.model.Service.LOCAL, s, s, emptyList())
+
+    @Test fun sharesFollowTheWeights() {
+        val a = (1..10).map { t("a$it") }
+        val b = (1..10).map { t("b$it") }
+        val mixed = dev.xvin.palimpsest.core.radio.MixedStation.interleave(listOf(a to 2, b to 1))
+        // Two of «a» for each «b», never three «a» in a row, until one side runs out.
+        val firstSix = mixed.take(6).map { it.id.first() }
+        assertEquals(4, firstSix.count { it == 'a' })
+        assertTrue(mixed.map { it.id.first() }.joinToString("").let { !it.contains("aaa") })
+        assertEquals(emptyList<Any>(), dev.xvin.palimpsest.core.radio.MixedStation.interleave(listOf(emptyList<dev.xvin.palimpsest.core.model.RemoteTrack>() to 1)))
+    }
+}

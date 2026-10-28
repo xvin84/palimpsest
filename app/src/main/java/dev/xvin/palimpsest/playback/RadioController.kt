@@ -31,6 +31,9 @@ class RadioController(
     private val player: PlayerConnection,
     private val settings: Settings,
     private val scope: CoroutineScope,
+    private val http: okhttp3.OkHttpClient,
+    /** Songs from this phone's own files, for the mixed wave. */
+    private val local: () -> StationSource,
 ) {
     data class Station(val seed: String, val title: String)
 
@@ -57,12 +60,16 @@ class RadioController(
         }
     }
 
-    suspend fun start(seed: String, title: String, extraSeeds: List<String> = emptyList()): Result<Unit> = runCatching {
-        val spec = StationSpec(StationSpec.YANDEX, listOf(seed) + extraSeeds, title)
+    suspend fun start(seed: String, title: String, extraSeeds: List<String> = emptyList()): Result<Unit> =
+        start(StationSpec(StationSpec.YANDEX, listOf(seed) + extraSeeds, title))
+
+    suspend fun start(spec: StationSpec): Result<Unit> = runCatching {
+        val seed = spec.seed
         // Starting the same station again remembers what it already played.
-        val heard = feed?.save()?.takeIf { it.spec.seed == seed }?.heard ?: settings.loadStation()?.takeIf { it.spec.seed == seed }?.heard.orEmpty()
+        val heard = feed?.save()?.takeIf { it.spec.source == spec.source && it.spec.seed == seed }?.heard
+            ?: settings.loadStation()?.takeIf { it.spec.source == spec.source && it.spec.seed == seed }?.heard.orEmpty()
         val f = RadioFeed(spec, source(spec) ?: error(tr(R.string.radio_empty)), heard)
-        val rows = f.start().map { remote.ensureTrack(it) }
+        val rows = f.start().map { row(it) }
         player.play(rows) // replaces the queue → stops a previous station
         attach(f)
     }
@@ -81,7 +88,7 @@ class RadioController(
         val f = feed ?: error(tr(R.string.radio_empty))
         _shaking.value = true
         try {
-            val rows = f.shake().map { remote.ensureTrack(it) }
+            val rows = f.shake().map { row(it) }
             player.replaceUpcoming(rows, playNow = true)
             persist()
         } finally {
@@ -112,10 +119,19 @@ class RadioController(
         scope.launch { settings.saveStation(saved) }
     }
 
-    private fun source(spec: StationSpec): StationSource? = when (spec.source) {
-        StationSpec.YANDEX -> if (!remote.yandex.isReady) null else GuardedStation(YandexStation(remote.yandex, spec.seeds)) { call -> remote.withYandex { call() } }
-        else -> null
-    }
+    private fun source(spec: StationSpec): StationSource? = dev.xvin.palimpsest.core.radio.Waves.source(
+        spec,
+        yandex = if (remote.yandex.isReady) { seeds -> GuardedStation(YandexStation(remote.yandex, seeds)) { call -> remote.withYandex { call() } } } else null,
+        youtube = remote.providers[dev.xvin.palimpsest.core.model.Service.YOUTUBE] as? dev.xvin.palimpsest.core.youtube.YouTubeProvider,
+        bandcamp = remote.providers[dev.xvin.palimpsest.core.model.Service.BANDCAMP] as? dev.xvin.palimpsest.core.model.BrowsableProvider,
+        local = local,
+        http = http,
+    )
+
+    /** The library row for a station's song: this phone's own file for the mixed wave's local part, else the service track. */
+    private suspend fun row(t: RemoteTrack): dev.xvin.palimpsest.data.db.TrackEntity =
+        if (t.service == dev.xvin.palimpsest.core.model.Service.LOCAL) db.tracks().get(t.id.toLong()) ?: error("no track ${t.id}")
+        else remote.ensureTrack(t)
 
     private suspend fun onState(s: PlayerUiState) {
         val f = feed ?: return
@@ -147,7 +163,7 @@ class RadioController(
                     if (feed !== f) return@launch
                     val fresh = runCatching { f.next() }.getOrDefault(emptyList())
                     if (fresh.isEmpty()) continue
-                    val rows = fresh.map { remote.ensureTrack(it) }
+                    val rows = fresh.mapNotNull { runCatching { row(it) }.getOrNull() }
                     if (feed === f) player.enqueue(rows)
                     persist()
                     return@launch

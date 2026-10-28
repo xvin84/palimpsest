@@ -198,10 +198,32 @@ class AppGraph(val app: Application) {
         val length = androidx.media3.datasource.cache.ContentMetadata.getContentLength(streamCache.getContentMetadata(key))
         length > 0 && streamCache.isCached(key, 0, length)
     }.getOrDefault(false)
-    val radio = dev.xvin.palimpsest.playback.RadioController(remote, db, player, settings, mainScope)
+    val offlineWave = dev.xvin.palimpsest.playback.OfflineWave(db)
+    val radio = dev.xvin.palimpsest.playback.RadioController(remote, db, player, settings, mainScope, http) {
+        // The mixed wave's own-files part: the offline mix, a handful at a time.
+        object : dev.xvin.palimpsest.core.radio.StationSource {
+            suspend fun pick() = offlineWave.build(count = 12).map { dev.xvin.palimpsest.core.model.RemoteTrack(dev.xvin.palimpsest.core.model.Service.LOCAL, it.id.toString(), it.title, listOf(it.artist), durationMs = it.durationMs) }
+            override suspend fun open(avoid: List<String>) = pick()
+            override suspend fun more(avoid: List<String>) = pick()
+        }
+    }
     val handoff = dev.xvin.palimpsest.playback.PhoneHandoff(db, remote, { lanSync }, player, radio, mainScope)
     val lanServer = dev.xvin.palimpsest.data.sync.PhoneLanServer({ lanSync }, handoff, appScope).also { it.follow() }
-    val offlineWave = dev.xvin.palimpsest.playback.OfflineWave(db)
+
+    /** «Моя волна» from wherever the settings say: Yandex, YouTube Music, Bandcamp or all of them mixed. */
+    suspend fun startMyWave(): Result<Unit> {
+        val w = settings.state.value?.wave ?: dev.xvin.palimpsest.data.settings.WavePrefs()
+        // YouTube starts from a few of your own songs: liked ones, or the most played.
+        val favourites = if (w.source == dev.xvin.palimpsest.core.radio.Waves.YOUTUBE || w.source == dev.xvin.palimpsest.core.radio.Waves.MIX) {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                val all = db.tracks().all()
+                val byId = all.associateBy { it.id }
+                val pool = all.filter { it.liked }.ifEmpty { db.plays().trackStats().sortedByDescending { it.plays }.take(50).mapNotNull { byId[it.trackId] } }
+                pool.shuffled().take(6).map { t -> if (t.service == dev.xvin.palimpsest.core.model.Service.YOUTUBE && t.remoteId != null) "yt:${t.remoteId}" else "q:${t.artist} ${t.title}" }
+            }
+        } else emptyList()
+        return radio.start(dev.xvin.palimpsest.core.radio.Waves.spec(w.source, tr(R.string.my_wave), w.seeds(), favourites, w.bandcampTag, w.shares))
+    }
     val backups = dev.xvin.palimpsest.data.Backups(app, db, settings)
     val updater = dev.xvin.palimpsest.data.update.AppUpdater(app, http)
     val storage = dev.xvin.palimpsest.data.Storage(app, db, versions, backups) { streamCache }
