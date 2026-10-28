@@ -24,6 +24,8 @@ object MediaItems {
     /** The service's current (newer) audio of a track, streamed without downloading: `new:<trackId>`. */
     const val NEW_PREFIX = "new:"
     const val EXTRA_VARIANT = "variant"
+    /** A song handed over from the computer that isn't on this phone: `lan:<LanItem>`, see [LanItem]. */
+    const val LAN_PREFIX = "lan:"
 
     fun from(track: TrackEntity): MediaItem {
         val uri = when {
@@ -56,6 +58,26 @@ object MediaItems {
             .setUri(uri)
             .setMediaMetadata(meta)
             .build()
+    }
+
+    /** A song streamed from the computer it was handed over from. */
+    fun fromLan(item: LanItem): MediaItem {
+        val t = item.track
+        val art = LanItem.covers[item.mediaId()]
+        val meta = MediaMetadata.Builder()
+            .setTitle(t.title)
+            .setArtist(t.artist)
+            .setAlbumTitle(t.album)
+            .setDurationMs(t.durationMs.takeIf { it > 0 })
+            .setIsPlayable(true)
+            .setIsBrowsable(false)
+            .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
+            .apply {
+                if (art != null) setArtworkData(art, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
+                else t.coverUrl?.let { setArtworkUri(Uri.parse(it)) }
+            }
+            .build()
+        return MediaItem.Builder().setMediaId(item.mediaId()).setUri(item.uri()).setMediaMetadata(meta).build()
     }
 
     /** A file opened from a file manager that isn't (yet) in the library. */

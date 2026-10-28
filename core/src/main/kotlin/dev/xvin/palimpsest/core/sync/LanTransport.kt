@@ -13,15 +13,40 @@ import java.net.SocketTimeoutException
 import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
 
-/** One request over the LAN socket: pairing or a sync. */
+/**
+ * One request over the LAN socket: pairing, a sync, or handing playback over ([Handoff]) — a phone
+ * saying where it listens ([hello]), playing something sent over ([handoff]), giving up what
+ * plays to the asker ([pull]) or a file for a handed-over track ([file]).
+ */
 @Serializable
-data class LanMessage(val token: String? = null, val pair: PairRequest? = null, val sync: SyncRequest? = null)
+data class LanMessage(
+    val token: String? = null,
+    val pair: PairRequest? = null,
+    val sync: SyncRequest? = null,
+    val hello: Hello? = null,
+    val handoff: Handoff? = null,
+    val pull: PullRequest? = null,
+    val file: FileRequest? = null,
+)
 
 @Serializable
-data class LanReply(val error: String? = null, val pair: PairResponse? = null, val sync: SyncResponse? = null)
+data class LanReply(
+    val error: String? = null,
+    val pair: PairResponse? = null,
+    val sync: SyncResponse? = null,
+    val handoff: Handoff? = null,
+    val file: FileReply? = null,
+    val ok: Boolean = false,
+)
 
 /** A desktop heard on the network. */
 data class LanPeer(val host: String, val port: Int, val name: String)
+
+/** What a server answers: the reply, and for a file request the file to send after it, from a byte. */
+class LanAnswer(val reply: LanReply, val body: java.io.File? = null, val from: Long = 0)
+
+/** A file streaming in from the other device. */
+class RemoteFile(val length: Long, val ext: String, val input: java.io.InputStream)
 
 /**
  * The wire: a TCP connection carrying one gzipped JSON message each way, length-prefixed. Plain
@@ -55,6 +80,57 @@ object LanTransport {
             write(DataOutputStream(s.getOutputStream().buffered()), msg, LanMessage.serializer())
             read(DataInputStream(s.getInputStream().buffered()), LanReply.serializer())
         }
+
+    /**
+     * Opens a handed-over track's file on the other device from byte [from]: its length and type,
+     * then the raw bytes on the same socket (closing the stream closes the socket).
+     */
+    fun openFile(host: String, port: Int, token: String, key: String, from: Long = 0): RemoteFile {
+        val s = Socket()
+        try {
+            s.connect(InetSocketAddress(host, port), 5_000)
+            s.soTimeout = 30_000
+            val out = DataOutputStream(s.getOutputStream().buffered())
+            write(out, LanMessage(token = token, file = FileRequest(key, from)), LanMessage.serializer())
+            val input = DataInputStream(s.getInputStream().buffered(256 * 1024))
+            val reply = read(input, LanReply.serializer())
+            val f = reply.file ?: error(reply.error ?: "no file")
+            return RemoteFile(f.length, f.ext, object : java.io.FilterInputStream(input) {
+                override fun close() { runCatching { super.close() }; s.close() }
+            })
+        } catch (e: Throwable) {
+            s.close()
+            throw e
+        }
+    }
+
+    /**
+     * Serves one connection: reads the request, answers it with [handle] and, for a file, sends
+     * its bytes after the reply. Both the desktop and the phone listen with this.
+     */
+    fun serve(socket: Socket, handle: (LanMessage, host: String) -> LanAnswer) {
+        socket.use { c ->
+            c.soTimeout = 60_000
+            val out = DataOutputStream(c.getOutputStream().buffered(256 * 1024))
+            val answer = runCatching {
+                handle(read(DataInputStream(c.getInputStream().buffered()), LanMessage.serializer()), c.inetAddress.hostAddress)
+            }.getOrElse { LanAnswer(LanReply(error = it.message ?: it.toString())) }
+            runCatching {
+                write(out, answer.reply, LanReply.serializer())
+                answer.body?.let { f ->
+                    java.io.RandomAccessFile(f, "r").use { raf ->
+                        raf.seek(answer.from)
+                        val buf = ByteArray(64 * 1024)
+                        while (true) {
+                            val n = raf.read(buf); if (n < 0) break
+                            out.write(buf, 0, n)
+                        }
+                    }
+                    out.flush()
+                }
+            }
+        }
+    }
 
     /** Listens for desktops' beacons for [timeoutMs]. */
     fun discover(timeoutMs: Int = 3_000): List<LanPeer> {

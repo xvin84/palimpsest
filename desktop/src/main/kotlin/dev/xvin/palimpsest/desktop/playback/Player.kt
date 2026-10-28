@@ -18,6 +18,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -27,6 +29,9 @@ import okhttp3.Request
 import java.io.File
 
 enum class Repeat { OFF, ALL, ONE }
+
+/** A song handed over from the phone that isn't here: streamed from the phone by [key]. */
+data class LanSource(val host: String, val port: Int, val token: String, val key: String, val ext: String, val cover: String? = null)
 
 data class PlayerState(
     val queue: List<Track> = emptyList(),
@@ -94,7 +99,11 @@ class Player(private val graph: Graph) {
         graph.scope.launch {
             while (isActive) { delay(10_000); saveQueue() }
         }
-        graph.scope.launch { graph.settings.state.collect { applyEffects(_state.value.current); engine.volume = it.volume } }
+        graph.scope.launch { graph.settings.state.collect { applyEffects(_state.value.current) } }
+        // Only a real change of the volume: the settings also change every few seconds (the saved queue), which mustn't cut a fade short.
+        graph.scope.launch {
+            graph.settings.state.map { it.volume }.distinctUntilChanged().collect { v -> if (fadeJob?.isActive != true) engine.volume = v }
+        }
         restoreQueue()
     }
 
@@ -133,13 +142,82 @@ class Player(private val graph: Graph) {
 
     // --- Queue -------------------------------------------------------------------------------------
 
-    fun play(tracks: List<Track>, startIndex: Int = 0, shuffle: Boolean = false, radio: String? = null) {
+    fun play(tracks: List<Track>, startIndex: Int = 0, shuffle: Boolean = false, radio: String? = null, startMs: Long = 0) {
         if (tracks.isEmpty()) return
         if (radio == null) endRadio()
         val start = if (shuffle) tracks.indices.random() else startIndex.coerceIn(0, tracks.lastIndex)
         _state.value = _state.value.copy(queue = tracks, index = start, shuffle = shuffle, radio = radio, error = null)
         order = if (shuffle) listOf(start) + tracks.indices.filter { it != start }.shuffled() else tracks.indices.toList()
-        startCurrent(0)
+        startCurrent(startMs)
+    }
+
+    // --- Handing over to / from the phone ------------------------------------------------------------
+
+    private val lanSources = java.util.concurrent.ConcurrentHashMap<String, LanSource>()
+    @Volatile private var fadeInNext = false
+    private var fadeJob: Job? = null
+
+    /** A song from the phone that this computer doesn't have: a track that streams from the phone. */
+    fun lanTrack(h: dev.xvin.palimpsest.core.sync.HandoffTrack, src: LanSource): Track {
+        val id = "lan:" + (src.host + "/" + src.key).hashCode().toUInt()
+        lanSources[id] = src
+        val cover = src.cover?.let { b64 ->
+            runCatching { File(cacheDir, "$id.jpg".replace(':', '_')).apply { writeBytes(java.util.Base64.getDecoder().decode(b64)) } }.getOrNull()
+        }
+        return Track(id = id, title = h.title, artist = h.artist, album = h.album, durationMs = h.durationMs, coverUrl = cover?.let { "file://" + it.absolutePath })
+    }
+
+    fun lanSourceOf(t: Track): LanSource? = lanSources[t.id]
+
+    /** A song that came from the phone, already fetched — when the phone asks for it back. */
+    fun cachedLanFile(key: String): File? = lanSources.entries.firstOrNull { it.value.key == key }?.let { (id, _) ->
+        cacheDir.listFiles { f -> f.nameWithoutExtension == id.replace(Regex("[^A-Za-z0-9_.-]"), "_") && f.extension != "part" }?.firstOrNull()
+    }
+
+    fun stationSnapshot() = feed?.save()
+
+    fun feedFor(saved: dev.xvin.palimpsest.core.radio.SavedStation): RadioFeed? = sourceFor(saved.spec)?.let { RadioFeed(saved.spec, it, saved.heard) }
+
+    /** Plays what the phone handed over, from the same second, the volume rising from silence. */
+    fun playHandoff(tracks: List<Track>, start: Int, positionMs: Long, station: RadioFeed?, playing: Boolean) {
+        endRadio()
+        feed = station
+        fadeJob?.cancel()
+        engine.volume = 0f
+        fadeInNext = true
+        play(tracks, start, radio = station?.spec?.title, startMs = positionMs)
+        if (!playing) graph.scope.launch { delay(300); if (engine.state.value.playing) engine.toggle() }
+        saveQueue()
+    }
+
+    /** The phone took over: the music here fades out and pauses where it was. */
+    suspend fun fadeOutAndPause() {
+        fadeJob?.cancel()
+        val job = graph.scope.launch {
+            if (engine.state.value.playing) {
+                val from = engine.volume
+                val steps = 20
+                for (i in 1..steps) { engine.volume = from * (1f - i.toFloat() / steps); delay(dev.xvin.palimpsest.core.sync.HandoffConst.FADE_OUT_MS / steps) }
+                if (engine.state.value.playing) engine.toggle()
+            }
+            engine.volume = graph.settings.value.volume
+        }
+        fadeJob = job
+        job.join()
+    }
+
+    private fun fadeIn() {
+        fadeJob?.cancel()
+        fadeJob = graph.scope.launch {
+            val steps = 36
+            for (i in 1..steps) {
+                // An ease-in curve: loudness is logarithmic, a straight line sounds like it jumps at the start.
+                val x = i.toFloat() / steps
+                engine.volume = graph.settings.value.volume * x * x
+                delay(dev.xvin.palimpsest.core.sync.HandoffConst.FADE_IN_MS / steps)
+            }
+            engine.volume = graph.settings.value.volume
+        }
     }
 
     /** [t] alone from [fromMs]: comparing two files of the same song at the same moment. */
@@ -263,7 +341,8 @@ class Player(private val graph: Graph) {
             try {
                 val file = fileFor(t) { p -> _state.value = _state.value.copy(loading = p) }
                 _state.value = _state.value.copy(loading = null, error = null)
-                engine.play(file, fromMs)
+                if (fadeInNext) { fadeInNext = false; engine.volume = 0f; engine.play(file, fromMs); fadeIn() }
+                else engine.play(file, fromMs)
                 prefetchNext()
                 if (_state.value.index >= _state.value.queue.size - 2) topUpRadio()
             } catch (e: kotlinx.coroutines.CancellationException) {
@@ -284,6 +363,7 @@ class Player(private val graph: Graph) {
     /** The file to play: the track's own, or the cloud audio fetched (and decrypted) into the cache. */
     private suspend fun fileFor(t: Track, onProgress: (Float) -> Unit): File {
         t.path?.let { p -> File(p).takeIf { it.isFile }?.let { return it } }
+        lanSources[t.id]?.let { return fetchLan(t, it, onProgress) }
         val rid = t.remoteId ?: throw IllegalStateException("no file")
         val provider = graph.provider(t.service) ?: throw IllegalStateException("${t.service.displayName} unavailable")
         // «.part» is a download in progress or one that broke off: never play it as if it were whole.
@@ -321,6 +401,33 @@ class Player(private val graph: Graph) {
                 tmp.renameTo(out)
                 trimCache()
                 out
+            }
+        }
+    }
+
+    /** A song from the phone, fetched over Wi-Fi into the cache like a stream. */
+    private suspend fun fetchLan(t: Track, src: LanSource, onProgress: (Float) -> Unit): File = fetchLock.withLock {
+        withContext(Dispatchers.IO) {
+            cacheDir.listFiles { f -> f.nameWithoutExtension == key(t) && f.extension != "part" }?.firstOrNull()?.let { return@withContext it }
+            val tmp = File(cacheDir, key(t) + ".part")
+            try {
+                val remote = dev.xvin.palimpsest.core.sync.LanTransport.openFile(src.host, src.port, src.token, src.key)
+                remote.input.use { input ->
+                    tmp.outputStream().use { out ->
+                        val buf = ByteArray(64 * 1024)
+                        var done = 0L
+                        while (done < remote.length) {
+                            val n = input.read(buf); if (n < 0) break
+                            out.write(buf, 0, n); done += n
+                            onProgress(done.toFloat() / remote.length)
+                        }
+                        if (done < remote.length) throw java.io.IOException("the phone stopped sending at $done of ${remote.length} bytes")
+                    }
+                }
+                File(cacheDir, key(t) + "." + remote.ext.ifBlank { src.ext }).also { tmp.renameTo(it); trimCache() }
+            } catch (e: Throwable) {
+                tmp.delete()
+                throw e
             }
         }
     }

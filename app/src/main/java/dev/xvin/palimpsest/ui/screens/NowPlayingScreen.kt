@@ -219,6 +219,7 @@ fun NowPlayingScreen(onClose: () -> Unit) {
                     )
                 }
                 dev.xvin.palimpsest.ui.components.ShakeWaveButton(Ink.Text)
+                dev.xvin.palimpsest.ui.components.HandoffButton(Ink.Text)
                 Box {
                     IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, tr(R.string.more)) }
                     DropdownMenu(menu, onDismissRequest = { menu = false }) {

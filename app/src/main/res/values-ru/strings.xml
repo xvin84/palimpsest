@@ -303,6 +303,13 @@
     <string name="radio_empty">Станция пока пустая</string>
     <string name="wave_shake">Встряхнуть волну</string>
     <string name="wave_shaken">Встряхнул — дальше свежие треки</string>
+    <string name="handoff_ctx">Музыка на компьютер и обратно</string>
+    <string name="handoff_send">Передать на компьютер</string>
+    <string name="handoff_pull">Забрать с компьютера</string>
+    <string name="handoff_playing_on">Играет на «%1$s»</string>
+    <string name="handoff_from">С «%1$s»</string>
+    <string name="handoff_take_back">Вернуть</string>
+    <string name="handoff_pull_hint">То, что играет на компьютере, переедет на телефон с той же секунды</string>
     <string name="radio_title">Радио: %1$s</string>
     <string name="release_new">Новый релиз</string>
     <string name="release_new_single">Новый сингл</string>

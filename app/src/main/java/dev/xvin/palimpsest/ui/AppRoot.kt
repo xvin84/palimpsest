@@ -377,6 +377,8 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
                 NowPlayingScreen(onClose = { playerOpen = false })
             }
 
+            // Music moving between the phone and the computer flies over everything.
+            dev.xvin.palimpsest.ui.components.HandoffOverlay()
             actionsFor?.let { t -> TrackActionsSheet(t, onDismiss = { actionsFor = null }) }
             errorShown?.let { info -> dev.xvin.palimpsest.ui.components.ErrorSheet(info, onDismiss = { errorShown = null }) }
         }

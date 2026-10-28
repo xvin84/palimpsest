@@ -199,6 +199,8 @@ class AppGraph(val app: Application) {
         length > 0 && streamCache.isCached(key, 0, length)
     }.getOrDefault(false)
     val radio = dev.xvin.palimpsest.playback.RadioController(remote, db, player, settings, mainScope)
+    val handoff = dev.xvin.palimpsest.playback.PhoneHandoff(db, remote, { lanSync }, player, radio, mainScope)
+    val lanServer = dev.xvin.palimpsest.data.sync.PhoneLanServer({ lanSync }, handoff, appScope).also { it.follow() }
     val offlineWave = dev.xvin.palimpsest.playback.OfflineWave(db)
     val backups = dev.xvin.palimpsest.data.Backups(app, db, settings)
     val updater = dev.xvin.palimpsest.data.update.AppUpdater(app, http)

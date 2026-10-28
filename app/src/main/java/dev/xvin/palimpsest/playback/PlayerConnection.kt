@@ -243,6 +243,62 @@ class PlayerConnection(
         }
     }
 
+    private var fadeJob: Job? = null
+
+    /**
+     * Plays what the computer handed over ([ids] are media ids: library tracks or songs streamed
+     * from the computer) from the same second, the volume rising from silence once it sounds.
+     */
+    fun playHandoff(ids: List<String>, index: Int, positionMs: Long, playing: Boolean): Job {
+        onQueueReplaced?.invoke()
+        return scope.launch {
+            val c = ctrl()
+            fadeJob?.cancel()
+            c.shuffleModeEnabled = false
+            c.volume = if (playing) 0f else 1f
+            c.setMediaItems(ids.map(::bare), index.coerceIn(0, ids.lastIndex), positionMs)
+            c.prepare()
+            if (!playing) return@launch
+            c.play()
+            fadeJob = scope.launch {
+                // A stream takes a moment to start: rise from when it actually sounds.
+                kotlinx.coroutines.withTimeoutOrNull(20_000) { while (!c.isPlaying) delay(40) }
+                val steps = 36
+                for (i in 1..steps) {
+                    // Ease in: loudness is logarithmic, a straight ramp sounds like a jump at the start.
+                    val x = i.toFloat() / steps
+                    c.volume = x * x
+                    delay(dev.xvin.palimpsest.core.sync.HandoffConst.FADE_IN_MS / steps)
+                }
+                c.volume = 1f
+            }
+        }
+    }
+
+    /** The computer took over: the music here fades out and pauses where it was. */
+    suspend fun fadeOutAndPause() {
+        val c = ctrl()
+        fadeJob?.cancel()
+        if (c.isPlaying) {
+            val from = c.volume
+            val steps = 20
+            for (i in 1..steps) {
+                c.volume = from * (1f - i.toFloat() / steps)
+                delay(dev.xvin.palimpsest.core.sync.HandoffConst.FADE_OUT_MS / steps)
+            }
+            c.pause()
+        }
+        c.volume = 1f
+    }
+
+    /** Media ids of the queue from the current item on, and where in the current one it is. */
+    suspend fun upcoming(max: Int): Pair<List<String>, Long> {
+        val c = ctrl()
+        val from = c.currentMediaItemIndex.coerceAtLeast(0)
+        val ids = (from until minOf(c.mediaItemCount, from + max)).map { c.getMediaItemAt(it).mediaId }
+        return ids to c.currentPosition
+    }
+
     /** Plays a file handed to us by another app (file manager, Telegram, …). */
     fun playExternal(uri: Uri, libraryTrack: TrackEntity?): Job {
         onQueueReplaced?.invoke()

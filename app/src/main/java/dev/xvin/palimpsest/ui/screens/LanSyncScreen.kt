@@ -91,6 +91,12 @@ fun LanSyncScreen() {
                         },
                         enabled = !busy, modifier = Modifier.padding(top = 10.dp).fillMaxWidth(),
                     ) { Text(if (busy) tr(R.string.lan_syncing) else tr(R.string.lan_sync_now)) }
+                    // What plays on the computer, onto the phone from the same second.
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = { scope.launch { dev.xvin.palimpsest.ui.components.takeFromComputer(graph, nav) } },
+                        modifier = Modifier.padding(top = 6.dp).fillMaxWidth(),
+                    ) { Text(tr(R.string.handoff_pull)) }
+                    Text(tr(R.string.handoff_pull_hint), style = MaterialTheme.typography.bodySmall, color = Ink.Muted, modifier = Modifier.padding(top = 4.dp))
                     TextButton(onClick = { graph.lanSync.unpair() }) { Text(tr(R.string.lan_unpair)) }
                 }
             }

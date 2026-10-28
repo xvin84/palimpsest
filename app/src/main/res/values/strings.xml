@@ -304,6 +304,13 @@
     <string name="radio_empty">The station is empty for now</string>
     <string name="wave_shake">Shake up the wave</string>
     <string name="wave_shaken">Shook it up — fresh tracks ahead</string>
+    <string name="handoff_ctx">Music to the computer and back</string>
+    <string name="handoff_send">Send to the computer</string>
+    <string name="handoff_pull">Take from the computer</string>
+    <string name="handoff_playing_on">Playing on “%1$s”</string>
+    <string name="handoff_from">From “%1$s”</string>
+    <string name="handoff_take_back">Bring back</string>
+    <string name="handoff_pull_hint">Whatever plays on the computer moves to the phone from the same second</string>
     <string name="radio_title">Radio: %1$s</string>
     <string name="release_new">New release</string>
     <string name="release_new_single">New single</string>

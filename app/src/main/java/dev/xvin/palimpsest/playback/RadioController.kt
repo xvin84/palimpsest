@@ -67,6 +67,15 @@ class RadioController(
         attach(f)
     }
 
+    /** Carries on a station that came with music handed over from the computer; false when it can't run here. */
+    fun resume(saved: SavedStation): Boolean {
+        val src = source(saved.spec) ?: return false
+        attach(RadioFeed(saved.spec, src, saved.heard))
+        return true
+    }
+
+    fun snapshot(): SavedStation? = feed?.save()
+
     /** «Встряхнуть»: a new session that avoids everything heard, playing from its first track now. */
     suspend fun shake(): Result<Unit> = runCatching {
         val f = feed ?: error(tr(R.string.radio_empty))
@@ -104,7 +113,7 @@ class RadioController(
     }
 
     private fun source(spec: StationSpec): StationSource? = when (spec.source) {
-        StationSpec.YANDEX -> GuardedStation(YandexStation(remote.yandex, spec.seeds)) { call -> remote.withYandex { call() } }
+        StationSpec.YANDEX -> if (!remote.yandex.isReady) null else GuardedStation(YandexStation(remote.yandex, spec.seeds)) { call -> remote.withYandex { call() } }
         else -> null
     }
 

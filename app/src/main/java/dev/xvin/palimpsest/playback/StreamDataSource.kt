@@ -122,16 +122,22 @@ class ResolvingStreamDataSource(
 class PalimpsestDataSource(
     private val local: DataSource,
     private val remote: DataSource,
+    private val lan: DataSource,
 ) : DataSource {
     private var current: DataSource? = null
 
     override fun addTransferListener(transferListener: TransferListener) {
         local.addTransferListener(transferListener)
         remote.addTransferListener(transferListener)
+        lan.addTransferListener(transferListener)
     }
 
     override fun open(dataSpec: DataSpec): Long {
-        val src = if (dataSpec.uri.scheme == StreamResolver.SCHEME) remote else local
+        val src = when (dataSpec.uri.scheme) {
+            StreamResolver.SCHEME -> remote
+            LanItem.SCHEME -> lan
+            else -> local
+        }
         current = src
         return src.open(dataSpec)
     }
@@ -153,7 +159,7 @@ class PalimpsestDataSource(
                 .setUpstreamDataSourceFactory { resolving }
                 .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
                 .createDataSource()
-            return PalimpsestDataSource(localFactory.createDataSource(), cached)
+            return PalimpsestDataSource(localFactory.createDataSource(), cached, LanDataSource())
         }
     }
 }

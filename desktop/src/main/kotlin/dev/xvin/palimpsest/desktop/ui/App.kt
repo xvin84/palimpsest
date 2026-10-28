@@ -388,6 +388,7 @@ internal fun Shell() {
         val cur = st.current
         val coverModel by produceState<Any?>(null, cur?.id, cur?.coverUrl) { value = graph.covers.model(cur) }
         CoverFlight(nav.nowPlaying, nav.bigLyrics, coverModel, cur?.album ?: cur?.title ?: "?", cur?.albumArtist ?: cur?.artist)
+        HandoffFlight()
         if (nav.menu.isNotEmpty()) TrackMenu(nav.menu) { nav.menu = emptyList() }
         TrackDialogs()
         if (nav.waveTuning) WaveTuningDialog { nav.waveTuning = false }
@@ -613,6 +614,7 @@ private fun PlayerBar(compact: Boolean) {
             st.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = Type.meta, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         }
         Row(Modifier.weight(if (compact) 0.7f else 1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp, Alignment.End)) {
+            HandoffButton()
             if (t != null && !compact) PIconButton(Icons.Rounded.MoreHoriz, t("Действия", "Actions"), { nav.openMenu(graph.library.get(t.id) ?: t) })
             // On the full-window player the button shows or hides its lyrics; elsewhere the side panel.
             val lyricsOn = if (nav.nowPlaying) nav.bigLyrics else nav.rightPanel == "lyrics"

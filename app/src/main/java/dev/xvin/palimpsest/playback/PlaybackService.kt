@@ -419,6 +419,7 @@ class PlaybackService : MediaLibraryService() {
                     }
                     item.mediaId.startsWith(MediaItems.NEW_PREFIX) ->
                         graph.db.tracks().get(item.mediaId.removePrefix(MediaItems.NEW_PREFIX).toLong())?.let(MediaItems::fromRemoteNew)
+                    item.mediaId.startsWith(MediaItems.LAN_PREFIX) -> LanItem.fromMediaId(item.mediaId)?.let(MediaItems::fromLan)
                     item.mediaId.startsWith(MediaItems.EXTERNAL_PREFIX) ->
                         MediaItems.fromExternal(this@PlaybackService, Uri.parse(item.mediaId.removePrefix(MediaItems.EXTERNAL_PREFIX)))
                     else -> null

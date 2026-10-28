@@ -54,7 +54,7 @@ class LanSyncRepository(
     private val _pairing = MutableStateFlow(load())
     val pairing: StateFlow<LanPairing?> = _pairing
     private val mutex = Mutex()
-    private val device = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}".trim()
+    val device = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}".trim()
 
     private fun load(): LanPairing? = runCatching { Http.json.decodeFromString(LanPairing.serializer(), file.readText()) }.getOrNull()
 
@@ -82,6 +82,16 @@ class LanSyncRepository(
     }
 
     fun unpair() = save(null)
+
+    /** A call to the paired computer; if it moved to another address, finds it again by name. */
+    suspend fun <T> withDesktop(block: (LanPairing) -> T): T = withContext(Dispatchers.IO) {
+        val p = _pairing.value ?: throw IllegalStateException("not paired")
+        runCatching { block(p) }.recoverCatching { e ->
+            if (e !is java.io.IOException) throw e
+            val moved = discover().firstOrNull { it.name == p.name && it.host != p.host } ?: throw e
+            block(p.copy(host = moved.host, port = moved.port).also(::save))
+        }.getOrThrow()
+    }
 
     /** One sync; if the computer moved to another address, finds it again by name. */
     suspend fun sync(): Result<SyncReport> = mutex.withLock {

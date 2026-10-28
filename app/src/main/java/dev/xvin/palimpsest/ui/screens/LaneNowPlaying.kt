@@ -266,6 +266,7 @@ fun LaneNowPlaying(onClose: () -> Unit) {
                 }
                 Spacer(Modifier.weight(1f))
                 dev.xvin.palimpsest.ui.components.ShakeWaveButton(Color.White)
+                dev.xvin.palimpsest.ui.components.HandoffButton(Color.White)
                 Box {
                     IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, tr(R.string.more), tint = Color.White) }
                     DropdownMenu(menu, onDismissRequest = { menu = false }) {

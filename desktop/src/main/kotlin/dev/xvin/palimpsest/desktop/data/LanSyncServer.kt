@@ -1,6 +1,7 @@
 package dev.xvin.palimpsest.desktop.data
 
 import dev.xvin.palimpsest.core.model.RemoteTrack
+import dev.xvin.palimpsest.core.sync.LanAnswer
 import dev.xvin.palimpsest.core.sync.LanMessage
 import dev.xvin.palimpsest.core.sync.LanReply
 import dev.xvin.palimpsest.core.sync.LanSync
@@ -61,17 +62,23 @@ class LanSyncServer(private val graph: Graph) {
             launch { while (isActive) { runCatching { LanTransport.announce(LanSync.PORT, name) }; delay(2_000) } }
             while (isActive) {
                 val client = runCatching { socket.accept() }.getOrNull() ?: break
-                launch {
-                    client.use { c ->
-                        c.soTimeout = 60_000
-                        val reply = runCatching {
-                            handle(LanTransport.read(DataInputStream(c.getInputStream().buffered()), LanMessage.serializer()))
-                        }.getOrElse { LanReply(error = it.message ?: it.toString()) }
-                        runCatching { LanTransport.write(DataOutputStream(c.getOutputStream().buffered()), reply, LanReply.serializer()) }
-                    }
-                }
+                launch { LanTransport.serve(client, ::answer) }
             }
         }
+    }
+
+    /** Playback handover and files go around the lock: a file can take a while, and must not hold up a sync. */
+    private fun answer(msg: LanMessage, host: String): LanAnswer {
+        if (msg.pair == null && msg.sync == null) {
+            val token = msg.token ?: return LanAnswer(LanReply(error = "not paired"))
+            val device = graph.settings.value.lanTokens[token] ?: return LanAnswer(LanReply(error = "not paired"))
+            msg.file?.let { return graph.handoff.file(it.key, it.from) }
+            msg.hello?.let { graph.handoff.hello(it.device, host, it.port, token); return LanAnswer(LanReply(ok = true)) }
+            msg.handoff?.let { return LanAnswer(graph.handoff.received(it, host, token)) }
+            msg.pull?.let { return LanAnswer(graph.handoff.pulled(it.device.ifBlank { device })) }
+            return LanAnswer(LanReply(error = "empty request"))
+        }
+        return LanAnswer(handle(msg))
     }
 
     @Synchronized
