@@ -148,6 +148,55 @@ fun HandoffFlight() {
             val c = r.center
             return Rect(c.x - r.width * grow / 2, c.y - r.height * grow / 2, c.x + r.width * grow / 2, c.y + r.height * grow / 2)
         }
+        // Effects under the cover: a dotted beam between its place and the phone, sparks trailing the flight,
+        // rings around the phone, and a burst where a cover lands.
+        val accent = LocalAccent.current
+        val pathK: (Float) -> Float = if (sent) { x -> Emphasized.transform(((x - 0.08f) / 0.7f).coerceIn(0f, 1f)) } else { x -> 1f - Emphasized.transform((x / 0.7f).coerceIn(0f, 1f)) }
+        androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+            fun centerAt(k: Float) = at(k).center.let { androidx.compose.ui.geometry.Offset(it.x, it.y - sin(k * Math.PI).toFloat() * 60.dp.toPx()) }
+            val phoneCenter = androidx.compose.ui.geometry.Offset(phoneX + phoneW / 2, phoneY + phoneH / 2)
+            val beam = (if (sent) t / 0.25f else 1f - (t - 0.5f) / 0.3f).coerceIn(0f, 1f) * show
+            if (beam > 0f) for (i in 0 until 18) {
+                val f = ((i / 18f) + t * (if (sent) 1.4f else -1.4f)).mod(1f)
+                val p = androidx.compose.ui.geometry.lerp(from.center, phoneCenter, f)
+                drawCircle(accent.copy(alpha = 0.7f * beam * (1f - kotlin.math.abs(f * 2f - 1f))), 3.dp.toPx(), p)
+            }
+            for (n in 0 until 2) {
+                val ring = ((t * 2.4f + n * 0.5f) % 1f)
+                drawRoundRect(
+                    accent.copy(alpha = (1f - ring) * 0.45f * show * (0.3f + glow)),
+                    topLeft = androidx.compose.ui.geometry.Offset(phoneX - ring * 18.dp.toPx(), phoneY - ring * 18.dp.toPx()),
+                    size = androidx.compose.ui.geometry.Size(phoneW + ring * 36.dp.toPx(), phoneH + ring * 36.dp.toPx()),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius((12 + ring * 18).dp.toPx()),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(1.5.dp.toPx()),
+                )
+            }
+            val rnd = java.util.Random(7)
+            for (i in 0 until 40) {
+                val born = 0.08f + 0.72f * i / 40f
+                val vx = (rnd.nextFloat() - 0.5f) * 70.dp.toPx()
+                val vy = (rnd.nextFloat() - 0.3f) * 60.dp.toPx()
+                val jitter = (rnd.nextFloat() - 0.5f) * 30.dp.toPx()
+                val age = (t - born) / 0.3f
+                if (age !in 0f..1f) continue
+                val o = centerAt(pathK(born))
+                val at = androidx.compose.ui.geometry.Offset(o.x + vx * age + jitter, o.y + vy * age + jitter)
+                val r = (2f + (i % 4) * 1.1f).dp.toPx() * (1f - age * 0.5f)
+                val col = if (i % 3 == 0) Color.White else accent
+                // A soft halo, then the spark itself.
+                drawCircle(col.copy(alpha = (1f - age) * 0.18f), r * 3.2f, at)
+                drawCircle(col.copy(alpha = (1f - age) * 0.95f), r, at)
+            }
+            if (!sent) {
+                val burst = ((t - 0.66f) / 0.34f).coerceIn(0f, 1f)
+                if (burst > 0f) for (i in 0 until 18) {
+                    val a = i / 18f * 2 * Math.PI
+                    val d = from.width * 0.6f + burst * 46.dp.toPx() * (0.7f + (i % 3) * 0.2f)
+                    drawCircle((if (i % 2 == 0) accent else Color.White).copy(alpha = (1f - burst) * 0.95f), 3.5.dp.toPx() * (1f - burst * 0.5f),
+                        androidx.compose.ui.geometry.Offset(from.center.x + (kotlin.math.cos(a) * d).toFloat(), from.center.y + (kotlin.math.sin(a) * d).toFloat()))
+                }
+            }
+        }
         @Composable
         fun copy(k: Float, alpha: Float) {
             val r = at(k)

@@ -46,6 +46,7 @@ import dev.xvin.palimpsest.R
 import dev.xvin.palimpsest.i18n.tr
 import dev.xvin.palimpsest.playback.HandoffEvent
 import dev.xvin.palimpsest.ui.LocalNav
+import dev.xvin.palimpsest.ui.theme.LocalAccent
 import kotlinx.coroutines.launch
 import kotlin.math.sin
 
@@ -119,16 +120,65 @@ fun HandoffOverlay() {
         // The computer at the top: it brightens when the cover reaches it (sent) or as it lets go (received).
         val glow = if (sent) ((t - 0.55f) / 0.3f).coerceIn(0f, 1f) * (1f - ((t - 0.85f) / 0.15f).coerceIn(0f, 1f)) else (1f - (t / 0.45f)).coerceIn(0f, 1f)
         Column(Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(contentAlignment = Alignment.Center) {
+            // Rings going out from the computer while it sends or takes the music.
+            for (n in 0 until 2) {
+                val ring = ((t * 2.2f + n * 0.5f) % 1f)
+                Box(Modifier.size(64.dp).graphicsLayer { val sc = 1f + ring * 0.9f; scaleX = sc; scaleY = sc; alpha = (1f - ring) * 0.5f * (0.3f + glow) }.border(1.5.dp, Color.White, CircleShape))
+            }
             Box(
                 Modifier.size(64.dp).graphicsLayer { scaleX = 1f + glow * 0.18f; scaleY = scaleX }
                     .clip(CircleShape).background(Color.White.copy(alpha = 0.12f + glow * 0.25f))
                     .border(1.dp, Color.White.copy(alpha = 0.3f + glow * 0.5f), CircleShape),
                 contentAlignment = Alignment.Center,
             ) { Icon(Icons.Rounded.Computer, null, tint = Color.White, modifier = Modifier.size(30.dp)) }
+            }
             Text(
                 if (sent) tr(R.string.handoff_playing_on, name) else tr(R.string.handoff_from, name),
                 color = Color.White, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 10.dp),
             )
+        }
+        // Effects under the cover: a dotted beam to the computer, sparks trailing the flight, a burst where it lands.
+        val accent = LocalAccent.current
+        val pathK: (Float) -> Float = if (sent) { x -> Lift.transform(((x - 0.12f) / 0.7f).coerceIn(0f, 1f)) } else { x -> 1f - Lift.transform((x / 0.62f).coerceIn(0f, 1f)) }
+        androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+            val c = center
+            val sideTilt = if (sent) 1f else -1f
+            fun at(k: Float) = androidx.compose.ui.geometry.Offset(c.x + sin(k * Math.PI).toFloat() * 18.dp.toPx() * sideTilt, c.y - h * 0.36f * k)
+            val top = at(1f)
+            // The beam: dots from the cover up to the computer, travelling the way the music goes.
+            val beam = (if (sent) (t / 0.3f) else 1f - ((t - 0.5f) / 0.3f)).coerceIn(0f, 1f) * (1f - ((t - 0.85f) / 0.15f).coerceIn(0f, 1f))
+            if (beam > 0f) for (i in 0 until 14) {
+                val f = ((i / 14f) + t * (if (sent) 1.6f else -1.6f)).mod(1f)
+                val p = androidx.compose.ui.geometry.lerp(c, top, f)
+                drawCircle(Color.White.copy(alpha = 0.35f * beam * (1f - kotlin.math.abs(f * 2f - 1f))), 2.5.dp.toPx(), p)
+            }
+            // Sparks: each leaves the cover at its moment and drifts off, fading.
+            val rnd = java.util.Random(42)
+            for (i in 0 until 36) {
+                val born = 0.1f + 0.7f * i / 36f
+                val vx = (rnd.nextFloat() - 0.5f) * 90.dp.toPx()
+                val vy = (rnd.nextFloat() - 0.2f) * 70.dp.toPx() * (if (sent) 1f else -1f)
+                val r = (1.5f + rnd.nextFloat() * 2.5f).dp.toPx()
+                val age = (t - born) / 0.28f
+                if (age !in 0f..1f) continue
+                val from = at(pathK(born))
+                val p = androidx.compose.ui.geometry.Offset(from.x + vx * age + (rnd.nextFloat() - 0.5f) * 116.dp.toPx(), from.y + vy * age + (rnd.nextFloat() - 0.5f) * 116.dp.toPx())
+                val col = if (i % 3 == 0) accent else Color.White
+                // A soft halo, then the spark itself.
+                drawCircle(col.copy(alpha = (1f - age) * 0.2f), r * 3f, p)
+                drawCircle(col.copy(alpha = (1f - age) * 0.9f), r * (1f - age * 0.6f), p)
+            }
+            // Where it lands (received): a burst of sparks out of the cover's edges.
+            if (!sent) {
+                val burst = ((t - 0.6f) / 0.35f).coerceIn(0f, 1f)
+                if (burst > 0f) for (i in 0 until 22) {
+                    val a = i / 22f * 2 * Math.PI
+                    val d = 120.dp.toPx() + burst * 90.dp.toPx() * (0.7f + (i % 4) * 0.12f)
+                    drawCircle((if (i % 2 == 0) accent else Color.White).copy(alpha = (1f - burst) * 0.9f), 3.dp.toPx() * (1f - burst * 0.5f),
+                        androidx.compose.ui.geometry.Offset(c.x + (kotlin.math.cos(a) * d).toFloat(), c.y + (kotlin.math.sin(a) * d).toFloat()))
+                }
+            }
         }
         val cover = @Composable { k: Float, a: Float ->
             // k: 0 — resting in the middle, 1 — at the computer.
@@ -141,7 +191,7 @@ fun HandoffOverlay() {
                     scaleX = s; scaleY = s
                     rotationZ = (if (sent) -10f else 10f) * wobble
                     alpha = a
-                }.shadow((24 * (1f - k)).dp, RoundedCornerShape(22.dp)).clip(RoundedCornerShape(22.dp)).background(Color(0xFF2A2A30)),
+                }.shadow((24 * (1f - k)).dp, RoundedCornerShape(22.dp), ambientColor = accent, spotColor = accent).clip(RoundedCornerShape(22.dp)).background(Color(0xFF2A2A30)),
                 contentAlignment = Alignment.Center,
             ) {
                 if (e.art != null) AsyncImage(e.art, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
@@ -158,11 +208,14 @@ fun HandoffOverlay() {
             val down = Lift.transform((t / 0.62f).coerceIn(0f, 1f))
             val settle = ((t - 0.62f) / 0.2f).coerceIn(0f, 1f)
             val k = (1f - down) - 0.05f * sin(settle * Math.PI).toFloat()
-            val ring = ((t - 0.58f) / 0.42f).coerceIn(0f, 1f)
-            if (ring > 0f) Box(
-                Modifier.align(Alignment.Center).size(232.dp).graphicsLayer { val s = 1f + ring * 0.55f; scaleX = s; scaleY = s; alpha = 0.7f * (1f - ring) }
-                    .border(2.dp, Color.White, RoundedCornerShape(26.dp)),
-            )
+            // Two ripples, the second a beat later and softer.
+            for ((lag, strength) in listOf(0f to 0.7f, 0.12f to 0.4f)) {
+                val r = ((t - 0.58f - lag) / 0.42f).coerceIn(0f, 1f)
+                if (r > 0f) Box(
+                    Modifier.align(Alignment.Center).size(232.dp).graphicsLayer { val sc = 1f + r * 0.55f; scaleX = sc; scaleY = sc; alpha = strength * (1f - r) }
+                        .border(2.dp, Color.White, RoundedCornerShape(26.dp)),
+                )
+            }
             cover(k.coerceAtLeast(-0.05f), (down * 3f).coerceAtMost(1f))
         }
     }
