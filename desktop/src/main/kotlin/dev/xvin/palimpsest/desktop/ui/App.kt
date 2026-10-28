@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.automirrored.rounded.VolumeDown
 import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.foundation.clickable
@@ -145,6 +146,7 @@ sealed interface Screen {
     data object Search : Screen
     data object Services : Screen
     data object History : Screen
+    data object Radio : Screen
     data object Settings : Screen
     data object Liked : Screen
     data object Flac : Screen
@@ -431,6 +433,7 @@ private fun ScreenContent(s: Screen) {
         Screen.Search -> SearchScreen()
         Screen.Services -> ServicesScreen()
         Screen.History -> HistoryScreen()
+        Screen.Radio -> RadioScreen()
         Screen.Settings -> SettingsScreen()
         Screen.Liked -> LikedScreen()
         Screen.Flac -> FlacScreen()
@@ -462,11 +465,12 @@ private fun Sidebar(compact: Boolean) {
         // Listening, then what you've kept, then your playlists; the settings wait at the bottom.
         NavItem(Icons.Rounded.LibraryMusic, t("Медиатека", "Library"), nav.current == Screen.Library, compact) { nav.root(Screen.Library) }
         WaveItem(compact)
+        NavItem(Icons.Rounded.Radio, t("Радио", "Radio"), nav.current == Screen.Radio, compact) { nav.root(Screen.Radio) }
         NavItem(Icons.Rounded.Search, t("Поиск", "Search"), nav.current == Screen.Search, compact) { nav.root(Screen.Search) }
         Spacer(Modifier.height(12.dp))
         NavItem(Icons.Rounded.Favorite, t("Любимые", "Favourites"), nav.current == Screen.Liked, compact) { nav.root(Screen.Liked) }
         NavItem(Icons.Rounded.History, t("История", "History"), nav.current == Screen.History, compact) { nav.root(Screen.History) }
-        NavItem(Icons.Rounded.Radio, t("Сервисы", "Services"), nav.current == Screen.Services, compact) { nav.root(Screen.Services) }
+        NavItem(Icons.Rounded.Cloud, t("Сервисы", "Services"), nav.current == Screen.Services, compact) { nav.root(Screen.Services) }
         if (compact) {
             Spacer(Modifier.weight(1f))
             NavItem(Icons.Rounded.Settings, t("Настройки", "Settings"), nav.current == Screen.Settings, compact) { nav.root(Screen.Settings) }
@@ -570,7 +574,7 @@ private fun PlayerBar(compact: Boolean) {
             ) { tr ->
                 Column {
                     Text(tr?.title ?: "—", maxLines = 1, overflow = TextOverflow.Ellipsis, style = Type.rowTitle)
-                    Text(tr?.artist.orEmpty(), color = pal.muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = Type.rowSub,
+                    Text(st.onAir?.takeIf { tr?.id?.startsWith("iradio:") == true } ?: tr?.artist.orEmpty(), color = pal.muted, maxLines = 1, overflow = TextOverflow.Ellipsis, style = Type.rowSub,
                         modifier = Modifier.clickable(enabled = tr != null) { tr?.artists?.firstOrNull()?.let { nav.go(Screen.Artist(it)) } })
                     st.radio?.let {
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {

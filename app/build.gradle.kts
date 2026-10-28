@@ -93,6 +93,8 @@ dependencies {
 
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.session)
+    // Internet radio stations that broadcast as HLS (.m3u8).
+    implementation(libs.androidx.media3.exoplayer.hls)
     implementation(libs.androidx.media3.datasource.okhttp)
     implementation(libs.androidx.media3.database)
     // Rendering a track to a video (cover or lyrics + visualiser), with the same audio effects as playback.

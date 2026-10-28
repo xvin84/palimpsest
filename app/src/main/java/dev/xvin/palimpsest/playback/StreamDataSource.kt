@@ -123,6 +123,7 @@ class PalimpsestDataSource(
     private val local: DataSource,
     private val remote: DataSource,
     private val lan: DataSource,
+    private val radio: DataSource,
 ) : DataSource {
     private var current: DataSource? = null
 
@@ -130,12 +131,14 @@ class PalimpsestDataSource(
         local.addTransferListener(transferListener)
         remote.addTransferListener(transferListener)
         lan.addTransferListener(transferListener)
+        radio.addTransferListener(transferListener)
     }
 
     override fun open(dataSpec: DataSpec): Long {
         val src = when (dataSpec.uri.scheme) {
             StreamResolver.SCHEME -> remote
             LanItem.SCHEME -> lan
+            InternetRadioItems.SCHEME -> radio
             else -> local
         }
         current = src
@@ -159,7 +162,7 @@ class PalimpsestDataSource(
                 .setUpstreamDataSourceFactory { resolving }
                 .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
                 .createDataSource()
-            return PalimpsestDataSource(localFactory.createDataSource(), cached, LanDataSource())
+            return PalimpsestDataSource(localFactory.createDataSource(), cached, LanDataSource(), InternetRadioDataSource())
         }
     }
 }

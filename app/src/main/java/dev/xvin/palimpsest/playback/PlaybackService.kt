@@ -85,6 +85,16 @@ class PlaybackService : MediaLibraryService() {
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
         player.addListener(PlayerListener())
+        // A radio station's song changed: the item gets it as its title (the notification, the app), the stream plays on.
+        scope.launch {
+            InternetRadioItems.onAir.collect { pair ->
+                val (url, song) = pair ?: return@collect
+                val item = player.currentMediaItem ?: return@collect
+                if (InternetRadioItems.streamOf(item.localConfiguration?.uri) != url || item.mediaMetadata.title?.toString() == song) return@collect
+                val station = item.mediaMetadata.station ?: item.mediaMetadata.artist
+                player.replaceMediaItem(player.currentMediaItemIndex, item.buildUpon().setMediaMetadata(item.mediaMetadata.buildUpon().setTitle(song).setArtist(station).build()).build())
+            }
+        }
 
         val activity = PendingIntent.getActivity(
             this, 0,
@@ -419,6 +429,7 @@ class PlaybackService : MediaLibraryService() {
                     }
                     item.mediaId.startsWith(MediaItems.NEW_PREFIX) ->
                         graph.db.tracks().get(item.mediaId.removePrefix(MediaItems.NEW_PREFIX).toLong())?.let(MediaItems::fromRemoteNew)
+                    item.mediaId.startsWith(InternetRadioItems.PREFIX) -> InternetRadioItems.station(item.mediaId)?.let { runCatching { InternetRadioItems.item(it) }.getOrNull() }
                     item.mediaId.startsWith(MediaItems.LAN_PREFIX) -> LanItem.fromMediaId(item.mediaId)?.let(MediaItems::fromLan)
                     item.mediaId.startsWith(MediaItems.EXTERNAL_PREFIX) ->
                         MediaItems.fromExternal(this@PlaybackService, Uri.parse(item.mediaId.removePrefix(MediaItems.EXTERNAL_PREFIX)))

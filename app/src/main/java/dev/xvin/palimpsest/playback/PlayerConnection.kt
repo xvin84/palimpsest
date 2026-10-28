@@ -137,7 +137,7 @@ class PlayerConnection(
     private fun refresh(p: Player) {
         val item = p.currentMediaItem
         _state.value = PlayerUiState(
-            nowPlaying = item?.let { toNowPlaying(it, p.duration) },
+            nowPlaying = item?.let { toNowPlaying(it, p.duration, p.mediaMetadata) },
             isPlaying = p.isPlaying,
             isBuffering = p.playbackState == Player.STATE_BUFFERING,
             repeatMode = p.repeatMode,
@@ -154,8 +154,9 @@ class PlayerConnection(
         _queue.value = (0 until p.mediaItemCount).map { p.getMediaItemAt(it) }
     }
 
-    private fun toNowPlaying(item: MediaItem, duration: Long): NowPlaying {
-        val m: MediaMetadata = item.mediaMetadata
+    private fun toNowPlaying(item: MediaItem, duration: Long, live: MediaMetadata? = null): NowPlaying {
+        // A radio station's item says only the station; what's on air comes in the stream (ICY), merged into the player's.
+        val m: MediaMetadata = if (item.mediaId.startsWith(InternetRadioItems.PREFIX) && live != null) live else item.mediaMetadata
         return NowPlaying(
             mediaId = item.mediaId,
             trackId = MediaItems.trackId(item),
@@ -297,6 +298,20 @@ class PlayerConnection(
         val from = c.currentMediaItemIndex.coerceAtLeast(0)
         val ids = (from until minOf(c.mediaItemCount, from + max)).map { c.getMediaItemAt(it).mediaId }
         return ids to c.currentPosition
+    }
+
+    /** Plays an internet radio station (it replaces the queue, like playing anything else). */
+    fun playStation(station: dev.xvin.palimpsest.core.radio.RadioStation): Job {
+        onQueueReplaced?.invoke()
+        return scope.launch {
+            val c = ctrl()
+            fadeJob?.cancel()
+            c.volume = 1f
+            c.shuffleModeEnabled = false
+            c.setMediaItem(bare(InternetRadioItems.mediaId(station)))
+            c.prepare()
+            c.play()
+        }
     }
 
     /** Plays a file handed to us by another app (file manager, Telegram, …). */

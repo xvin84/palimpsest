@@ -6,6 +6,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -190,6 +191,7 @@ private fun TracksTab() {
     LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 16.dp)) {
         if (hasWave) item(key = "wave") { MyWaveCard(s.wave) }
         item(key = "offline-wave") { OfflineWaveRow() }
+        item(key = "internet-radio") { InternetRadioRow() }
         item {
             Row(
                 Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
@@ -460,6 +462,24 @@ private fun MyWaveCard(wave: dev.xvin.palimpsest.data.settings.WavePrefs) {
             // While it plays, the button shakes the wave up instead.
             else if (active) dev.xvin.palimpsest.ui.components.ShakeWaveButton(Ink.Paper)
             else Text("▶", color = Ink.Paper, style = MaterialTheme.typography.titleLarge)
+        }
+    }
+}
+
+/** The way into internet radio, under the waves. */
+@Composable
+private fun InternetRadioRow() {
+    val nav = LocalNav.current
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).clip(RoundedCornerShape(14.dp)).background(Ink.Paper2)
+            .clickable { nav.openInternetRadio() }.padding(horizontal = 18.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Rounded.Radio, null, Modifier.size(22.dp), tint = Ink.Muted)
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(tr(R.string.iradio_title), style = MaterialTheme.typography.titleMedium)
+            Text(tr(R.string.iradio_subtitle), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
         }
     }
 }

@@ -108,6 +108,7 @@ import dev.xvin.palimpsest.i18n.tr
 @Serializable object CompressRoute
 @Serializable object HealthRoute
 @Serializable object LanSyncRoute
+@Serializable object InternetRadioRoute
 
 /** Navigation actions any screen may trigger. */
 interface AppNav {
@@ -130,6 +131,7 @@ interface AppNav {
     fun openCompress()
     fun openHealth()
     fun openLanSync()
+    fun openInternetRadio()
     fun showActions(track: TrackEntity)
     fun toast(message: String)
     /** A snackbar with a button, e.g. «Undo». */
@@ -290,6 +292,7 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
             override fun openCompress() { playerOpen = false; nav.navigate(CompressRoute) }
             override fun openHealth() { playerOpen = false; nav.navigate(HealthRoute) }
             override fun openLanSync() { playerOpen = false; nav.navigate(LanSyncRoute) }
+            override fun openInternetRadio() { playerOpen = false; nav.navigate(InternetRadioRoute) }
             override fun showActions(track: TrackEntity) { actionsFor = track }
             override fun toast(message: String) { toastAction = null; toastMessage = message }
             override fun toast(message: String, actionLabel: String, onAction: () -> Unit) { toastAction = actionLabel to onAction; toastMessage = message }
@@ -365,6 +368,7 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
                     composable<CompressRoute> { Screen { dev.xvin.palimpsest.ui.screens.CompressScreen() } }
                     composable<HealthRoute> { Screen { dev.xvin.palimpsest.ui.screens.HealthScreen() } }
                     composable<LanSyncRoute> { Screen { dev.xvin.palimpsest.ui.screens.LanSyncScreen() } }
+                    composable<InternetRadioRoute> { Screen { dev.xvin.palimpsest.ui.screens.InternetRadioScreen() } }
                 }
             }
 

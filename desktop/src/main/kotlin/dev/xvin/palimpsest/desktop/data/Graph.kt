@@ -79,6 +79,7 @@ class Graph {
     val player = Player(this)
     val videos by lazy { dev.xvin.palimpsest.desktop.render.VideoRenders(this) }
     val handoff = HandoffDesk(this)
+    val radioBrowser = dev.xvin.palimpsest.core.radio.RadioBrowser()
     val lanSync = LanSyncServer(this).also { if (settings.value.lanSync) it.setEnabled(true) }
 
     init {

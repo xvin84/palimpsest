@@ -46,6 +46,8 @@ data class PlayerState(
     val error: String? = null,
     /** Set while «My Wave» or another radio feeds the queue. */
     val radio: String? = null,
+    /** What an internet radio station plays right now («Artist - Song»), from the stream. */
+    val onAir: String? = null,
 ) {
     val current: Track? get() = queue.getOrNull(index)
 }
@@ -149,6 +151,35 @@ class Player(private val graph: Graph) {
         _state.value = _state.value.copy(queue = tracks, index = start, shuffle = shuffle, radio = radio, error = null)
         order = if (shuffle) listOf(start) + tracks.indices.filter { it != start }.shuffled() else tracks.indices.toList()
         startCurrent(startMs)
+    }
+
+    // --- Internet radio ----------------------------------------------------------------------------
+
+    private val stations = java.util.concurrent.ConcurrentHashMap<String, dev.xvin.palimpsest.core.radio.RadioStation>()
+
+    fun stationOf(t: Track?) = t?.let { stations[it.id] }
+
+    /** Plays an internet radio station (it replaces the queue) and remembers it among the recent ones. */
+    fun playStation(st: dev.xvin.palimpsest.core.radio.RadioStation) {
+        val id = "iradio:" + st.key.hashCode().toUInt()
+        stations[id] = st
+        val t = Track(id = id, title = st.name, artist = st.name, coverUrl = st.favicon)
+        play(listOf(t))
+        graph.settings.update { s -> s.copy(radioRecent = (listOf(st) + s.radioRecent.filter { it.key != st.key }).take(20)) }
+        st.uuid?.let { graph.scope.launch { graph.radioBrowser.clicked(it) } }
+    }
+
+    private fun startStation(st: dev.xvin.palimpsest.core.radio.RadioStation) {
+        _state.value = _state.value.copy(loading = 0f, onAir = null, error = null)
+        loadJob = graph.scope.launch(Dispatchers.IO) {
+            val url = dev.xvin.palimpsest.core.radio.RadioHttp.resolve(st.url)
+            _state.value = _state.value.copy(loading = null)
+            if (url.substringBefore('?').endsWith(".m3u8", true)) engine.playStream(st.name, hlsUrl = url)
+            else engine.playStream(st.name) {
+                val r = dev.xvin.palimpsest.core.radio.RadioHttp.open(url)
+                dev.xvin.palimpsest.core.radio.IcyInputStream(r.input, r.metaInt) { song -> _state.value = _state.value.copy(onAir = song) }
+            }
+        }
     }
 
     // --- Handing over to / from the phone ------------------------------------------------------------
@@ -325,6 +356,8 @@ class Player(private val graph: Graph) {
     }
 
     private fun onEnded() {
+        // A station that dropped the connection: join it again rather than move on.
+        if (stations.containsKey(_state.value.current?.id)) { graph.scope.launch { delay(2_000); if (stations.containsKey(_state.value.current?.id)) startCurrent(0) }; return }
         if (_state.value.repeat == Repeat.ONE) startCurrent(0) else advance(+1, user = false)
     }
 
@@ -337,6 +370,8 @@ class Player(private val graph: Graph) {
         applyEffects(t)
         loadJob?.cancel()
         engine.stop()
+        _state.value = _state.value.copy(onAir = null)
+        stations[t.id]?.let { startStation(it); return }
         loadJob = graph.scope.launch {
             try {
                 val file = fileFor(t) { p -> _state.value = _state.value.copy(loading = p) }
@@ -530,7 +565,7 @@ class Player(private val graph: Graph) {
     private fun maybeLog() {
         if (logged) return
         val t = _state.value.current ?: return
-        if (t.id.startsWith("preview:")) return
+        if (t.id.startsWith("preview:") || t.id.startsWith("iradio:")) return
         val threshold = if (t.durationMs > 0) minOf(30_000L, t.durationMs / 2) else 30_000L
         if (listenedMs < threshold) return
         logged = true

@@ -150,6 +150,8 @@ class Settings(private val context: Context, scope: CoroutineScope) {
         val keepVersions = booleanPreferencesKey("keep_versions")
         val queue = stringPreferencesKey("saved_queue")
         val station = stringPreferencesKey("radio_station")
+        val radioFav = stringPreferencesKey("internet_radio_favorites")
+        val radioRecent = stringPreferencesKey("internet_radio_recent")
         val lastScan = longPreferencesKey("last_scan")
         val autoSync = booleanPreferencesKey("auto_sync")
         val checkUpdates = booleanPreferencesKey("check_updates")
@@ -296,6 +298,24 @@ class Settings(private val context: Context, scope: CoroutineScope) {
     suspend fun loadQueue(): SavedQueue? {
         val raw = context.dataStore.data.first()[K.queue]
         return raw?.let { runCatching { json.decodeFromString<SavedQueue>(it) }.getOrNull() }
+    }
+
+    private fun stations(raw: String?): List<dev.xvin.palimpsest.core.radio.RadioStation> =
+        raw?.let { runCatching { json.decodeFromString<List<dev.xvin.palimpsest.core.radio.RadioStation>>(it) }.getOrNull() } ?: emptyList()
+
+    /** Internet radio stations starred by the user, in the order they were added. */
+    val radioFavorites = context.dataStore.data.map { stations(it[K.radioFav]) }
+
+    /** Stations played lately, newest first. */
+    val radioRecent = context.dataStore.data.map { stations(it[K.radioRecent]) }
+
+    suspend fun setRadioFavorite(st: dev.xvin.palimpsest.core.radio.RadioStation, on: Boolean) = edit {
+        val list = stations(it[K.radioFav]).filter { s -> s.key != st.key }
+        it[K.radioFav] = json.encodeToString(if (on) list + st else list)
+    }
+
+    suspend fun addRadioRecent(st: dev.xvin.palimpsest.core.radio.RadioStation) = edit {
+        it[K.radioRecent] = json.encodeToString((listOf(st) + stations(it[K.radioRecent]).filter { s -> s.key != st.key }).take(20))
     }
 
     /** The radio feeding the saved queue, so it carries on after a restart; null clears it. */

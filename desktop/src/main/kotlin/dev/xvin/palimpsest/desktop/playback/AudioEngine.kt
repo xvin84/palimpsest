@@ -42,6 +42,25 @@ class AudioEngine {
     private var startMs = 0L
 
     fun play(file: File, fromMs: Long = 0) {
+        stream = null
+        start(file, fromMs, listOf("-ss", "%.3f".format(java.util.Locale.ROOT, fromMs / 1000.0), "-i", file.absolutePath), null)
+    }
+
+    /**
+     * A stream that never ends (internet radio): [open] gives the audio bytes, piped into ffmpeg —
+     * or, for [hlsUrl], ffmpeg fetches the playlist itself. [label] stands in for the file.
+     */
+    fun playStream(label: String, hlsUrl: String? = null, open: (() -> InputStream)? = null) {
+        val src = StreamSource(label, hlsUrl, open)
+        stream = src
+        val input = if (hlsUrl != null) listOf("-i", hlsUrl) else listOf("-i", "pipe:0")
+        start(File(label), 0, input, open)
+    }
+
+    private class StreamSource(val label: String, val hlsUrl: String?, val open: (() -> InputStream)?)
+    @Volatile private var stream: StreamSource? = null
+
+    private fun start(file: File, fromMs: Long, input: List<String>, feed: (() -> InputStream)?) {
         stopInternal()
         val gen = ++generation
         paused = false
@@ -51,10 +70,8 @@ class AudioEngine {
         val l = AudioSystem.getSourceDataLine(fmt).apply { open(fmt, RATE * 4 / 5); start() } // ~200 ms buffer
         line = l
         val p = try {
-            ProcessBuilder(
-            ffmpeg, "-v", "quiet", "-ss", "%.3f".format(java.util.Locale.ROOT, fromMs / 1000.0),
-            "-i", file.absolutePath, "-vn", "-f", "s16le", "-ac", "$CHANNELS", "-ar", "$RATE", "-",
-            ).redirectErrorStream(false).start()
+            ProcessBuilder(listOf(ffmpeg, "-v", "quiet") + input + listOf("-vn", "-f", "s16le", "-ac", "$CHANNELS", "-ar", "$RATE", "-"))
+                .redirectErrorStream(false).start()
         } catch (e: java.io.IOException) {
             l.close(); line = null
             _state.value = State(file, error = "ffmpeg not found")
@@ -62,8 +79,25 @@ class AudioEngine {
         }
         process = p
         _state.value = State(file, playing = true, positionMs = fromMs)
+        if (feed != null) thread(name = "palimpsest-stream", isDaemon = true) {
+            // The station's bytes into ffmpeg until it stops or this playback is replaced.
+            try {
+                feed().use { src ->
+                    p.outputStream.use { out ->
+                        val buf = ByteArray(16 * 1024)
+                        while (gen == generation) { val n = src.read(buf); if (n < 0) break; out.write(buf, 0, n); out.flush() }
+                    }
+                }
+            } catch (e: Exception) {
+                if (gen == generation) _state.value = _state.value.copy(error = e.message ?: e.toString())
+                runCatching { p.outputStream.close() }
+            }
+        }
         worker = thread(name = "palimpsest-audio", isDaemon = true) { pump(gen, p.inputStream, l) }
     }
+
+    /** True while a stream with no end plays (nothing to seek, resuming means rejoining it live). */
+    val isLive: Boolean get() = stream != null
 
     private fun pump(gen: Int, input: InputStream, l: SourceDataLine) {
         val bytes = ByteArray(4096 * 4)
@@ -114,6 +148,11 @@ class AudioEngine {
     fun toggle() {
         val s = _state.value
         if (s.file == null) return
+        stream?.let { src ->
+            // Live radio doesn't wait: resuming joins it where it is now.
+            if (s.ended || paused) playStream(src.label, src.hlsUrl, src.open) else { paused = true; line?.stop(); _state.value = s.copy(playing = false) }
+            return
+        }
         if (s.ended) { play(s.file); return }
         paused = !paused
         if (paused) line?.stop() else line?.start()
@@ -121,17 +160,18 @@ class AudioEngine {
     }
 
     fun seek(ms: Long) {
+        if (stream != null) return
         val f = _state.value.file ?: return
         val wasPaused = paused
         play(f, ms)
         if (wasPaused) toggle()
     }
 
-    fun stop() { stopInternal(); _state.value = State() }
+    fun stop() { stopInternal(); stream = null; _state.value = State() }
 
     private fun stopInternal() {
         generation++
-        process?.destroy()
+        process?.let { p -> runCatching { p.outputStream.close() }; p.destroy() }
         process = null
         line?.run { stop(); flush(); close() }
         line = null

@@ -206,6 +206,15 @@ class AppGraph(val app: Application) {
     val updater = dev.xvin.palimpsest.data.update.AppUpdater(app, http)
     val storage = dev.xvin.palimpsest.data.Storage(app, db, versions, backups) { streamCache }
 
+    val radioBrowser = dev.xvin.palimpsest.core.radio.RadioBrowser()
+
+    /** Plays an internet radio station and remembers it among the recent ones. */
+    suspend fun playStation(st: dev.xvin.palimpsest.core.radio.RadioStation) {
+        player.playStation(st)
+        settings.addRadioRecent(st)
+        st.uuid?.let { appScope.launch { radioBrowser.clicked(it) } }
+    }
+
     /** Plays the offline mix; false if nothing is downloaded yet. */
     suspend fun startOfflineWave(mood: dev.xvin.palimpsest.playback.WaveMood = dev.xvin.palimpsest.playback.WaveMood.ANY): Boolean {
         val list = offlineWave.build(mood = mood)
