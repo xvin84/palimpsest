@@ -36,7 +36,7 @@ class Graph {
     private val proxySelector = object : ProxySelector() {
         private val hosts = listOf(
             "youtube.com", "googlevideo.com", "ytimg.com", "youtu.be", "ggpht.com", "googleapis.com", "googleusercontent.com",
-            "spotify.com", "scdn.co", "spotifycdn.com", "musicbrainz.org", "coverartarchive.org", "archive.org", "bandcamp.com", "bcbits.com",
+            "spotify.com", "scdn.co", "spotifycdn.com", "musicbrainz.org", "coverartarchive.org", "archive.org", "bandcamp.com", "bcbits.com", "radio-browser.info",
         )
         override fun select(uri: URI?): List<Proxy> {
             val proxy = settings.value.proxy
@@ -79,7 +79,7 @@ class Graph {
     val player = Player(this)
     val videos by lazy { dev.xvin.palimpsest.desktop.render.VideoRenders(this) }
     val handoff = HandoffDesk(this)
-    val radioBrowser = dev.xvin.palimpsest.core.radio.RadioBrowser()
+    val radioBrowser = dev.xvin.palimpsest.core.radio.RadioBrowser(http)
     val lanSync = LanSyncServer(this).also { if (settings.value.lanSync) it.setEnabled(true) }
 
     init {

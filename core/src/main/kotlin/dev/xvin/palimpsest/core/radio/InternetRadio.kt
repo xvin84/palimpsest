@@ -36,7 +36,7 @@ data class RadioStation(
  * Radio Browser (radio-browser.info): an open catalog of ~50 000 stations, no account. Any of its
  * mirrors answers the same; the first one that does is used.
  */
-class RadioBrowser {
+class RadioBrowser(private val http: okhttp3.OkHttpClient? = null) {
     private val mirrors = listOf("de1", "at1", "de2", "all").map { "https://$it.api.radio-browser.info" }
     @Volatile private var working: String? = null
 
@@ -86,26 +86,32 @@ class RadioBrowser {
     }
 
     /**
-     * Asks the mirrors in turn, each over https and then plain http: on some networks (the
-     * emulator's among them) TLS to the catalog stalls while plain http answers at once — and the
-     * catalog is public data anyway. Our own small client, since Android's refuses plain http.
+     * Asks the mirrors in turn: through the app's HTTP client (it takes the proxy — from Russia the
+     * catalog often stalls mid-answer when reached directly), then over our own small client.
      */
     private suspend fun <T> get(path: String, query: Map<String, String>, parse: (String) -> T): T = withContext(Dispatchers.IO) {
         val errors = ArrayList<String>()
         var last: Throwable? = null
         for (base in listOfNotNull(working) + mirrors.filter { it != working }) {
-            for (scheme in listOf("https", "http")) {
-                try {
-                    val url = (base.replace("https:", "$scheme:") + path).toHttpUrl().newBuilder()
-                        .apply { query.forEach { (k, v) -> if (v.isNotBlank()) addQueryParameter(k, v) } }.build().toString()
-                    val body = RadioHttp.open(url, mapOf("Accept" to "application/json"), connectMs = 6_000, readMs = 12_000).use { r ->
-                        r.input.readBytes().decodeToString()
+            val url = (base + path).toHttpUrl().newBuilder().apply { query.forEach { (k, v) -> if (v.isNotBlank()) addQueryParameter(k, v) } }.build()
+            val attempts = listOfNotNull<() -> String>(
+                http?.let { c ->
+                    {
+                        c.newBuilder().callTimeout(15, java.util.concurrent.TimeUnit.SECONDS).build()
+                            .newCall(okhttp3.Request.Builder().url(url).header("User-Agent", "Palimpsest/1 (+https://github.com/xvin84/palimpsest)").build())
+                            .execute().use { r -> if (!r.isSuccessful) throw IOException("HTTP ${r.code}"); r.body.string() }
                     }
+                },
+                { RadioHttp.open(url.toString(), mapOf("Accept" to "application/json"), connectMs = 6_000, readMs = 12_000).use { r -> r.body().decodeToString() } },
+            )
+            for (attempt in attempts) {
+                try {
+                    val body = attempt()
                     working = base
                     return@withContext parse(body)
                 } catch (e: Exception) {
                     last = e
-                    errors += "$scheme://" + base.substringAfter("//").substringBefore('.') + ": " + (e.message ?: e.javaClass.simpleName)
+                    errors += base.substringAfter("//").substringBefore('.') + ": " + (e.message ?: e.javaClass.simpleName)
                 }
             }
         }
@@ -118,6 +124,9 @@ class StreamResponse(val status: Int, val headers: Map<String, String>, val inpu
     val metaInt: Int get() = headers["icy-metaint"]?.toIntOrNull() ?: 0
     val contentType: String get() = headers["content-type"].orEmpty()
     val stationName: String? get() = headers["icy-name"]?.takeIf { it.isNotBlank() }
+
+    /** The whole body of an ordinary response: by its length when given (the server may keep the socket open), else to the end. */
+    fun body(): ByteArray = headers["content-length"]?.toLongOrNull()?.let { n -> input.readNBytes(n.toInt()) } ?: input.readBytes()
     override fun close() { runCatching { socket.close() } }
 }
 
@@ -192,7 +201,7 @@ object RadioHttp {
         if (!looksLikeList) return url
         return runCatching {
             open(url, emptyMap()).use { r ->
-                val text = r.input.readNBytes(64 * 1024).decodeToString()
+                val text = (if (r.headers["content-length"] != null) r.body() else r.input.readNBytes(64 * 1024)).decodeToString()
                 parsePlaylist(text)
             }
         }.getOrNull() ?: url

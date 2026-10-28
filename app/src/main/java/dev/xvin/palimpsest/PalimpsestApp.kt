@@ -92,7 +92,7 @@ class AppGraph(val app: Application) {
 
     /** Optional proxy used only for YouTube/Spotify hosts (often unreachable directly). */
     private val proxySelector = object : ProxySelector() {
-        private val hosts = listOf("youtube.com", "googlevideo.com", "ytimg.com", "youtu.be", "ggpht.com", "googleapis.com", "googleusercontent.com", "spotify.com", "scdn.co", "spotifycdn.com", "musicbrainz.org", "coverartarchive.org", "archive.org", "bandcamp.com", "bcbits.com")
+        private val hosts = listOf("youtube.com", "googlevideo.com", "ytimg.com", "youtu.be", "ggpht.com", "googleapis.com", "googleusercontent.com", "spotify.com", "scdn.co", "spotifycdn.com", "musicbrainz.org", "coverartarchive.org", "archive.org", "bandcamp.com", "bcbits.com", "radio-browser.info")
 
         override fun select(uri: URI?): List<Proxy> {
             val proxy = settings.state.value?.proxy
@@ -228,7 +228,7 @@ class AppGraph(val app: Application) {
     val updater = dev.xvin.palimpsest.data.update.AppUpdater(app, http)
     val storage = dev.xvin.palimpsest.data.Storage(app, db, versions, backups) { streamCache }
 
-    val radioBrowser = dev.xvin.palimpsest.core.radio.RadioBrowser()
+    val radioBrowser = dev.xvin.palimpsest.core.radio.RadioBrowser(http)
 
     /** Plays an internet radio station and remembers it among the recent ones. */
     suspend fun playStation(st: dev.xvin.palimpsest.core.radio.RadioStation) {
