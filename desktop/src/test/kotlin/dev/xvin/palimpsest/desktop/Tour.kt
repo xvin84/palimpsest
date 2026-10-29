@@ -385,9 +385,16 @@ fun main(args: Array<String>) {
 
     chapter("Интернет-радио", "Internet radio", "50 000 станций, и текст песни, что сейчас в эфире", "50,000 stations, and the lyrics of what's on air")
     say("Каталог станций: поиск, жанры, популярное в стране", "The station catalog: search, genres, the country's most listened")
-    clickOn("Радио", where = sidebar); waitFor("ROCK FM", 20.0, page); hold(1.2)
+    val before = graph.player.state.value.let { it.queue to it.index }
+    clickOn("Радио", where = sidebar); waitFor("Relax FM Chillout", 20.0, page); hold(1.2)
     move(700, 420, 0.6); hold(0.6)
-    clickOn("ROCK FM", where = page); holdUntil(20.0) { graph.player.state.value.onAir != null }; hold(0.6)
+    // A live station plays whatever it plays: one song with a slur in its title already made it into
+    // a take. A calm station, and another one if the title on air still looks unfit.
+    clickOn("Relax FM Chillout", where = page); holdUntil(20.0) { graph.player.state.value.onAir != null }; hold(0.6)
+    val unfit = Regex("(?i)nigg|fuck|shit|bitch|сука|бля|хуй|пизд")
+    if (unfit.containsMatchIn(graph.player.state.value.onAir.orEmpty())) {
+        clickOn("Europa Plus", where = page); holdUntil(20.0) { graph.player.state.value.onAir?.let { !unfit.containsMatchIn(it) } == true }; hold(0.6)
+    }
     say("Что сейчас в эфире — прямо в плеере", "What's on air — right in the player")
     look(Rect(0f, 700f, 640f, 820f)); hold(3.0); look(null)
     say("«Текст» — слова этой песни", "«Lyrics» — the words of that song")
@@ -398,6 +405,8 @@ fun main(args: Array<String>) {
     clickOn("Текст", where = bar); hold(0.6)
     // The phone's own part goes here in the cut.
     val phonePartAt = frames
+    // Under the card: back to the song from before, so a station's next song doesn't stay in the bar.
+    graph.player.play(before.first, before.second.coerceAtLeast(0))
     chapter("И ещё", "And also", "История, настройки, темы и стили", "History, settings, themes and styles")
     say("История прослушиваний", "Listening history")
     clickOn("История", where = sidebar); hold(1.0); move(700, 500, 0.5); wheel(4f, 6); hold(0.6)
