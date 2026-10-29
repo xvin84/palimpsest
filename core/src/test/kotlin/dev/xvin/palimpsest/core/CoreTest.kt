@@ -296,6 +296,18 @@ class TranslatorTest {
         assertEquals("[00:33.79]Look at the stars", dev.xvin.palimpsest.core.lyrics.NetEaseLyrics.clean(lrc))
     }
 
+    @Test fun netEaseDropsJsonCreditsWithoutTime() {
+        // As NetEase sent them for «Цинк Уродов — КАПИТАЛ»: no «"t"», just the credits.
+        val lrc = """
+            {"c":[{"tx":"作词: "},{"tx":"Рябцев Никита"},{"tx":"/"},{"tx":"Кулаков Сергей"},{"tx":"/"},{"tx":"Бочков Никита"}]}
+            [00:00.50]{"c":[{"tx":"作曲: "},{"tx":"Филимонов Никита"}]}
+            [00:12.10]Они все базарят бла-бла-бла-бла,
+        """.trimIndent()
+        assertEquals("[00:12.10]Они все базарят бла-бла-бла-бла,", dev.xvin.palimpsest.core.lyrics.NetEaseLyrics.clean(lrc))
+        // Lyrics saved before this fix heal when read: plain text is cleaned the same way.
+        assertEquals("Они все базарят", dev.xvin.palimpsest.core.lyrics.Lrc.clean(lrc.lines().first() + "\nОни все базарят"))
+    }
+
     @Test fun netEaseDropsJsonCredits() {
         val lrc = "{\"t\":0,\"c\":[{\"tx\":\"作词: \"},{\"tx\":\"Иван\"}]}\n{\"t\":84,\"c\":[{\"tx\":\"作曲: \"},{\"tx\":\"Иван\"}]}\n[00:00.168]Я не могу с её ног"
         assertEquals("[00:00.168]Я не могу с её ног", dev.xvin.palimpsest.core.lyrics.NetEaseLyrics.clean(lrc))

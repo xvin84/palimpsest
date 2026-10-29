@@ -76,7 +76,8 @@ object Lrc {
      */
     private val junk = listOf(
         // Every brace and bracket escaped: Android's regex engine (ICU) rejects a bare «}», which Java accepts.
-        Regex("""^\{"t":-?\d+,"c":\[.*\]\}$"""),
+        // NetEase's credit lines are JSON objects, with or without a «"t"» first: {"t":0,"c":[{"tx":"作词: "},…]} or {"c":[…]}.
+        Regex("""^\{\s*(?:"t"\s*:\s*-?\d+\s*,\s*)?"c"\s*:\s*\[.*\]\s*\}$"""),
         Regex("""подключите подписку на плюс|subscribe to (?:yandex )?plus""", RegexOption.IGNORE_CASE),
         Regex("""^(?:作词|作曲|编曲|制作人|混音|母带|和声|吉他|贝斯|鼓|弦乐|录音|监制|出品|Lyricist|Composer|Arranger|Producer)\s*[:：]""", RegexOption.IGNORE_CASE),
         Regex("""^(?:纯音乐，?请欣赏|暂无歌词|此歌曲为没有填词的纯音乐)"""),
