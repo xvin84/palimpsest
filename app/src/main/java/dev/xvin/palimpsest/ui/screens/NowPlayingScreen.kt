@@ -196,14 +196,8 @@ fun NowPlayingScreen(onClose: () -> Unit) {
             }
             .background(Ink.Paper),
     ) {
-        // Blurred cover as ambient backdrop.
-        if (artModel != null) {
-            AsyncImage(
-                artModel, null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize().blur(60.dp).graphicsLayer { alpha = 0.55f },
-            )
-        }
+        // Blurred cover as ambient backdrop (the generated one when there's no picture).
+        Artwork(artModel, np.album ?: np.title, Modifier.fillMaxSize().blur(60.dp).graphicsLayer { alpha = 0.55f }, corner = 0.dp, artist = np.artist)
         Box(
             Modifier.fillMaxSize().background(
                 Brush.verticalGradient(0f to Ink.Paper.copy(alpha = 0.35f), 0.55f to Ink.Paper.copy(alpha = 0.75f), 1f to Ink.Paper),

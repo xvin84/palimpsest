@@ -227,11 +227,8 @@ fun LaneNowPlaying(onClose: () -> Unit) {
                 label = "lane-cover",
             ) { _ ->
                 Box(Modifier.fillMaxSize().graphicsLayer { translationX = swipe * 0.35f }) {
-                    if (artModel != null) {
-                        AsyncImage(artModel, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                    } else {
-                        Artwork(null, np.album ?: np.title, Modifier.fillMaxSize(), corner = 0.dp)
-                    }
+                    // The generated cover under the picture: a file without art (its art link leads nowhere) still gets one.
+                    Artwork(artModel, np.album ?: np.title, Modifier.fillMaxSize(), corner = 0.dp, artist = np.artist)
                 }
             }
             // A light scrim behind the status bar, and the melt into the backdrop below.
