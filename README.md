@@ -24,6 +24,7 @@ download lands in your music folder as a properly tagged file.
   <img src="docs/demo/phone.gif" width="24%" alt="Phone: internet radio, then the music arriving from the computer and going back">
   <img src="docs/demo/desktop-en.gif" width="73%" alt="Computer: internet radio, My Wave's sources, the music going to the phone and coming back">
 </p>
+<p><b><a href="https://github.com/xvin84/palimpsest/releases/download/v0.6.1/palimpsest-tour.mp4">▶ Video tour of all the features</a></b> (4 min, 1080p60, Russian captions with English subtitles)</p>
 <p>Demo videos: <a href="docs/demo/phone.mp4">phone</a> · <a href="docs/demo/desktop-en.mp4">computer</a></p>
 
 ## Features

@@ -24,6 +24,7 @@
   <img src="docs/demo/phone.gif" width="24%" alt="Телефон: интернет-радио, музыка прилетает с компьютера и улетает обратно">
   <img src="docs/demo/desktop-ru.gif" width="73%" alt="Компьютер: интернет-радио, источники «Моей волны», музыка на телефон и обратно">
 </p>
+<p><b><a href="https://github.com/xvin84/palimpsest/releases/download/v0.6.1/palimpsest-tour.mp4">▶ Видео-тур по всем возможностям</a></b> (4 мин, 1080p60)</p>
 <p>Демо-видео: <a href="docs/demo/phone.mp4">телефон</a> · <a href="docs/demo/desktop-ru.mp4">компьютер</a></p>
 
 ## Что умеет
