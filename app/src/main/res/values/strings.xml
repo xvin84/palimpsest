@@ -326,6 +326,9 @@
     <string name="iradio_star">Star</string>
     <string name="iradio_nothing">No stations found</string>
     <string name="iradio_catalog_error">The station catalog doesn’t answer. Starred stations and links still play.</string>
+    <string name="onair_now">On air now</string>
+    <string name="onair_unknown">The station doesn’t say what’s playing — nothing to look the lyrics up by.</string>
+    <string name="onair_no_lyrics">No lyrics found for this song</string>
     <string name="wave_source">Source</string>
     <string name="wave_src_yandex">Yandex</string>
     <string name="wave_src_mix">Mixed</string>

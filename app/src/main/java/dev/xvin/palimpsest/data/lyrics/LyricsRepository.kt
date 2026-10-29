@@ -135,6 +135,9 @@ class LyricsRepository(
         sources.map { source -> async(Dispatchers.IO) { runCatching { withTimeout(20_000) { source() } }.getOrNull() } }.awaitAll().mapNotNull { it?.cleaned() }
     }
 
+    /** Lyrics of the song a radio station says is on air, as plain lines (see [dev.xvin.palimpsest.core.radio.OnAir]). */
+    suspend fun onAir(artist: String, title: String): List<String>? = dev.xvin.palimpsest.core.radio.OnAir.lyrics(artist, title, lrclib, netEase, genius)
+
     /**
      * Synced lyrics win: Yandex (for its own tracks), LRCLIB, NetEase. If no one has timings, the
      * first plain text from any of them, with Genius (plain only) as the last resort.

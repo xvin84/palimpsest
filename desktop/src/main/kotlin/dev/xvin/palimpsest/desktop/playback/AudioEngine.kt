@@ -171,7 +171,10 @@ class AudioEngine {
 
     private fun stopInternal() {
         generation++
-        process?.let { p -> runCatching { p.outputStream.close() }; p.destroy() }
+        // Kill ffmpeg first, and never close its stdin here: a live stream's feeder may be stuck in write()
+        // holding the stream's lock (paused → ffmpeg stops reading), and close() would wait for it — on the
+        // UI thread, freezing the window. With ffmpeg gone that write fails and the feeder lets go.
+        process?.let { p -> p.destroyForcibly(); thread(isDaemon = true) { runCatching { p.outputStream.close() } } }
         process = null
         line?.run { stop(); flush(); close() }
         line = null

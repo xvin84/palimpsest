@@ -20,6 +20,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -147,6 +148,8 @@ fun LyricsView(modifier: Modifier, big: Boolean, scale: Float = 1f) {
     val scope = rememberCoroutineScope()
     val st by graph.player.state.collectAsState()
     val track = st.current
+    // A radio station: the lyrics of the song it says is on air.
+    if (graph.player.stationOf(track) != null) { OnAirLyrics(st.onAir, modifier, big, scale); return }
     var loading by remember { mutableStateOf(false) }
     // A variant picked with «Source» replaces what was found.
     var picked by remember(track?.id) { mutableStateOf<Lyrics?>(null) }
@@ -175,6 +178,35 @@ fun LyricsView(modifier: Modifier, big: Boolean, scale: Float = 1f) {
             }
         }
         else -> LyricsBody(p, track, shown, big, scale, modifier) { picked = it }
+    }
+}
+
+/**
+ * Lyrics for internet radio: stations send only «Artist - Song», so that's looked up like any song;
+ * shown as plain text (where the station is in the song, nobody knows), and again when the song changes.
+ */
+@Composable
+private fun OnAirLyrics(line: String?, modifier: Modifier, big: Boolean, scale: Float) {
+    val graph = LocalGraph.current
+    val pal = LocalPal.current
+    val song = remember(line) { dev.xvin.palimpsest.core.radio.OnAir.split(line) }
+    val lines by produceState<List<String>?>(null, song) {
+        value = null
+        val (artist, title) = song ?: return@produceState
+        value = runCatching { dev.xvin.palimpsest.core.radio.OnAir.lyrics(artist, title, graph.lrclib, graph.netEase, graph.genius) }.getOrNull() ?: emptyList()
+    }
+    Column(modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 28.dp, vertical = 24.dp)) {
+        Caption(t("Сейчас в эфире", "On air now"))
+        Spacer(Modifier.height(6.dp))
+        Text(line ?: "—", style = if (big) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(18.dp))
+        val body = if (big) MaterialTheme.typography.headlineSmall.copy(fontSize = MaterialTheme.typography.headlineSmall.fontSize * scale) else MaterialTheme.typography.bodyLarge
+        when {
+            song == null -> Text(t("Станция не говорит, что сейчас играет, — искать текст не по чему.", "The station doesn’t say what’s playing — nothing to look the lyrics up by."), color = pal.muted)
+            lines == null -> Spinner(size = 24.dp)
+            lines!!.isEmpty() -> Text(t("Текста этой песни не нашлось", "No lyrics found for this song"), color = pal.muted)
+            else -> lines!!.forEach { Text(it, style = body, color = pal.text, modifier = Modifier.padding(vertical = if (big) 6.dp else 3.dp)) }
+        }
     }
 }
 

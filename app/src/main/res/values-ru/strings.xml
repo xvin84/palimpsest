@@ -325,6 +325,9 @@
     <string name="iradio_star">В избранное</string>
     <string name="iradio_nothing">Станций не нашлось</string>
     <string name="iradio_catalog_error">Каталог станций не отвечает. Избранные станции и ссылки всё равно играют.</string>
+    <string name="onair_now">Сейчас в эфире</string>
+    <string name="onair_unknown">Станция не говорит, что сейчас играет, — искать текст не по чему.</string>
+    <string name="onair_no_lyrics">Текста этой песни не нашлось</string>
     <string name="wave_source">Источник</string>
     <string name="wave_src_yandex">Яндекс</string>
     <string name="wave_src_mix">Смешанная</string>

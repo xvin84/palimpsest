@@ -64,3 +64,13 @@ class InternetRadioTest {
         server.close()
     }
 }
+
+class OnAirTest {
+    @Test fun songLinesSplitIntoArtistAndTitle() {
+        assertEquals("Queen" to "I Want To Break Free", dev.xvin.palimpsest.core.radio.OnAir.split("Queen - I Want To Break Free"))
+        assertEquals("ЖЕНЯ ОТРАДНАЯ/VINI" to "Я Тебя Очень", dev.xvin.palimpsest.core.radio.OnAir.split("ЖЕНЯ ОТРАДНАЯ/VINI – Я Тебя Очень"))
+        assertEquals("A" to "B", dev.xvin.palimpsest.core.radio.OnAir.split("A - B (feat. C)"))
+        assertNull(dev.xvin.palimpsest.core.radio.OnAir.split("Радио Рекорд"))
+        assertNull(dev.xvin.palimpsest.core.radio.OnAir.split(null))
+    }
+}

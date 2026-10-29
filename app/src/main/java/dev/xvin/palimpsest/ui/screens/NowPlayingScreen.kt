@@ -34,6 +34,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -389,9 +391,37 @@ fun NowPlayingScreen(onClose: () -> Unit) {
     if (showShare) dev.xvin.palimpsest.ui.components.ShareCardDialog(np, onDismiss = { showShare = false })
 }
 
+/**
+ * Lyrics for internet radio: stations send only «Artist - Song», so that's looked up like any song;
+ * plain text (where the station is in the song, nobody knows), again whenever the song changes.
+ */
+@Composable
+private fun OnAirLyrics(line: String, station: String) {
+    val graph = LocalGraph.current
+    val song = remember(line) { dev.xvin.palimpsest.core.radio.OnAir.split(line.takeIf { it != station }) }
+    val lines by produceState<List<String>?>(null, song) {
+        value = null
+        val (artist, title) = song ?: return@produceState
+        value = runCatching { graph.lyrics.onAir(artist, title) }.getOrNull() ?: emptyList()
+    }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 12.dp)) {
+        Text(tr(R.string.onair_now).uppercase(), style = MaterialTheme.typography.labelSmall, color = Ink.Muted)
+        Text(if (song != null) line else station, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 4.dp, bottom = 16.dp))
+        when {
+            song == null -> Text(tr(R.string.onair_unknown), color = Ink.Muted)
+            lines == null -> androidx.compose.material3.CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+            lines!!.isEmpty() -> Text(tr(R.string.onair_no_lyrics), color = Ink.Muted)
+            else -> lines!!.forEach { Text(it, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(vertical = 4.dp)) }
+        }
+    }
+}
+
 @Composable
 internal fun LyricsPane(track: TrackEntity?, positionMs: Long, onSeek: (Long) -> Unit) {
     val graph = LocalGraph.current
+    // A radio station: the lyrics of the song it says is on air.
+    val np = graph.player.state.collectAsStateWithLifecycle().value.nowPlaying
+    if (np != null && np.mediaId.startsWith(dev.xvin.palimpsest.playback.InternetRadioItems.PREFIX)) { OnAirLyrics(np.title, np.artist); return }
     val nav = LocalNav.current
     val accent = LocalAccent.current
     val scope = rememberCoroutineScope()
