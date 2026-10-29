@@ -2,7 +2,7 @@
 
 **English** | [Русский](CHANGELOG.ru.md)
 
-## 0.6.0 — not released yet
+## 0.6.0 — 2026-10-29
 
 ### New
 - **Music moves between the phone and the computer.** «Send to the computer / phone» and «Take from…» in the player
@@ -11,7 +11,7 @@
   doesn't have play from the other over Wi-Fi, the same file, seeking included.
 - **Internet radio** on both: ~50 000 stations from the Radio Browser catalog (search, genres, the country's most
   listened), starred and recent ones, any stream or `.m3u`/`.pls` by its link. What's on air shows as the song, in the
-  notification too. Plain-http stations play, HLS ones too.
+  notification too, and «Lyrics» shows that song's lyrics. Plain-http stations play, HLS ones too.
 - **My Wave from more places**: YouTube Music's endless mix started from your favourite songs, Bandcamp by genre, or a
   mixed wave of your own files, Yandex, YouTube and Bandcamp in the shares you set (My Wave → tune → Source).
 - **«Shake up the wave»** — the round arrow in the player while a wave plays (and on the My Wave card): a fresh session
