@@ -186,20 +186,31 @@ fun main(args: Array<String>) {
     val walls = ArrayList<Long>()
     val begin = System.nanoTime()
     var lag = 0L
+    // While the phone is being recorded the video must keep to the wall clock like the phone's does:
+    // a slow frame is then shown a little longer instead of the phone drifting behind.
+    var wallClocked = false
 
     fun frame() {
         val img = scene.render(clock)
         img.readPixels(bitmap)
-        sink.write(bitmap.readPixels()!!)
+        val px = bitmap.readPixels()!!
         img.close()
-        cursorTrack += floatArrayOf(cursor.x, cursor.y, if (pressed) 1f else 0f)
-        frames++
-        clock += frameNs
-        pcm.tick(frames)
+        var copies = 1
+        val now0 = System.nanoTime()
+        val due0 = begin + lag + (frames + 1) * frameNs
+        if (wallClocked && now0 > due0) copies += ((now0 - due0) / frameNs).toInt()
+        repeat(copies) {
+            sink.write(px)
+            cursorTrack += floatArrayOf(cursor.x, cursor.y, if (pressed) 1f else 0f)
+            frames++
+            clock += frameNs
+            pcm.tick(frames)
+            walls += System.nanoTime()
+        }
         val due = begin + lag + frames * frameNs
         val now = System.nanoTime()
-        if (now < due) Thread.sleep((due - now) / 1_000_000, ((due - now) % 1_000_000).toInt()) else lag += now - due
-        walls += System.nanoTime()
+        if (now < due) Thread.sleep((due - now) / 1_000_000, ((due - now) % 1_000_000).toInt()) else if (!wallClocked) lag += now - due
+        walls[walls.size - 1] = System.nanoTime()
     }
     fun hold(seconds: Double) = repeat((seconds * fps).toInt()) { frame() }
     fun holdUntil(maxSeconds: Double, done: () -> Boolean) { var n = 0; while (!done() && n < maxSeconds * fps) { frame(); n++ } }
@@ -332,6 +343,8 @@ fun main(args: Array<String>) {
     var recStart = 0L
     kotlin.concurrent.thread(isDaemon = true) { scr.inputStream.bufferedReader().forEachLine { if ("Recording started" in it && recStart == 0L) recStart = System.nanoTime() } }
     holdUntil(15.0) { recStart != 0L }
+    lag = System.nanoTime() - (begin + frames * frameNs)
+    wallClocked = true
     val recFrom = frames
     hold(1.0)
     say("Кнопка с телефоном — «Передать на телефон»", "The phone button — «Send to the phone»")
@@ -351,6 +364,7 @@ fun main(args: Array<String>) {
     clickOn("Музыка на телефон и обратно", where = bar); hold(0.5)
     clickOn("Забрать с телефона"); hold(5.0)
     phoneClips += PhoneClip(phoneFile, recFrom, frames, (walls[recFrom - 1] - recStart) / 1e9)
+    wallClocked = false
     ProcessBuilder("kill", "-INT", scr.pid().toString()).start().waitFor()
     scr.waitFor(15, java.util.concurrent.TimeUnit.SECONDS)
     layout("desk"); hold(1.2)
