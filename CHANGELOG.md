@@ -2,6 +2,22 @@
 
 **English** | [Русский](CHANGELOG.ru.md)
 
+## 0.6.2 — 2026-10-29
+
+### Fixed
+- **Handing music from the phone to the computer skipped through the whole queue** for some songs — the cover sent
+  along was taken for the song itself (it happened to the first dozen songs with a picture). Now they play; and if
+  three songs in a row won't, the computer stops and says why instead of running through everything.
+- **«Take from the phone»** on the computer did nothing.
+- **A flutter in the sound** after handing music over, on both sides: the fades now glide smoothly.
+- Two fingers on the phone **only move the music**: nothing under them gets pressed, scrolled or dragged, and no
+  note pops up after. When the computer can't be reached — or there's nothing to move — the computer at the top
+  shakes its head instead of an error sheet.
+- NetEase lyrics no longer start with the credits as raw text (`{"c":[{"tx":"作词: "}…]}`); lyrics saved that way
+  clean themselves when read.
+- Internet radio: the words of the song on air show as soon as the first source has them.
+- The phone's full-screen players show the generated cover for songs without a picture.
+
 ## 0.6.1 — 2026-10-29
 
 ### New
