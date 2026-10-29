@@ -8,7 +8,6 @@ import dev.xvin.palimpsest.core.lyrics.cleaned
 import dev.xvin.palimpsest.core.model.Lyrics
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withTimeout
 
@@ -34,10 +33,17 @@ object OnAir {
             { netEase.find(artist, title, 0) },
             { genius.find(artist, title) },
         )
-        val found: List<Lyrics?> = sources.map { s -> async(Dispatchers.IO) { runCatching { withTimeout(15_000) { s() } }.getOrNull()?.cleaned() } }.awaitAll()
-        found.firstNotNullOfOrNull { l ->
-            val text = l?.plain ?: l?.synced ?: return@firstNotNullOfOrNull null
-            Lrc.parse(text).lines.map { it.text }.filter { it.isNotBlank() }.takeIf { it.size >= 2 }
+        // All asked at once, taken in order: the first that has the words wins, without waiting for
+        // the slower ones to answer or time out.
+        val asked = sources.map { s -> async(Dispatchers.IO) { runCatching { withTimeout(15_000) { s() } }.getOrNull()?.cleaned() } }
+        var lines: List<String>? = null
+        for (d in asked) {
+            val l = d.await() ?: continue
+            val text = l.plain ?: l.synced ?: continue
+            lines = Lrc.parse(text).lines.map { it.text }.filter { it.isNotBlank() }.takeIf { it.size >= 2 } ?: continue
+            break
         }
+        asked.forEach { it.cancel() }
+        lines
     }
 }
