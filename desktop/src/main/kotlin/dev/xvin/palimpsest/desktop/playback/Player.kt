@@ -62,6 +62,12 @@ class Player(private val graph: Graph) {
     private val _state = MutableStateFlow(PlayerState())
     val state: StateFlow<PlayerState> = _state
     private val cacheDir = File(Paths.cache, "stream").apply { mkdirs() }
+    /** Covers of songs handed over from the phone — never in [cacheDir], where a file named like a song is taken for it. */
+    private val lanCovers = File(Paths.cache, "lan-covers").apply { mkdirs() }
+
+    /** The audio cached for [name] (a [key]): what's whole, never a download in progress or a picture. */
+    private fun cachedAudio(name: String): File? =
+        cacheDir.listFiles { f -> f.nameWithoutExtension == name && f.extension.lowercase() !in NOT_AUDIO }?.firstOrNull()
     private var loadJob: Job? = null
     private val fetchLock = Mutex()
     private var listenedMs = 0L
@@ -147,6 +153,7 @@ class Player(private val graph: Graph) {
     fun play(tracks: List<Track>, startIndex: Int = 0, shuffle: Boolean = false, radio: String? = null, startMs: Long = 0) {
         if (tracks.isEmpty()) return
         if (radio == null) endRadio()
+        failedInARow = 0
         val start = if (shuffle) tracks.indices.random() else startIndex.coerceIn(0, tracks.lastIndex)
         _state.value = _state.value.copy(queue = tracks, index = start, shuffle = shuffle, radio = radio, error = null)
         order = if (shuffle) listOf(start) + tracks.indices.filter { it != start }.shuffled() else tracks.indices.toList()
@@ -193,7 +200,7 @@ class Player(private val graph: Graph) {
         val id = "lan:" + (src.host + "/" + src.key).hashCode().toUInt()
         lanSources[id] = src
         val cover = src.cover?.let { b64 ->
-            runCatching { File(cacheDir, "$id.jpg".replace(':', '_')).apply { writeBytes(java.util.Base64.getDecoder().decode(b64)) } }.getOrNull()
+            runCatching { File(lanCovers, "$id.jpg".replace(':', '_')).apply { writeBytes(java.util.Base64.getDecoder().decode(b64)) } }.getOrNull()
         }
         return Track(id = id, title = h.title, artist = h.artist, album = h.album, durationMs = h.durationMs, coverUrl = cover?.let { "file://" + it.absolutePath })
     }
@@ -202,7 +209,7 @@ class Player(private val graph: Graph) {
 
     /** A song that came from the phone, already fetched — when the phone asks for it back. */
     fun cachedLanFile(key: String): File? = lanSources.entries.firstOrNull { it.value.key == key }?.let { (id, _) ->
-        cacheDir.listFiles { f -> f.nameWithoutExtension == id.replace(Regex("[^A-Za-z0-9_.-]"), "_") && f.extension != "part" }?.firstOrNull()
+        cachedAudio(id.replace(Regex("[^A-Za-z0-9_.-]"), "_"))
     }
 
     fun stationSnapshot() = feed?.save()
@@ -355,7 +362,27 @@ class Player(private val graph: Graph) {
         startCurrent(0)
     }
 
+    /** Tracks in a row that didn't play: after a few, stop instead of running through the whole queue. */
+    private var failedInARow = 0
+
+    private fun failedOrNext(t: Track, reason: String) {
+        if (++failedInARow >= 3) {
+            failedInARow = 0
+            engine.stop()
+            _state.value = _state.value.copy(loading = null, error = "${t.title}: $reason")
+            return
+        }
+        advance(+1, user = false)
+    }
+
     private fun onEnded() {
+        // Ended the moment it began (a file ffmpeg can't read): that's a failure, not a song heard.
+        val cur = _state.value.current
+        if (cur != null && listenedMs < 1500 && cur.durationMs > 5_000 && !stations.containsKey(cur.id)) {
+            failedOrNext(cur, engine.state.value.error ?: "the file couldn't be read")
+            return
+        }
+        failedInARow = 0
         // A station that dropped the connection: join it again rather than move on.
         if (stations.containsKey(_state.value.current?.id)) { graph.scope.launch { delay(2_000); if (stations.containsKey(_state.value.current?.id)) startCurrent(0) }; return }
         if (_state.value.repeat == Repeat.ONE) startCurrent(0) else advance(+1, user = false)
@@ -385,9 +412,9 @@ class Player(private val graph: Graph) {
             } catch (e: Exception) {
                 _state.value = _state.value.copy(loading = null, error = "${t.title}: ${e.message ?: e.javaClass.simpleName}")
                 System.err.println("Palimpsest: couldn't play ${t.id}: $e")
-                // A cloud track that can't load shouldn't stop the music.
+                // A cloud track that can't load shouldn't stop the music — unless nothing loads, then stop and say why.
                 delay(1500)
-                if (_state.value.current?.id == t.id) advance(+1, user = false)
+                if (_state.value.current?.id == t.id) failedOrNext(t, e.message ?: e.javaClass.simpleName)
             }
         }
     }
@@ -402,7 +429,7 @@ class Player(private val graph: Graph) {
         val rid = t.remoteId ?: throw IllegalStateException("no file")
         val provider = graph.provider(t.service) ?: throw IllegalStateException("${t.service.displayName} unavailable")
         // «.part» is a download in progress or one that broke off: never play it as if it were whole.
-        fun cachedFile() = cacheDir.listFiles { f -> f.nameWithoutExtension == key(t) && f.extension != "part" }?.firstOrNull()
+        fun cachedFile() = cachedAudio(key(t))
         val cached = cachedFile()
         if (cached != null) { cached.setLastModified(System.currentTimeMillis()); return cached }
         return fetchLock.withLock {
@@ -443,7 +470,7 @@ class Player(private val graph: Graph) {
     /** A song from the phone, fetched over Wi-Fi into the cache like a stream. */
     private suspend fun fetchLan(t: Track, src: LanSource, onProgress: (Float) -> Unit): File = fetchLock.withLock {
         withContext(Dispatchers.IO) {
-            cacheDir.listFiles { f -> f.nameWithoutExtension == key(t) && f.extension != "part" }?.firstOrNull()?.let { return@withContext it }
+            cachedAudio(key(t))?.let { return@withContext it }
             val tmp = File(cacheDir, key(t) + ".part")
             try {
                 val remote = dev.xvin.palimpsest.core.sync.LanTransport.openFile(src.host, src.port, src.token, src.key)
@@ -471,7 +498,7 @@ class Player(private val graph: Graph) {
 
     /** Keeps the stream cache under 2 GB, dropping the least recently played first. */
     private fun trimCache() {
-        val files = cacheDir.listFiles()?.filter { it.isFile && it.extension != "part" }?.sortedBy { it.lastModified() } ?: return
+        val files = cacheDir.listFiles()?.filter { it.isFile && it.extension.lowercase() !in NOT_AUDIO }?.sortedBy { it.lastModified() } ?: return
         var total = files.sumOf { it.length() }
         for (f in files) { if (total < 2L shl 30) break; total -= f.length(); f.delete() }
     }
@@ -601,5 +628,7 @@ class Player(private val graph: Graph) {
 
     companion object {
         const val MY_WAVE = "user:onyourwave"
+        /** What lies in the stream cache but isn't a song to play. */
+        private val NOT_AUDIO = setOf("part", "jpg", "jpeg", "png", "webp", "img")
     }
 }
