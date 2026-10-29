@@ -293,11 +293,12 @@ class PlayerConnection(
     }
 
     /** Media ids of the queue from the current item on, and where in the current one it is. */
-    suspend fun upcoming(max: Int): Pair<List<String>, Long> {
+    suspend fun upcoming(max: Int): Pair<List<String>, Long> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main.immediate) {
+        // The computer asks from a socket thread; the controller answers only on the main one.
         val c = ctrl()
         val from = c.currentMediaItemIndex.coerceAtLeast(0)
         val ids = (from until minOf(c.mediaItemCount, from + max)).map { c.getMediaItemAt(it).mediaId }
-        return ids to c.currentPosition
+        ids to c.currentPosition
     }
 
     /** Plays an internet radio station (it replaces the queue, like playing anything else). */
