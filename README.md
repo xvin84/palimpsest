@@ -91,7 +91,9 @@ download lands in your music folder as a properly tagged file.
 **Phone ↔ computer**
 - **Move the music** to the other device and back from the player: the queue, the second it's at and the wave travel
   along. The cover flies off to the other device and lands there, the music fades out on one side and in on the
-  other. Songs one side doesn't have stream from the other over Wi-Fi, the same file.
+  other. Songs one side doesn't have stream from the other over Wi-Fi, the same file. On the phone, **two fingers up**
+  anywhere send the music to the computer, **two fingers down** take it from there. The button greys out while the
+  other device isn't reachable.
 - **Sync** likes, playlists and history over the local network, paired once with a six-digit code.
 
 **On the computer**

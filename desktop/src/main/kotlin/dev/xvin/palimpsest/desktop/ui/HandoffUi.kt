@@ -52,11 +52,27 @@ fun HandoffButton() {
     val graph = LocalGraph.current
     val nav = LocalNav.current
     val phone by graph.handoff.phone.collectAsState()
+    val online by graph.handoff.online.collectAsState()
     val busy by graph.handoff.busy.collectAsState()
+    val paired = graph.settings.state.collectAsState().value.lanTokens.isNotEmpty()
     var menu by remember { mutableStateOf(false) }
-    val p = phone?.takeIf { it.at > 0 } ?: return
-    Box {
-        PIconButton(Icons.Rounded.Smartphone, t("Музыка на телефон и обратно", "Music to the phone and back"), { if (!busy) menu = true }, iconSize = 18.dp, active = busy)
+    if (!paired) return
+    val p = phone?.takeIf { online }
+    Box(Modifier.graphicsLayer { alpha = if (p != null) 1f else 0.35f }) {
+        PIconButton(
+            Icons.Rounded.Smartphone,
+            if (p != null) t("Музыка на телефон и обратно", "Music to the phone and back") else t("Телефон не на связи", "The phone isn’t reachable"),
+            {
+                when {
+                    busy -> Unit
+                    p != null -> menu = true
+                    // Out of reach: say what to do, and look again right away.
+                    else -> { nav.toast(t("Телефон не на связи — открой на нём Palimpsest (та же Wi-Fi-сеть)", "The phone isn’t reachable — open Palimpsest on it (the same Wi-Fi)")); graph.scope.launch { graph.handoff.checkNow() } }
+                }
+            },
+            iconSize = 18.dp, active = busy,
+        )
+        if (p == null) return@Box
         DropdownMenu(menu, onDismissRequest = { menu = false }) {
             DropdownMenuItem(
                 text = { Column { Text(t("Передать на телефон", "Send to the phone")); Text(p.device, style = Type.meta, color = LocalPal.current.muted) } },

@@ -40,6 +40,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import dev.xvin.palimpsest.R
@@ -60,13 +63,21 @@ fun HandoffButton(tint: Color) {
     val nav = LocalNav.current
     val pairing by graph.lanSync.pairing.collectAsStateWithLifecycle()
     val busy by graph.handoff.busy.collectAsStateWithLifecycle()
+    val reachable by graph.handoff.reachable.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     var menu by remember { mutableStateOf(false) }
     val p = pairing ?: return
     Box {
-        IconButton(onClick = { menu = true }, enabled = !busy) {
+        IconButton(onClick = {
+            if (reachable) menu = true
+            else {
+                // Out of reach: say what to do, and look again right away.
+                nav.toast(tr(R.string.handoff_unreachable, p.name))
+                graph.lanServer.helloNow()
+            }
+        }, enabled = !busy) {
             if (busy) CircularProgressIndicator(Modifier.size(20.dp), color = tint, strokeWidth = 2.dp)
-            else Icon(Icons.Rounded.Computer, tr(R.string.handoff_ctx), tint = tint)
+            else Icon(Icons.Rounded.Computer, tr(R.string.handoff_ctx), tint = tint.copy(alpha = if (reachable) tint.alpha else 0.35f))
         }
         DropdownMenu(menu, onDismissRequest = { menu = false }) {
             DropdownMenuItem(
@@ -217,6 +228,83 @@ fun HandoffOverlay() {
                 )
             }
             cover(k.coerceAtLeast(-0.05f), (down * 3f).coerceAtMost(1f))
+        }
+    }
+}
+
+/** How far a two-finger swipe has gone: −1 … 1 (negative — up, to the computer), 0 when there's none. */
+private val swipeProgress = androidx.compose.runtime.mutableFloatStateOf(0f)
+
+/**
+ * Two fingers up — send the music to the computer; two fingers down — take it from there. Anywhere
+ * in the app. Only a gesture with two fingers is taken (one-finger swipes, scrolling and the player's
+ * swipe-down stay as they are); a one-finger drag that a second finger joins is cancelled.
+ */
+@Composable
+fun Modifier.handoffSwipe(): Modifier {
+    val graph = LocalGraph.current
+    val nav = LocalNav.current
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    val distance = with(density) { 110.dp.toPx() }
+    return this.pointerInput(Unit) {
+        awaitEachGesture {
+            awaitFirstDown(requireUnconsumed = false, pass = androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+            var start: Float? = null
+            var fired = false
+            while (true) {
+                val ev = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                val down = ev.changes.filter { it.pressed }
+                if (down.isEmpty()) break
+                if (down.size < 2 || graph.lanSync.pairing.value == null) continue
+                val y = down.take(2).map { it.position.y }.average().toFloat()
+                val from = start ?: y.also { start = it }
+                ev.changes.forEach { it.consume() }
+                if (fired) continue
+                val p = ((y - from) / distance).coerceIn(-1f, 1f)
+                swipeProgress.floatValue = p
+                if (kotlin.math.abs(p) >= 1f) {
+                    fired = true
+                    swipeProgress.floatValue = 0f
+                    val up = p < 0
+                    scope.launch {
+                        when {
+                            !graph.handoff.reachable.value -> {
+                                nav.toast(tr(R.string.handoff_unreachable, graph.lanSync.pairing.value?.name.orEmpty()))
+                                graph.lanServer.helloNow()
+                            }
+                            up -> sendToComputer(graph, nav)
+                            else -> takeFromComputer(graph, nav)
+                        }
+                    }
+                }
+            }
+            swipeProgress.floatValue = 0f
+        }
+    }
+}
+
+/** While two fingers swipe: an arrow and where the music will go, growing as the swipe nears the goal. */
+@Composable
+fun HandoffSwipeHint() {
+    val p = swipeProgress.floatValue
+    if (p == 0f) return
+    val up = p < 0
+    val k = kotlin.math.abs(p)
+    Box(Modifier.fillMaxSize(), contentAlignment = if (up) Alignment.TopCenter else Alignment.BottomCenter) {
+        androidx.compose.foundation.layout.Row(
+            Modifier.statusBarsPadding().padding(vertical = 64.dp)
+                .graphicsLayer { alpha = 0.35f + 0.65f * k; translationY = (if (up) -1 else 1) * k * 24.dp.toPx(); scaleX = 0.9f + 0.1f * k; scaleY = scaleX }
+                .clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.6f))
+                .border(1.dp, Color.White.copy(alpha = 0.2f + 0.6f * k), RoundedCornerShape(50))
+                .padding(horizontal = 18.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Rounded.Computer, null, tint = Color.White, modifier = Modifier.size(20.dp))
+            Text(
+                (if (up) "↑  " else "↓  ") + tr(if (up) R.string.handoff_swipe_up else R.string.handoff_swipe_down),
+                color = Color.White, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 10.dp),
+            )
         }
     }
 }

@@ -55,6 +55,8 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         // The language changed while we were running: start over so no screen keeps old strings.
         if (dev.xvin.palimpsest.i18n.Language.restartIfChanged(this)) return
+        // Back in front: is the paired computer there? (Greys the handover button out, or lights it up.)
+        graph.lanServer.helloNow()
         // Coming back from the "All files access" settings page.
         val before = hasStorageAccess.value
         refreshAccess()

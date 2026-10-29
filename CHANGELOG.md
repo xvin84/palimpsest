@@ -2,6 +2,15 @@
 
 **English** | [Русский](CHANGELOG.ru.md)
 
+## 0.6.1 — 2026-10-29
+
+### New
+- Phone: **two fingers up** anywhere in the app send the music to the computer, **two fingers down** take it from
+  there; an arrow shows where it's going while the fingers move.
+- The phone and the computer **check they can reach each other** (the phone every 20 s and whenever the app comes to
+  the front, the computer asks a quiet phone directly): the handover button is grey while the other side isn't there,
+  and a tap on it says what to do and looks again.
+
 ## 0.6.0 — 2026-10-29
 
 ### New

@@ -27,6 +27,8 @@ data class LanMessage(
     val handoff: Handoff? = null,
     val pull: PullRequest? = null,
     val file: FileRequest? = null,
+    /** «Are you there?» — both sides check the other is reachable before offering to hand music over. */
+    val ping: Boolean = false,
 )
 
 @Serializable

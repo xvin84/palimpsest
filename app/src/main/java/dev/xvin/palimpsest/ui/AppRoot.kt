@@ -30,6 +30,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
+import dev.xvin.palimpsest.ui.components.handoffSwipe
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -313,7 +314,8 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
             }
             behindBlur.snapTo(0f)
         }
-        Box(Modifier.fillMaxSize()) {
+        // Two fingers up / down anywhere: the music to the computer / from it.
+        Box(Modifier.fillMaxSize().handoffSwipe()) {
             Scaffold(
                 modifier = if (behindBlur.value > 0.01f) Modifier.blur(Motion.BLUR * behindBlur.value) else Modifier,
                 containerColor = MaterialTheme.colorScheme.background,
@@ -383,6 +385,7 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
 
             // Music moving between the phone and the computer flies over everything.
             dev.xvin.palimpsest.ui.components.HandoffOverlay()
+            dev.xvin.palimpsest.ui.components.HandoffSwipeHint()
             actionsFor?.let { t -> TrackActionsSheet(t, onDismiss = { actionsFor = null }) }
             errorShown?.let { info -> dev.xvin.palimpsest.ui.components.ErrorSheet(info, onDismiss = { errorShown = null }) }
         }

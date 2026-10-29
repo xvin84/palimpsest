@@ -21,11 +21,8 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Base64
 
-/** A paired phone that said where it listens, and when it last did. */
-data class PhoneSeen(val device: String, val host: String, val port: Int, val token: String, val at: Long) {
-    /** The phone says hello every minute while the app runs. */
-    val online get() = System.currentTimeMillis() - at < 3 * 60_000
-}
+/** A paired phone that said where it listens, and when it last answered. */
+data class PhoneSeen(val device: String, val host: String, val port: Int, val token: String, val at: Long)
 
 /** Moments the UI animates: the cover flying off to the phone, or arriving from it. */
 sealed interface HandoffEvent {
@@ -46,9 +43,32 @@ class HandoffDesk(private val graph: Graph) {
     val events: SharedFlow<HandoffEvent> = _events
     private val _busy = MutableStateFlow(false)
     val busy: StateFlow<Boolean> = _busy
+    private val _online = MutableStateFlow(false)
+    /** Whether the phone answers right now: the handover button works only then. */
+    val online: StateFlow<Boolean> = _online
+
+    init {
+        // The phone says hello every 20 s while Palimpsest runs there; when it falls silent, ask it directly.
+        graph.scope.launch(Dispatchers.IO) {
+            while (true) {
+                kotlinx.coroutines.delay(15_000)
+                checkNow()
+            }
+        }
+    }
 
     fun hello(device: String, host: String, port: Int, token: String) {
         _phone.value = PhoneSeen(device, host, port, token, System.currentTimeMillis())
+        _online.value = true
+    }
+
+    /** Is the phone there? A recent hello says yes; otherwise a ping decides. */
+    suspend fun checkNow() {
+        val p = _phone.value ?: run { _online.value = false; return }
+        if (System.currentTimeMillis() - p.at < 30_000) { _online.value = true; return }
+        val ok = withContext(Dispatchers.IO) { runCatching { LanTransport.call(p.host, p.port, LanMessage(token = p.token, ping = true), 3_000).ok }.getOrDefault(false) }
+        if (ok) _phone.value = p.copy(at = System.currentTimeMillis())
+        _online.value = ok
     }
 
     /** What plays here, as a [Handoff]; null when nothing does. */
@@ -108,8 +128,9 @@ class HandoffDesk(private val graph: Graph) {
             _events.tryEmit(HandoffEvent.Sent(p.device, t))
             graph.player.fadeOutAndPause()
         } catch (e: java.io.IOException) {
-            // The phone went away (app closed, other network): don't offer it until it says hello again.
+            // The phone went away (app closed, other network): the button greys out until it answers again.
             _phone.value = p.copy(at = 0)
+            _online.value = false
             throw e
         } finally {
             _busy.value = false
@@ -127,6 +148,7 @@ class HandoffDesk(private val graph: Graph) {
             if (!r.ok) error(r.error ?: "refused")
         } catch (e: java.io.IOException) {
             _phone.value = p.copy(at = 0)
+            _online.value = false
             throw e
         } finally {
             _busy.value = false

@@ -36,7 +36,7 @@ class PhoneLanServer(
         scope.launch { lan().pairing.collect { p -> if (p != null) start() else stop() } }
     }
 
-    /** Says hello now — e.g. when the app comes to the front, or the network changed. */
+    /** Says hello now — e.g. when the app comes to the front, or the button was tapped while out of reach. */
     fun helloNow() {
         if (job == null) return
         scope.launch(Dispatchers.IO) { hello() }
@@ -51,7 +51,8 @@ class PhoneLanServer(
         server = socket
         handoff.port = socket.localPort
         job = scope.launch(Dispatchers.IO) {
-            launch { while (isActive) { hello(); delay(60_000) } }
+            // Often enough that a computer switched on, or a phone that walked out of the Wi-Fi, shows within half a minute.
+            launch { while (isActive) { hello(); delay(20_000) } }
             while (isActive) {
                 val client = runCatching { socket.accept() }.getOrNull() ?: break
                 launch { LanTransport.serve(client, ::answer) }
@@ -64,17 +65,20 @@ class PhoneLanServer(
         job?.cancel(); job = null
         runCatching { server?.close() }; server = null
         handoff.port = 0
+        handoff.setReachable(false)
     }
 
     private suspend fun hello() {
         val port = handoff.port.takeIf { it > 0 } ?: return
-        runCatching { lan().withDesktop { p -> LanTransport.call(p.host, p.port, LanMessage(token = p.token, hello = Hello(lan().device, port)), 5_000) } }
+        val ok = runCatching { lan().withDesktop { p -> LanTransport.call(p.host, p.port, LanMessage(token = p.token, hello = Hello(lan().device, port)), 5_000) }.ok }.getOrDefault(false)
+        handoff.setReachable(ok)
     }
 
     private fun answer(msg: LanMessage, host: String): LanAnswer = runBlocking {
         val p = lan().pairing.value
         if (p == null || msg.token != p.token) return@runBlocking LanAnswer(LanReply(error = "not paired"))
         when {
+            msg.ping -> LanAnswer(LanReply(ok = true))
             msg.file != null -> handoff.file(msg.file!!.key, msg.file!!.from)
             // Through a port forward (adb, an emulator) the computer seems to call from this very phone: use its paired address.
             msg.handoff != null -> LanAnswer(handoff.received(msg.handoff!!, if (host.startsWith("127.") || host == "::1") p.host else host, p.token))

@@ -311,6 +311,9 @@
     <string name="handoff_from">From “%1$s”</string>
     <string name="handoff_take_back">Bring back</string>
     <string name="handoff_pull_hint">Whatever plays on the computer moves to the phone from the same second</string>
+    <string name="handoff_unreachable">“%1$s” isn’t reachable — is Palimpsest open there, on the same Wi-Fi?</string>
+    <string name="handoff_swipe_up">To the computer</string>
+    <string name="handoff_swipe_down">From the computer</string>
     <string name="iradio_title">Internet radio</string>
     <string name="iradio_subtitle">Stations from all over the world, or any by its link</string>
     <string name="iradio_add">Add by link</string>

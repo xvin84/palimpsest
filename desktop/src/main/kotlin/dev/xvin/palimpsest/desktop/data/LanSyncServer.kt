@@ -74,6 +74,7 @@ class LanSyncServer(private val graph: Graph) {
             val device = graph.settings.value.lanTokens[token] ?: return LanAnswer(LanReply(error = "not paired"))
             msg.file?.let { return graph.handoff.file(it.key, it.from) }
             msg.hello?.let { graph.handoff.hello(it.device, host, it.port, token); return LanAnswer(LanReply(ok = true)) }
+            if (msg.ping) return LanAnswer(LanReply(ok = true))
             msg.handoff?.let { return LanAnswer(graph.handoff.received(it, host, token)) }
             msg.pull?.let { return LanAnswer(graph.handoff.pulled(it.device.ifBlank { device })) }
             return LanAnswer(LanReply(error = "empty request"))

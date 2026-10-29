@@ -56,6 +56,12 @@ class PhoneHandoff(
     private val _busy = MutableStateFlow(false)
     val busy: StateFlow<Boolean> = _busy
 
+    private val _reachable = MutableStateFlow(false)
+    /** Whether the paired computer answered lately: the handover button and gesture work only then. */
+    val reachable: StateFlow<Boolean> = _reachable
+
+    fun setReachable(on: Boolean) { _reachable.value = on }
+
     /** The port this phone's [dev.xvin.palimpsest.data.sync.PhoneLanServer] listens on; 0 while it doesn't. */
     @Volatile var port: Int = 0
 
@@ -111,6 +117,7 @@ class PhoneHandoff(
         val h = build() ?: error("nothing is playing")
         _busy.value = true
         try {
+            reachIfIo {
             val name = lan().withDesktop { p ->
                 val r = LanTransport.call(p.host, p.port, LanMessage(token = p.token, handoff = h), 15_000)
                 if (!r.ok) error(r.error ?: "refused")
@@ -119,6 +126,7 @@ class PhoneHandoff(
             val np = player.state.value.nowPlaying
             _events.tryEmit(HandoffEvent.Sent(name, np?.title.orEmpty(), np?.artworkUri ?: np?.artworkData))
             player.fadeOutAndPause()
+            }
         } finally {
             _busy.value = false
         }
@@ -128,14 +136,24 @@ class PhoneHandoff(
     suspend fun pull(): Result<Unit> = runCatching {
         _busy.value = true
         try {
+            reachIfIo {
             val (h, host, token) = lan().withDesktop { p ->
                 val r = LanTransport.call(p.host, p.port, LanMessage(token = p.token, pull = PullRequest(lan().device)), 15_000)
                 Triple(r.handoff ?: error(r.error ?: "nothing is playing there"), p.host, p.token)
             }
             play(h, host, token)
+            }
         } finally {
             _busy.value = false
         }
+    }
+
+    /** A network failure means the computer is out of reach (the button greys out); getting through means it isn't. */
+    private suspend fun <T> reachIfIo(block: suspend () -> T): T = try {
+        block().also { _reachable.value = true }
+    } catch (e: java.io.IOException) {
+        _reachable.value = false
+        throw e
     }
 
     /** The computer asked for what plays here: hand it over and fade out. */
