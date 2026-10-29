@@ -2,18 +2,19 @@
 """The phone's part of the tour (see desktop/src/test/.../Tour.kt and TourCut.kt).
 
 Drives the app on an emulator with real input — taps on what's on screen (found by its words in
-uiautomator's dump), swipes — while the screen is recorded and the sound captured from the silent
-PipeWire sink the emulator plays into. Writes phone.mp4, phone.wav and phone.json (chapters and
+uiautomator's dump), swipes — while scrcpy records the screen at 60 fps together with the phone's
+own sound (nothing is played on the computer). Writes phone.mkv and phone.json (chapters and
 captions, in seconds from the video's start) into the given directory.
 
-    pactl load-module module-null-sink sink_name=palimpsest_demo
-    PULSE_SINK=palimpsest_demo emulator -avd … -gpu host
+    emulator -avd … -gpu host -feature -Vulkan
     adb shell settings put system show_touches 1
     scripts/demo/phone_tour.py /some/dir
 """
 import json
 import re
+import signal
 import subprocess
+import threading
 import sys
 import time
 from pathlib import Path
@@ -101,11 +102,17 @@ adb("shell", "am", "force-stop", "dev.xvin.palimpsest")
 adb("shell", "am", "start", "-n", "dev.xvin.palimpsest/.MainActivity")
 time.sleep(5)
 
-wav = out / "phone.wav"
-capture = subprocess.Popen(["parec", "-d", "palimpsest_demo.monitor", "--file-format=wav", "--rate=48000", "--channels=2", str(wav)])
-capture_start = time.monotonic()
-record = subprocess.Popen(["adb", "shell", "screenrecord", "--bit-rate", "10000000", "--time-limit", "170", "/sdcard/phone_tour.mp4"])
-video_start = time.monotonic() + 0.6  # screenrecord's first frame comes a little after it starts
+adb("shell", "cmd", "media_session", "volume", "--stream", "3", "--set", "15")
+record = subprocess.Popen(
+    # Unbuffered, or «Recording started» only shows when scrcpy exits.
+    ["stdbuf", "-o0", "-e0", "scrcpy", "--no-playback", "--no-window", "--audio-source=playback", "--max-fps=60", "--video-bit-rate=16M", f"--record={out / 'phone.mkv'}"],
+    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+)
+for line in record.stdout:  # the recording's first frame is about now
+    if "Recording started" in line:
+        break
+video_start = time.monotonic()
+threading.Thread(target=lambda: [None for _ in record.stdout], daemon=True).start()
 time.sleep(1.0)
 
 # --- The tour ---
@@ -153,17 +160,13 @@ say("")
 time.sleep(0.5)
 
 duration = now()
-# Stop screenrecord on the phone first, so it finishes the file; then the adb that ran it ends by itself.
-subprocess.run(["adb", "shell", "pkill", "-INT", "screenrecord"])
+record.send_signal(signal.SIGINT)  # scrcpy finishes the file on ^C
 try:
-    record.wait(timeout=15)
+    record.wait(timeout=20)
 except subprocess.TimeoutExpired:
     record.kill()
-time.sleep(1.0)
-capture.terminate()
-adb("pull", "/sdcard/phone_tour.mp4", str(out / "phone.mp4"))
 (out / "phone.json").write_text(json.dumps({
-    "video": "phone.mp4", "audio": "phone.wav", "audioOffset": video_start - capture_start,
+    "video": "phone.mkv", "audioOffset": 0.0,
     "duration": duration - 0.3, "chapters": chapters, "captions": captions,
 }, ensure_ascii=False, indent=1))
 adb("shell", "am", "force-stop", "dev.xvin.palimpsest")

@@ -48,7 +48,9 @@ data class PhonePart(
 
 private const val W = 1920
 private const val H = 1080
-private const val FPS = 30
+private const val FPS = 60
+/** Above the band at the bottom where the captions go: the app (and the camera) never reach into it. */
+private const val STAGE_H = 930f
 /** The phone's screen as it's decoded (the emulator records 1080×2400). */
 private const val PW = 432
 private const val PH = 960
@@ -112,7 +114,7 @@ fun main(args: Array<String>) {
     val bgSurface = Surface.makeRasterN32Premul(W / 4, H / 4)
     val out = ProcessBuilder(
         "ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgra", "-s", "${W}x$H", "-framerate", "$FPS", "-i", "-",
-        "-c:v", "libx264", "-preset", "medium", "-crf", "19", "-pix_fmt", "yuv420p", File(dir, "video.mp4").absolutePath,
+        "-c:v", "libx264", "-preset", "slow", "-crf", "16", "-pix_fmt", "yuv420p", "-r", "$FPS", File(dir, "video.mp4").absolutePath,
     ).redirectErrorStream(true).start()
     val sink = out.outputStream.buffered(1 shl 22)
     val pixels = org.jetbrains.skia.Bitmap().apply { allocPixels(ImageInfo(W, H, ColorType.BGRA_8888, ColorAlphaType.PREMUL)) }
@@ -175,7 +177,7 @@ fun main(args: Array<String>) {
         return lines
     }
 
-    fun caption(ru: String, en: String, appear: Float, cx: Float = W / 2f, y: Float = H - 54f) {
+    fun caption(ru: String, en: String, appear: Float, cx: Float = W / 2f, y: Float = H - 30f) {
         if (ru.isEmpty() || appear <= 0f) return
         val fRu = Font(sansBold, 30f)
         val fEn = Font(sans, 20f)
@@ -186,7 +188,7 @@ fun main(args: Array<String>) {
         val lift = (1 - ease(appear)) * 14f
         val r = Rect(cx - pw / 2, y - ph + lift, cx + pw / 2, y + lift)
         canvas.saveLayer(Rect(0f, 0f, W.toFloat(), H.toFloat()), Paint().apply { alpha = (ease(appear) * 255).toInt().coerceIn(0, 255) })
-        canvas.drawRRect(RRect.makeLTRB(r.left, r.top, r.right, r.bottom, 22f), Paint().apply { color = argb(0.62f, 10, 9, 12); maskFilter = MaskFilter.makeBlur(FilterBlurMode.SOLID, 1f) })
+        canvas.drawRRect(RRect.makeLTRB(r.left, r.top, r.right, r.bottom, 22f), Paint().apply { color = argb(0.86f, 16, 13, 18) })
         canvas.drawRRect(RRect.makeLTRB(r.left, r.top, r.right, r.bottom, 22f), Paint().apply { mode = PaintMode.STROKE; strokeWidth = 1.2f; color = argb(0.16f, 255, 255, 255) })
         canvas.drawRRect(RRect.makeLTRB(r.left + 18f, r.top + 18f, r.left + 22f, r.bottom - 18f, 2f), Paint().apply { color = accent })
         text(ru, fRu, cx, r.top + 41f, 0xFFF4EEE6.toInt(), center = true)
@@ -234,9 +236,9 @@ fun main(args: Array<String>) {
 
     // --- Where things go -------------------------------------------------------------------------
 
-    val deskWindow = Rect(256f, 34f, 256f + 1408f, 34f + 902f) // 1280×820 × 1.1
-    val sideWindow = Rect(56f, 150f, 56f + 1216f, 150f + 779f)
-    val sidePhone = Rect(1450f, 100f, 1450f + 396f, 100f + 880f)
+    val deskWindow = Rect(269f, 26f, 269f + 1382f, 26f + 885f) // 1280×820 × 1.08, above the caption band
+    val sideWindow = Rect(56f, 120f, 56f + 1216f, 120f + 779f)
+    val sidePhone = Rect(1460f, 40f, 1460f + 387f, 40f + 860f)
 
     fun layoutAt(f: Int): Pair<Rect, Float> {
         // The window's place and how far the phone has come in (0..1), easing between layouts.
@@ -251,11 +253,11 @@ fun main(args: Array<String>) {
     /** The camera: how much it leans in, and where it looks (output pixels), easing between key frames. */
     fun cameraAt(f: Int, window: Rect): Triple<Float, Float, Float> {
         fun view(c: Camera): Triple<Float, Float, Float> {
-            if (c.whole) return Triple(1f, W / 2f, H / 2f)
+            if (c.whole) return Triple(1f, W / 2f, STAGE_H / 2f)
             val s = window.width / tl.width
             val rx = window.left + c.x * s; val ry = window.top + c.y * s
             val rw = c.w * s; val rh = c.h * s
-            val k = min(1.9f, min(W * 0.86f / rw, H * 0.8f / rh)).coerceAtLeast(1f)
+            val k = min(1.9f, min(W * 0.86f / rw, STAGE_H * 0.86f / rh)).coerceAtLeast(1f)
             return Triple(k, rx + rw / 2, ry + rh / 2)
         }
         var prev = tl.camera.first(); var cur = prev
@@ -264,16 +266,18 @@ fun main(args: Array<String>) {
         val a = view(prev); val b = view(cur)
         val k = lerp(a.first, b.first, t)
         // Never past the window's edges: what's seen stays the app, not the background beside it.
-        val halfW = W / (2 * k); val halfH = H / (2 * k)
+        val halfW = W / (2 * k); val halfH = STAGE_H / (2 * k)
         fun keep(c: Float, lo: Float, hi: Float, half: Float) = if (hi - lo <= 2 * half) (lo + hi) / 2 else c.coerceIn(lo + half, hi - half)
         val cx = keep(lerp(a.second, b.second, t), window.left - 40f, window.right + 40f, halfW)
         val cy = keep(lerp(a.third, b.third, t), window.top - 30f, window.bottom + 30f, halfH)
-        return Triple(k, if (k <= 1.001f) W / 2f else cx, if (k <= 1.001f) H / 2f else cy)
+        return Triple(k, if (k <= 1.001f) W / 2f else cx, if (k <= 1.001f) STAGE_H / 2f else cy)
     }
 
     // --- The frames ------------------------------------------------------------------------------
 
-    val desk = Frames(File(dir, "desk.mkv"), tl.width, tl.height)
+    val deskSize = ProcessBuilder("ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", File(dir, "desk.mkv").absolutePath)
+        .start().inputStream.bufferedReader().readText().trim().split(',').map { it.toInt() }
+    val desk = Frames(File(dir, "desk.mkv"), deskSize[0], deskSize[1])
     var clip: Frames? = null
     var clipIndex = -1
     val partVideo = part?.let { Frames(File(phoneDir, it.video), PW, PH, scale = "scale=$PW:$PH") }
@@ -290,8 +294,9 @@ fun main(args: Array<String>) {
         val (win, phoneIn) = layoutAt(f)
         val (k, cx, cy) = cameraAt(f, win)
         canvas.save()
-        // Lean in: the point looked at moves towards the middle of the frame as the camera zooms.
-        canvas.translate(W / 2f, H / 2f); canvas.scale(k, k); canvas.translate(-lerp(W / 2f, cx, 1f), -lerp(H / 2f, cy, 1f))
+        // Lean in: the point looked at moves to the middle of the stage; nothing spills into the caption band.
+        if (k > 1.001f) canvas.clipRect(Rect(0f, 0f, W.toFloat(), STAGE_H + 6f))
+        canvas.translate(W / 2f, STAGE_H / 2f); canvas.scale(k, k); canvas.translate(-cx, -cy)
         shadow(win, 18f)
         picture(img, win, 14f)
         // The phone beside it.
@@ -321,8 +326,8 @@ fun main(args: Array<String>) {
         // Words over everything, unmoved by the camera.
         tl.captions.firstOrNull { f in it.from until it.to }?.let { c ->
             val appear = min((f - c.from) / 8f, (c.to - f) / 8f)
-            // Looking at the bottom of the window (the player bar): the words go up top, out of its way.
-            caption(c.ru, c.en, appear, y = if (k > 1.05f && cy > (win.top + win.bottom) / 2) 150f else H - 54f)
+            // Under the window — beside the phone too, never over either.
+            caption(c.ru, c.en, appear, cx = (win.left + win.right) / 2)
         }
         tl.chapters.lastOrNull { it.at <= f }?.let { c ->
             val next = tl.chapters.firstOrNull { it.at > c.at }?.at ?: Int.MAX_VALUE
@@ -377,18 +382,45 @@ fun main(args: Array<String>) {
     desk.close(); clip?.close(); partVideo?.close()
 
     // --- The sound -----------------------------------------------------------------------------
-    data class Piece(val file: File, val from: Double, val length: Double, val at: Double)
+    // What the computer played (frame-exact), and what the phone played (its own recording). Beside
+    // each other, the computer is on the left and the phone on the right; the pan glides over.
+    data class Piece(val file: File, val raw: Boolean, val from: Double, val length: Double, val at: Double, val pan: String, val fadeIn: Double, val fadeOut: Double)
     fun outSec(deskFrame: Int) = (if (deskFrame < tl.phonePartAt) deskFrame else deskFrame + phoneFrames).toDouble() / FPS
-    val pieces = tl.audio.map { a -> Piece(File(a.file).takeIf { it.isAbsolute } ?: File(dir, a.file), a.seconds, (a.to - a.from).toDouble() / FPS, outSec(a.from)) } +
-        listOfNotNull(part?.audio?.let { Piece(File(phoneDir, it), part.audioOffset, part.duration, tl.phonePartAt.toDouble() / FPS) })
-    val cmd = arrayListOf("ffmpeg", "-v", "error", "-y", "-i", File(dir, "video.mp4").absolutePath)
-    pieces.forEach { p -> cmd += listOf("-ss", "%.3f".format(java.util.Locale.ROOT, p.from), "-t", "%.3f".format(java.util.Locale.ROOT, p.length), "-i", p.file.absolutePath) }
-    val filters = pieces.mapIndexed { i, p ->
-        val ms = (p.at * 1000).toLong()
-        "[${i + 1}:a]aresample=48000,aformat=channel_layouts=stereo,afade=t=in:d=0.4,afade=t=out:st=${"%.3f".format(java.util.Locale.ROOT, p.length - 0.5)}:d=0.5,adelay=$ms|$ms[a$i]"
+    val deskPcm = File(dir, "desk.pcm")
+    val side = tl.phone.firstOrNull()
+    val glide = 0.4
+    val cuts = listOfNotNull(0, side?.from, side?.to, tl.phonePartAt, deskFrames).distinct().sorted()
+    val pieces = ArrayList<Piece>()
+    for (i in 0 until cuts.size - 1) {
+        val a = cuts[i]; val b = cuts[i + 1]
+        if (b <= a) continue
+        val pan = if (side != null && a == side.from) "left" else "centre"
+        // Neighbours of the same sound overlap by [glide] with crossed fades; across the phone's part they just fade.
+        val joinBefore = a != 0 && a != tl.phonePartAt
+        val joinAfter = b != deskFrames && b != tl.phonePartAt
+        val from = a.toDouble() / FPS - if (joinBefore) glide / 2 else 0.0
+        val to = b.toDouble() / FPS + if (joinAfter) glide / 2 else 0.0
+        pieces += Piece(deskPcm, true, from, to - from, outSec(a) - if (joinBefore) glide / 2 else 0.0, pan, if (joinBefore) glide else 0.3, if (joinAfter) glide else 0.5)
     }
-    val mix = pieces.indices.joinToString("") { "[a$it]" } + "amix=inputs=${pieces.size}:normalize=0:duration=longest,afade=t=out:st=${"%.3f".format(java.util.Locale.ROOT, total.toDouble() / FPS - 1.5)}:d=1.5[aout]"
-    cmd += listOf("-filter_complex", (filters + mix).joinToString(";"), "-map", "0:v", "-map", "[aout]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-t", "%.3f".format(java.util.Locale.ROOT, total.toDouble() / FPS), File(dir, "tour.mp4").absolutePath)
+    side?.let { c -> pieces += Piece(File(dir, c.file), false, c.offset, (c.to - c.from).toDouble() / FPS, outSec(c.from), "right", 0.3, 0.6) }
+    part?.let { pieces += Piece(File(phoneDir, it.audio ?: it.video), false, it.audioOffset, it.duration, tl.phonePartAt.toDouble() / FPS, "centre", 0.5, 0.8) }
+    val cmd = arrayListOf("ffmpeg", "-v", "error", "-y", "-i", File(dir, "video.mp4").absolutePath)
+    fun f3(x: Double) = "%.3f".format(java.util.Locale.ROOT, x)
+    pieces.forEach { p ->
+        if (p.raw) cmd += listOf("-f", "s16le", "-ar", "${dev.xvin.palimpsest.desktop.playback.AudioEngine.RATE}", "-ac", "2")
+        cmd += listOf("-ss", f3(p.from.coerceAtLeast(0.0)), "-t", f3(p.length), "-i", p.file.absolutePath)
+    }
+    val filters = pieces.mapIndexed { i, p ->
+        val ms = (p.at.coerceAtLeast(0.0) * 1000).toLong()
+        val pan = when (p.pan) {
+            "left" -> ",pan=stereo|c0=0.62*c0+0.62*c1|c1=0.1*c0+0.1*c1"
+            "right" -> ",pan=stereo|c0=0.1*c0+0.1*c1|c1=0.62*c0+0.62*c1"
+            else -> ""
+        }
+        "[${i + 1}:a]aresample=48000,aformat=channel_layouts=stereo$pan,afade=t=in:d=${f3(p.fadeIn)},afade=t=out:st=${f3((p.length - p.fadeOut).coerceAtLeast(0.0))}:d=${f3(p.fadeOut)},adelay=$ms|$ms[a$i]"
+    }
+    val mix = pieces.indices.joinToString("") { "[a$it]" } + "amix=inputs=${pieces.size}:normalize=0:duration=longest,loudnorm=I=-16:TP=-1.5:LRA=11,afade=t=out:st=${f3(total.toDouble() / FPS - 1.5)}:d=1.5[aout]"
+    cmd += listOf("-filter_complex", (filters + mix).joinToString(";"), "-map", "0:v", "-map", "[aout]", "-c:v", "copy", "-c:a", "aac", "-b:a", "256k", "-ar", "48000", "-t", f3(total.toDouble() / FPS), File(dir, "tour.mp4").absolutePath)
     val mux = ProcessBuilder(cmd).inheritIO().start().waitFor()
     println("tourCut: $total frames (${total / FPS} s), sound ${if (mux == 0) "ok" else "failed ($mux)"} → ${File(dir, "tour.mp4")}")
     Runtime.getRuntime().halt(0)

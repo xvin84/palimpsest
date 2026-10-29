@@ -72,6 +72,39 @@ data class TourTimeline(
 @Serializable data class AudioPart(val from: Int, val to: Int, val file: String, val seconds: Double)
 
 /**
+ * The app's sound, taken at exactly the pace of the frames drawn: [tick] after each frame allows
+ * one frame's worth of samples more; the engine's writes wait for that. Nothing playing → silence.
+ * So the sound lines up with the picture however slow a frame was to draw.
+ */
+class ClockedPcm(file: File, private val fps: Int) : AudioEngine.Output {
+    private val out = java.io.BufferedOutputStream(java.io.FileOutputStream(file), 1 shl 20)
+    private val lock = Object()
+    private var allowed = 0L
+    private var written = 0L
+    private val lead = 4096L // frames the engine may run ahead
+
+    fun tick(frame: Int) = synchronized(lock) {
+        allowed = frame.toLong() * AudioEngine.RATE / fps
+        // Fell well behind (nothing playing, or loading): fill the gap with silence.
+        if (written < allowed - 2 * lead) {
+            val gap = (allowed - lead - written).toInt()
+            out.write(ByteArray(gap * 4)); written += gap
+        }
+        lock.notifyAll()
+    }
+
+    override fun write(bytes: ByteArray, length: Int) {
+        val n = length / 4
+        synchronized(lock) {
+            while (written + n > allowed + lead) lock.wait(50)
+            out.write(bytes, 0, length); written += n
+        }
+    }
+
+    fun close() = synchronized(lock) { out.flush(); out.close() }
+}
+
+/**
  * The full tour of the computer app, recorded without a window: every step is a pointer move and a
  * click on what's on screen (found by its words), typing or the wheel — never state set by hand.
  * Light screens are recorded in real time (one frame per 1/30 s of the wall clock), so what really
@@ -85,12 +118,18 @@ data class TourTimeline(
 @OptIn(androidx.compose.ui.InternalComposeUiApi::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
 fun main(args: Array<String>) {
     val dir = File(args[0]).apply { mkdirs() }
+    // Logical size (what the script and the cut think in); drawn at 1.5× for a crisp 1080p.
     val w = 1280
     val h = 820
-    val fps = 30
+    val scale = 1.5f
+    val pw = (w * scale).toInt()
+    val ph = (h * scale).toInt()
+    val fps = 60
     val frameNs = 1_000_000_000L / fps
     val graph = Graph().also { language = "ru" }
-    val engine = graph.player.engine.state as MutableStateFlow<AudioEngine.State>
+    // The app's sound into a file, frame by frame, instead of the sound card.
+    val pcm = ClockedPcm(File(dir, "desk.pcm"), fps)
+    graph.player.engine.output = pcm
     val current = graph.player.state.value.current
     val colors = runBlocking { current?.let { CoverColors.of(graph, it) } } ?: (Vermilion to Color(0xFF2A2A30))
 
@@ -106,14 +145,9 @@ fun main(args: Array<String>) {
         """.trimIndent(),
     )
 
-    // What really plays is recorded from the silent sink, from now on.
-    val captureFile = File(dir, "capture.wav")
-    val capture = ProcessBuilder("parec", "-d", "palimpsest_demo.monitor", "--file-format=wav", "--rate=48000", "--channels=2", captureFile.absolutePath)
-        .redirectErrorStream(true).start()
-    val captureStart = System.nanoTime()
 
     val nav = Nav()
-    val scene = ImageComposeScene(w, h, Density(1f)) {
+    val scene = ImageComposeScene(pw, ph, Density(scale)) {
         setSingletonImageLoaderFactory { ctx ->
             ImageLoader.Builder(ctx)
                 .components { add(OkHttpNetworkFetcherFactory(callFactory = { graph.http })) }
@@ -127,11 +161,11 @@ fun main(args: Array<String>) {
     }
 
     val video = ProcessBuilder(
-        "ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgra", "-s", "${w}x$h", "-framerate", "$fps", "-i", "-",
-        "-c:v", "libx264", "-preset", "veryfast", "-crf", "12", "-pix_fmt", "yuv444p", File(dir, "desk.mkv").absolutePath,
+        "ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgra", "-s", "${pw}x$ph", "-framerate", "$fps", "-i", "-",
+        "-c:v", "libx264", "-preset", "ultrafast", "-crf", "10", "-pix_fmt", "yuv444p", File(dir, "desk.mkv").absolutePath,
     ).redirectErrorStream(true).start()
     val sink = video.outputStream.buffered(1 shl 22)
-    val bitmap = Bitmap().apply { allocN32Pixels(w, h) }
+    val bitmap = Bitmap().apply { allocN32Pixels(pw, ph) }
 
     var clock = 0L
     var frames = 0
@@ -147,46 +181,29 @@ fun main(args: Array<String>) {
     val audio = ArrayList<AudioPart>()
     var caption: Triple<Int, String, String>? = null
 
-    // Real time: each frame waits for its moment on the wall clock; a frame that took too long is
-    // written again so the video never falls behind the sound.
-    var paced = false
-    var pacedFrom = 0L
-    var pacedFrame = 0
-    var fake: Pair<Long, Int>? = null // the big player: engine position from this ms at this frame
+    // Never faster than real time (a station's stream must keep up), never a frame written twice:
+    // a slow frame (the big player) just takes longer — the sound follows the frames, not the clock.
+    val walls = ArrayList<Long>()
+    val begin = System.nanoTime()
+    var lag = 0L
 
-    fun write() {
+    fun frame() {
         val img = scene.render(clock)
         img.readPixels(bitmap)
-        val bytes = bitmap.readPixels()!!
+        sink.write(bitmap.readPixels()!!)
         img.close()
-        var copies = 1
-        if (paced) {
-            val due = pacedFrom + (frames - pacedFrame + 1) * frameNs
-            val now = System.nanoTime()
-            if (now < due) Thread.sleep((due - now) / 1_000_000, ((due - now) % 1_000_000).toInt())
-            else copies += ((now - due) / frameNs).toInt()
-        }
-        repeat(copies) {
-            sink.write(bytes)
-            cursorTrack += floatArrayOf(cursor.x, cursor.y, if (pressed) 1f else 0f)
-            frames++
-            clock += frameNs
-        }
-    }
-    fun frame() {
-        fake?.let { (ms, at) -> engine.value = AudioEngine.State(playing = true, positionMs = ms + (frames - at) * 1000L / fps) }
-        if (!paced) Thread.sleep(6) // real time too, for covers and pages loading in the background
-        write()
+        cursorTrack += floatArrayOf(cursor.x, cursor.y, if (pressed) 1f else 0f)
+        frames++
+        clock += frameNs
+        pcm.tick(frames)
+        val due = begin + lag + frames * frameNs
+        val now = System.nanoTime()
+        if (now < due) Thread.sleep((due - now) / 1_000_000, ((due - now) % 1_000_000).toInt()) else lag += now - due
+        walls += System.nanoTime()
     }
     fun hold(seconds: Double) = repeat((seconds * fps).toInt()) { frame() }
     fun holdUntil(maxSeconds: Double, done: () -> Boolean) { var n = 0; while (!done() && n < maxSeconds * fps) { frame(); n++ } }
 
-    fun realTime(on: Boolean) {
-        if (on == paced) return
-        paced = on
-        if (on) { pacedFrom = System.nanoTime(); pacedFrame = frames }
-    }
-    fun wallOf(frame: Int): Double = (pacedFrom + (frame - pacedFrame) * frameNs - captureStart) / 1e9
 
     fun say(ru: String, en: String = "") {
         caption?.let { (from, r, e) -> if (r.isNotEmpty()) captions += Caption(from, frames, r, e) }
@@ -202,7 +219,7 @@ fun main(args: Array<String>) {
 
     fun pointer(type: PointerEventType, at: Offset, button: PointerButton? = null, down: Boolean = false, scroll: Offset = Offset.Zero) =
         scene.sendPointerEvent(
-            type, at, scrollDelta = scroll, timeMillis = clock / 1_000_000,
+            type, at * scale, scrollDelta = scroll, timeMillis = clock / 1_000_000,
             buttons = if (down) PointerButtons(isPrimaryPressed = button == PointerButton.Primary, isSecondaryPressed = button == PointerButton.Secondary) else PointerButtons(),
             button = button,
         )
@@ -247,7 +264,8 @@ fun main(args: Array<String>) {
         n.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty()
     fun findRect(text: String, lowest: Boolean = false, topOnly: Boolean = false, where: (Rect) -> Boolean = { true }): Rect? {
         for (layer in nodes().reversed().let { if (topOnly) it.take(1) else it }) {
-            val hits = layer.filter { n -> words(n).any { it.equals(text, ignoreCase = true) } }.map { it.boundsInWindow }
+            val hits = layer.filter { n -> words(n).any { it.equals(text, ignoreCase = true) } }
+                .map { it.boundsInWindow.let { b -> Rect(b.left / scale, b.top / scale, b.right / scale, b.bottom / scale) } }
                 .filter { it.width > 0f && it.height > 0f && where(it) && it.center.y in 0f..h.toFloat() && it.center.x in 0f..w.toFloat() }
             if (hits.isNotEmpty()) return if (lowest) hits.maxBy { it.top } else hits.minBy { it.top }
         }
@@ -274,6 +292,8 @@ fun main(args: Array<String>) {
     chapter("Palimpsest", "Palimpsest", "Музыкальный плеер для компьютера и телефона", "A music player for the computer and the phone", 3.0)
 
     chapter("Медиатека", "The library", "Свои файлы — прежде всего; сервисы — когда не хватает", "Your files first; services fill the gaps")
+    // The music starts for real, from where it was: the play button in the bar.
+    press(Offset(640f, 773f), 0.8); holdUntil(8.0) { graph.player.state.value.playing }
     say("Таблица треков: наведение, сортировка по колонкам", "The track table: hover, sort by any column")
     move(700, 300, 0.7); move(700, 380, 0.5); move(700, 480, 0.6); hold(0.3)
     clickOn("Исполнитель", where = { page(it) && it.center.y < 260f }); hold(1.2)
@@ -288,11 +308,6 @@ fun main(args: Array<String>) {
     clickOn("Медиатека", where = top); hold(0.4)
 
     chapter("Большой плеер", "The big player", "Текст поётся вместе с песней", "Lyrics sung along with the song")
-    // Drawn frame by frame: the engine is told a position that moves with the video's clock, and
-    // the cut puts the file's sound from that same second under it.
-    val lyricsFrom = 41_000L
-    fake = lyricsFrom to frames
-    val fakeStart = frames
     press(barCover, 0.8)
     say("Строка заполняется, пока её поют; клик по строке — перемотка", "The sung line fills as it's sung; click a line to jump there")
     hold(1.2)
@@ -302,22 +317,21 @@ fun main(args: Array<String>) {
     clickOn("Текст", where = bar); hold(2.2)
     clickOn("Текст", where = bar); hold(1.0)
     press(barCover, 0.6); hold(1.0)
-    current?.path?.let { audio += AudioPart(fakeStart, frames, it, lyricsFrom / 1000.0) }
-    fake = null
-    graph.player.engine.stop()
-
-    // From here on, real time: what plays is really playing, and is heard.
-    realTime(true)
-    var liveFrom = frames
 
     // --- With the phone, side by side ---
     chapter("Телефон ↔ компьютер", "Phone ↔ computer", "Музыка переезжает с той же секунды", "The music moves over from the same second")
-    // The song from the big player, really playing now, from where it was.
-    press(Offset(641f, 754f), 0.7); holdUntil(10.0) { graph.player.state.value.playing }; hold(1.0)
     holdUntil(40.0) { graph.handoff.online.value }
     layout("side"); hold(1.2)
-    val phoneFile = "handoff.mp4"
-    adb("shell", "screenrecord", "--bit-rate", "8000000", "--time-limit", "90", "/sdcard/$phoneFile")
+    // The phone's screen and its own sound, recorded together at 60 fps.
+    val phoneFile = "handoff.mkv"
+    val scr = ProcessBuilder(
+        // Unbuffered, or «Recording started» only shows when scrcpy exits.
+        "stdbuf", "-o0", "-e0", "scrcpy", "--no-playback", "--no-window", "--audio-source=playback", "--max-fps=60", "--video-bit-rate=16M",
+        "--record=" + File(dir, phoneFile).absolutePath,
+    ).redirectErrorStream(true).start()
+    var recStart = 0L
+    kotlin.concurrent.thread(isDaemon = true) { scr.inputStream.bufferedReader().forEachLine { if ("Recording started" in it && recStart == 0L) recStart = System.nanoTime() } }
+    holdUntil(15.0) { recStart != 0L }
     val recFrom = frames
     hold(1.0)
     say("Кнопка с телефоном — «Передать на телефон»", "The phone button — «Send to the phone»")
@@ -336,7 +350,9 @@ fun main(args: Array<String>) {
     say("А с компьютера — «Забрать с телефона»", "And from the computer — «Take from the phone»")
     clickOn("Музыка на телефон и обратно", where = bar); hold(0.5)
     clickOn("Забрать с телефона"); hold(5.0)
-    phoneClips += PhoneClip(phoneFile, recFrom, frames, 0.6)
+    phoneClips += PhoneClip(phoneFile, recFrom, frames, (walls[recFrom - 1] - recStart) / 1e9)
+    ProcessBuilder("kill", "-INT", scr.pid().toString()).start().waitFor()
+    scr.waitFor(15, java.util.concurrent.TimeUnit.SECONDS)
     layout("desk"); hold(1.2)
 
 
@@ -363,19 +379,15 @@ fun main(args: Array<String>) {
     say("«Текст» — слова этой песни", "«Lyrics» — the words of that song")
     clickOn("Текст", where = bar)
     // Until the words are there (or it's clear there are none).
-    holdUntil(10.0) { nodes().flatten().count { n -> n.boundsInWindow.left > 880f && words(n).isNotEmpty() } > 8 || findRect("Текста этой песни не нашлось") != null }
+    holdUntil(10.0) { nodes().flatten().count { n -> n.boundsInWindow.left / scale > 880f && words(n).isNotEmpty() } > 8 || findRect("Текста этой песни не нашлось") != null }
     hold(0.5); look(Rect(880f, 40f, 1280f, 720f)); hold(4.0); look(null); hold(0.5)
     clickOn("Текст", where = bar); hold(0.6)
-    audio += AudioPart(liveFrom, frames, captureFile.name, wallOf(liveFrom))
-
     // The phone's own part goes here in the cut.
     val phonePartAt = frames
-    liveFrom = frames
-
     chapter("И ещё", "And also", "История, настройки, темы и стили", "History, settings, themes and styles")
     say("История прослушиваний", "Listening history")
     clickOn("История", where = sidebar); hold(1.0); move(700, 500, 0.5); wheel(4f, 6); hold(0.6)
-    say("Настройки по разделам; горячие клавиши как в Яндекс Музыке", "Settings by section; shortcuts like Yandex Music's")
+    say("Настройки по разделам; горячие клавиши — любые переназначаются", "Settings by section; every shortcut can be changed")
     clickOn("Настройки", where = sidebar); hold(0.8)
     clickOn("Горячие клавиши", where = page); hold(1.8)
     say("Светлая тема", "A light theme")
@@ -388,15 +400,15 @@ fun main(args: Array<String>) {
     clickOn("Настройки", where = sidebar); hold(0.6)
     clickOn("Оформление", where = page); hold(0.4)
     clickOn("Palimpsest", where = page); hold(0.8)
-    audio += AudioPart(liveFrom, frames, captureFile.name, wallOf(liveFrom))
-    realTime(false)
     chapter("Palimpsest 0.6", "Palimpsest 0.6", "github.com/xvin84/palimpsest", "github.com/xvin84/palimpsest", 3.0)
     say("")
 
     sink.flush(); sink.close()
     video.waitFor()
-    capture.destroy()
-    adb("pull", "/sdcard/$phoneFile", File(dir, phoneFile).absolutePath).waitFor()
+    graph.player.engine.stop()
+    pcm.close()
+    audio += AudioPart(0, frames, "desk.pcm", 0.0)
+    println("tour: drawing fell behind real time by ${lag / 1_000_000_000} s in all")
     val timeline = TourTimeline(fps, w, h, cursorTrack, clicks, captions, chapters, camera, layouts, phoneClips, audio, phonePartAt)
     File(dir, "desk.json").writeText(Http.json.encodeToString(TourTimeline.serializer(), timeline))
     println("tour: $frames frames, ${frames / fps} s → $dir")

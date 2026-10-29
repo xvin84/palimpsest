@@ -20,6 +20,13 @@ import kotlin.concurrent.thread
 class AudioEngine {
     data class State(val file: File? = null, val playing: Boolean = false, val positionMs: Long = 0, val ended: Boolean = false, val error: String? = null)
 
+    /**
+     * For recordings (the video tour): the sound goes here instead of the sound card, and as fast
+     * as [Output.write] takes it — the recorder paces it to its own frames.
+     */
+    fun interface Output { fun write(bytes: ByteArray, length: Int) }
+    @Volatile var output: Output? = null
+
     /** 0..1, applied after the EQ and ReplayGain. */
     @Volatile var volume: Float = 1f
 
@@ -68,13 +75,13 @@ class AudioEngine {
         startMs = fromMs
         framesWritten = 0
         val fmt = AudioFormat(RATE.toFloat(), 16, CHANNELS, true, false)
-        val l = AudioSystem.getSourceDataLine(fmt).apply { open(fmt, RATE * 4 / 5); start() } // ~200 ms buffer
+        val l = if (output != null) null else AudioSystem.getSourceDataLine(fmt).apply { open(fmt, RATE * 4 / 5); start() } // ~200 ms buffer
         line = l
         val p = try {
             ProcessBuilder(listOf(ffmpeg, "-v", "quiet") + input + listOf("-vn", "-f", "s16le", "-ac", "$CHANNELS", "-ar", "$RATE", "-"))
                 .redirectErrorStream(false).start()
         } catch (e: java.io.IOException) {
-            l.close(); line = null
+            l?.close(); line = null
             _state.value = State(file, error = "ffmpeg not found")
             return
         }
@@ -100,7 +107,7 @@ class AudioEngine {
     /** True while a stream with no end plays (nothing to seek, resuming means rejoining it live). */
     val isLive: Boolean get() = stream != null
 
-    private fun pump(gen: Int, input: InputStream, l: SourceDataLine) {
+    private fun pump(gen: Int, input: InputStream, l: SourceDataLine?) {
         val bytes = ByteArray(4096 * 4)
         val floats = FloatArray(4096 * 2)
         try {
@@ -136,12 +143,12 @@ class AudioEngine {
                     bytes[2 * i] = v.toByte(); bytes[2 * i + 1] = (v shr 8).toByte()
                 }
                 if (gen != generation) break
-                l.write(bytes, 0, samples * 2)
+                output?.write(bytes, samples * 2) ?: l?.write(bytes, 0, samples * 2)
                 framesWritten += frames
                 _state.value = _state.value.copy(positionMs = position())
             }
             if (gen == generation) {
-                l.drain()
+                l?.drain()
                 endCount++
                 _state.value = _state.value.copy(playing = false, ended = true)
             }
