@@ -386,6 +386,7 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
             // Music moving between the phone and the computer flies over everything.
             dev.xvin.palimpsest.ui.components.HandoffOverlay()
             dev.xvin.palimpsest.ui.components.HandoffSwipeHint()
+            dev.xvin.palimpsest.ui.components.HandoffRefusal()
             actionsFor?.let { t -> TrackActionsSheet(t, onDismiss = { actionsFor = null }) }
             errorShown?.let { info -> dev.xvin.palimpsest.ui.components.ErrorSheet(info, onDismiss = { errorShown = null }) }
         }

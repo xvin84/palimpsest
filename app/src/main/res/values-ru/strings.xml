@@ -311,6 +311,9 @@
     <string name="handoff_take_back">Вернуть</string>
     <string name="handoff_pull_hint">То, что играет на компьютере, переедет на телефон с той же секунды</string>
     <string name="handoff_unreachable">«%1$s» не на связи — открыт ли там Palimpsest, в той же Wi-Fi-сети?</string>
+    <string name="handoff_offline">«%1$s» не на связи</string>
+    <string name="handoff_nothing_here">Здесь ничего не играет</string>
+    <string name="handoff_nothing_there">На компьютере ничего не играет</string>
     <string name="handoff_swipe_up">На компьютер</string>
     <string name="handoff_swipe_down">С компьютера</string>
     <string name="iradio_title">Интернет-радио</string>

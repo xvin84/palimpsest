@@ -71,8 +71,8 @@ fun HandoffButton(tint: Color) {
         IconButton(onClick = {
             if (reachable) menu = true
             else {
-                // Out of reach: say what to do, and look again right away.
-                nav.toast(tr(R.string.handoff_unreachable, p.name))
+                // Out of reach: the computer shakes its head, and is looked for again right away.
+                refusal.value = Refusal(Refusal.Kind.UNREACHABLE, System.nanoTime())
                 graph.lanServer.helloNow()
             }
         }, enabled = !busy) {
@@ -89,14 +89,85 @@ fun HandoffButton(tint: Color) {
     }
 }
 
-suspend fun sendToComputer(graph: dev.xvin.palimpsest.AppGraph, nav: dev.xvin.palimpsest.ui.AppNav) {
+suspend fun sendToComputer(graph: dev.xvin.palimpsest.AppGraph, nav: dev.xvin.palimpsest.ui.AppNav, fromGesture: Boolean = false) {
     graph.handoff.send()
-        .onSuccess { nav.toast(tr(R.string.handoff_playing_on, graph.lanSync.pairing.value?.name.orEmpty()), tr(R.string.handoff_take_back)) { graph.appScope.launch { takeFromComputer(graph, nav) } } }
-        .onFailure { nav.error(it, tr(R.string.handoff_ctx)) }
+        .onSuccess {
+            // The flight already says it; the gesture leaves nothing else behind.
+            if (!fromGesture) nav.toast(tr(R.string.handoff_playing_on, graph.lanSync.pairing.value?.name.orEmpty()), tr(R.string.handoff_take_back)) { graph.appScope.launch { takeFromComputer(graph, nav) } }
+        }
+        .onFailure { notHandedOver(graph, nav, it, here = true) }
 }
 
 suspend fun takeFromComputer(graph: dev.xvin.palimpsest.AppGraph, nav: dev.xvin.palimpsest.ui.AppNav) {
-    graph.handoff.pull().onFailure { nav.error(it, tr(R.string.handoff_ctx)) }
+    graph.handoff.pull().onFailure { notHandedOver(graph, nav, it, here = false) }
+}
+
+/** Why nothing moved — shown as the computer shaking at the top, not an error sheet, when it's the usual reasons. */
+private fun notHandedOver(graph: dev.xvin.palimpsest.AppGraph, nav: dev.xvin.palimpsest.ui.AppNav, e: Throwable, here: Boolean) {
+    when {
+        e is java.io.IOException -> { refusal.value = Refusal(Refusal.Kind.UNREACHABLE, System.nanoTime()); graph.lanServer.helloNow() }
+        e.message?.startsWith("nothing is playing") == true ->
+            refusal.value = Refusal(if (here) Refusal.Kind.NOTHING_HERE else Refusal.Kind.NOTHING_THERE, System.nanoTime())
+        else -> nav.error(e, tr(R.string.handoff_ctx))
+    }
+}
+
+/** A handover that couldn't happen, for [HandoffRefusal] to show. */
+private data class Refusal(val kind: Kind, val at: Long) {
+    enum class Kind { UNREACHABLE, NOTHING_HERE, NOTHING_THERE }
+}
+
+private val refusal = androidx.compose.runtime.mutableStateOf<Refusal?>(null)
+
+/**
+ * The computer at the top shakes its head: crossed out when it can't be reached, plain when it's
+ * there but there's nothing to move. With a tick of the vibration; gone by itself.
+ */
+@Composable
+fun HandoffRefusal() {
+    val r = refusal.value ?: return
+    val graph = LocalGraph.current
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val t = remember(r.at) { Animatable(0f) }
+    LaunchedEffect(r.at) {
+        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+        t.animateTo(1f, tween(1900, easing = androidx.compose.animation.core.LinearEasing))
+        if (refusal.value?.at == r.at) refusal.value = null
+    }
+    val p = t.value
+    val show = (p / 0.12f).coerceIn(0f, 1f) * (1f - ((p - 0.82f) / 0.18f).coerceIn(0f, 1f))
+    // A head-shake: quick at first, settling.
+    val shake = sin(p * 46f) * (1f - (p / 0.55f).coerceIn(0f, 1f))
+    val crossed = r.kind == Refusal.Kind.UNREACHABLE
+    val slash = ((p - 0.18f) / 0.25f).coerceIn(0f, 1f)
+    val red = Color(0xFFE5484D)
+    Column(
+        Modifier.fillMaxSize().statusBarsPadding().padding(top = 28.dp).graphicsLayer { alpha = show },
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            Modifier.size(64.dp).graphicsLayer { translationX = shake * 14.dp.toPx() }
+                .clip(CircleShape).background(Color.Black.copy(alpha = 0.6f))
+                .border(1.5.dp, (if (crossed) red else Color.White).copy(alpha = 0.7f), CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Rounded.Computer, null, tint = Color.White.copy(alpha = if (crossed) 0.6f else 1f), modifier = Modifier.size(30.dp))
+            if (crossed) androidx.compose.foundation.Canvas(Modifier.size(40.dp)) {
+                val a = androidx.compose.ui.geometry.Offset(size.width * 0.12f, size.height * 0.12f)
+                val b = androidx.compose.ui.geometry.Offset(size.width * 0.88f, size.height * 0.88f)
+                drawLine(red, a, a + (b - a) * slash, strokeWidth = 3.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            }
+        }
+        Text(
+            when (r.kind) {
+                Refusal.Kind.UNREACHABLE -> tr(R.string.handoff_offline, graph.lanSync.pairing.value?.name.orEmpty())
+                Refusal.Kind.NOTHING_HERE -> tr(R.string.handoff_nothing_here)
+                Refusal.Kind.NOTHING_THERE -> tr(R.string.handoff_nothing_there)
+            },
+            color = Color.White, style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(top = 10.dp).clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.6f)).padding(horizontal = 14.dp, vertical = 6.dp),
+        )
+    }
 }
 
 private val Lift = CubicBezierEasing(0.4f, 0f, 0.2f, 1f)
@@ -255,11 +326,15 @@ fun Modifier.handoffSwipe(): Modifier {
             while (true) {
                 val ev = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
                 val down = ev.changes.filter { it.pressed }
+                // Once a second finger has come, the whole touch is the gesture's — to the last finger
+                // lifted — so nothing under it is pressed, scrolled or dragged.
+                if (start != null) ev.changes.forEach { it.consume() }
                 if (down.isEmpty()) break
-                if (down.size < 2 || graph.lanSync.pairing.value == null) continue
+                if (start == null && (down.size < 2 || graph.lanSync.pairing.value == null)) continue
+                ev.changes.forEach { it.consume() }
+                if (down.size < 2) continue
                 val y = down.take(2).map { it.position.y }.average().toFloat()
                 val from = start ?: y.also { start = it }
-                ev.changes.forEach { it.consume() }
                 if (fired) continue
                 val p = ((y - from) / distance).coerceIn(-1f, 1f)
                 swipeProgress.floatValue = p
@@ -270,10 +345,10 @@ fun Modifier.handoffSwipe(): Modifier {
                     scope.launch {
                         when {
                             !graph.handoff.reachable.value -> {
-                                nav.toast(tr(R.string.handoff_unreachable, graph.lanSync.pairing.value?.name.orEmpty()))
+                                refusal.value = Refusal(Refusal.Kind.UNREACHABLE, System.nanoTime())
                                 graph.lanServer.helloNow()
                             }
-                            up -> sendToComputer(graph, nav)
+                            up -> sendToComputer(graph, nav, fromGesture = true)
                             else -> takeFromComputer(graph, nav)
                         }
                     }
