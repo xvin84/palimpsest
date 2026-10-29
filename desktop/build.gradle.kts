@@ -49,6 +49,23 @@ tasks.register<JavaExec>("demo") {
     )
 }
 
+// The full tour, recorded without a window (see src/test/.../Tour.kt and TourCut.kt).
+tasks.register<JavaExec>("tour") {
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass = "dev.xvin.palimpsest.desktop.tour.TourKt"
+    jvmArgs("-Dfile.encoding=UTF-8", "-Xmx3g", "-Dpalimpsest.lanPort=" + providers.gradleProperty("lanPort").getOrElse("47833"))
+    args(providers.gradleProperty("out").getOrElse(layout.buildDirectory.dir("tour").get().asFile.path))
+}
+tasks.register<JavaExec>("tourCut") {
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass = "dev.xvin.palimpsest.desktop.tour.TourCutKt"
+    jvmArgs("-Dfile.encoding=UTF-8", "-Xmx3g")
+    args(
+        providers.gradleProperty("out").getOrElse(layout.buildDirectory.dir("tour").get().asFile.path),
+        providers.gradleProperty("phone").getOrElse(layout.buildDirectory.dir("tour-phone").get().asFile.path),
+    )
+}
+
 val appVersion = providers.provider {
     // One version for the whole app: taken from the Android build.
     Regex("""versionName = "([^"]+)"""").find(rootProject.file("app/build.gradle.kts").readText())!!.groupValues[1]
