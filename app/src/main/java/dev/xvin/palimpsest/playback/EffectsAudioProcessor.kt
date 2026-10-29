@@ -19,6 +19,21 @@ class AudioEffects {
 
     /** The analyzer only runs while some visualiser is on screen. */
     @Volatile var analyzerActive = false
+
+    /**
+     * A fade over everything else, glided sample by sample in the audio chain (stepping the
+     * player's volume instead is heard as a flutter): where it's going and how long 0→1 takes.
+     */
+    @Volatile var fadeTarget = 1f
+        private set
+    @Volatile var fadeMs = 1L
+        private set
+    @Volatile internal var fadeSnap = false
+
+    fun fadeTo(target: Float, ms: Long) { fadeMs = ms.coerceAtLeast(1); fadeTarget = target.coerceIn(0f, 1f) }
+
+    /** Straight to [value], with no glide (before a fade-in starts from silence). */
+    fun fadeSet(value: Float) { fadeTarget = value.coerceIn(0f, 1f); fadeSnap = true }
 }
 
 /**
@@ -29,6 +44,7 @@ class AudioEffects {
 @UnstableApi
 class EffectsAudioProcessor(private val fx: AudioEffects) : BaseAudioProcessor() {
     private var floatBuf = FloatArray(0)
+    private var fade = 1f
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
         if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT && inputAudioFormat.encoding != C.ENCODING_PCM_FLOAT) {
@@ -51,9 +67,12 @@ class EffectsAudioProcessor(private val fx: AudioEffects) : BaseAudioProcessor()
         val eq = fx.equalizer
         val needEq = !eq.isTransparent
         val needTap = fx.analyzerActive
+        if (fx.fadeSnap) { fx.fadeSnap = false; fade = fx.fadeTarget }
+        val target = fx.fadeTarget
+        val needFade = fade != target || target < 0.9999f
 
         val out = replaceOutputBuffer(remaining)
-        if (!needEq && !needTap) {
+        if (!needEq && !needTap && !needFade) {
             out.put(inputBuffer)
             out.flip()
             return
@@ -67,6 +86,15 @@ class EffectsAudioProcessor(private val fx: AudioEffects) : BaseAudioProcessor()
             for (i in 0 until samples) buf[i] = src.getFloat()
         }
         if (needEq) eq.process(buf, frames)
+        if (needFade) {
+            // Linear in the gain's square root, squared: loudness follows the ear, not the meter.
+            val step = 1000f / (fx.fadeMs * fmt.sampleRate)
+            for (f in 0 until frames) {
+                fade = if (fade < target) minOf(target, fade + step) else maxOf(target, fade - step)
+                val g = fade * fade
+                for (c in 0 until ch) buf[f * ch + c] *= g
+            }
+        }
         if (needTap) fx.spectrum.push(buf, frames, ch)
         if (is16) {
             for (i in 0 until samples) {

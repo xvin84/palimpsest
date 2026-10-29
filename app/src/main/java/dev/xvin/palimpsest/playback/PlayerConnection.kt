@@ -65,6 +65,8 @@ class PlayerConnection(
     private val savedQueue: suspend () -> SavedQueue?,
     /** Whether a track can play with no network (a local file or a fully cached stream). */
     private val offlinePlayable: (TrackEntity) -> Boolean = { true },
+    /** The audio chain's effects: handoff fades glide there, sample by sample. */
+    private val effects: AudioEffects? = null,
 ) {
     private var controller: MediaController? = null
     private var connecting: Job? = null
@@ -256,7 +258,8 @@ class PlayerConnection(
             val c = ctrl()
             fadeJob?.cancel()
             c.shuffleModeEnabled = false
-            c.volume = if (playing) 0f else 1f
+            c.volume = 1f
+            effects?.fadeSet(if (playing) 0f else 1f)
             c.setMediaItems(ids.map(::bare), index.coerceIn(0, ids.lastIndex), positionMs)
             c.prepare()
             if (!playing) return@launch
@@ -264,14 +267,7 @@ class PlayerConnection(
             fadeJob = scope.launch {
                 // A stream takes a moment to start: rise from when it actually sounds.
                 kotlinx.coroutines.withTimeoutOrNull(20_000) { while (!c.isPlaying) delay(40) }
-                val steps = 36
-                for (i in 1..steps) {
-                    // Ease in: loudness is logarithmic, a straight ramp sounds like a jump at the start.
-                    val x = i.toFloat() / steps
-                    c.volume = x * x
-                    delay(dev.xvin.palimpsest.core.sync.HandoffConst.FADE_IN_MS / steps)
-                }
-                c.volume = 1f
+                effects?.fadeTo(1f, dev.xvin.palimpsest.core.sync.HandoffConst.FADE_IN_MS) ?: run { c.volume = 1f }
             }
         }
     }
@@ -281,14 +277,16 @@ class PlayerConnection(
         val c = ctrl()
         fadeJob?.cancel()
         if (c.isPlaying) {
-            val from = c.volume
-            val steps = 20
-            for (i in 1..steps) {
-                c.volume = from * (1f - i.toFloat() / steps)
-                delay(dev.xvin.palimpsest.core.sync.HandoffConst.FADE_OUT_MS / steps)
+            val fx = effects
+            if (fx != null) {
+                fx.fadeTo(0f, dev.xvin.palimpsest.core.sync.HandoffConst.FADE_OUT_MS)
+                // What's already in the output buffer still has to play out before the silence is heard.
+                delay(dev.xvin.palimpsest.core.sync.HandoffConst.FADE_OUT_MS + 400)
             }
             c.pause()
+            delay(150)
         }
+        effects?.fadeSet(1f)
         c.volume = 1f
     }
 

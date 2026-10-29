@@ -38,6 +38,7 @@ class AudioEngine {
     @Volatile private var worker: Thread? = null
     @Volatile private var generation = 0
     @Volatile private var paused = false
+    private var gain = 1f
     @Volatile private var framesWritten = 0L
     private var startMs = 0L
 
@@ -119,8 +120,17 @@ class AudioEngine {
                 val frames = samples / CHANNELS
                 if (!equalizer.isTransparent) equalizer.process(floats, frames)
                 spectrum.push(floats, frames, CHANNELS)
-                val v = volume
-                if (v < 0.999f) for (i in 0 until samples) floats[i] *= v * v
+                // The gain glides from the last block's to this one's, sample by sample: a fade stepped
+                // once a block (~46 ms) is heard as a flutter.
+                val target = volume.let { it * it }
+                if (target < 0.999f || gain < 0.999f) {
+                    val from = gain
+                    for (f in 0 until frames) {
+                        val g = from + (target - from) * (f + 1) / frames
+                        for (c in 0 until CHANNELS) floats[f * CHANNELS + c] *= g
+                    }
+                }
+                gain = target
                 for (i in 0 until samples) {
                     val v = (floats[i] * 32767f).toInt().coerceIn(-32768, 32767)
                     bytes[2 * i] = v.toByte(); bytes[2 * i + 1] = (v shr 8).toByte()
