@@ -562,7 +562,7 @@ private fun settingItems(s: DesktopSettings): List<Item> {
 
     // --- Network ---
     val proxyTitle = t("Прокси", "Proxy")
-    val proxyHint = t("Только для YouTube, Spotify, Bandcamp и баз обложек (например 127.0.0.1:10808 или socks://host:port). Яндекс ходит напрямую.", "Only for YouTube, Spotify, Bandcamp and cover databases (e.g. 127.0.0.1:10808 or socks://host:port). Yandex goes direct.")
+    val proxyHint = t("Только для YouTube, Spotify, Bandcamp, баз обложек и каталога радио (например 127.0.0.1:10808 или socks://host:port). Яндекс ходит напрямую.", "Only for YouTube, Spotify, Bandcamp, cover databases and the radio catalog (e.g. 127.0.0.1:10808 or socks://host:port). Yandex goes direct.")
     add(Category.NETWORK, proxyTitle, proxyHint, "proxy vpn socks youtube прокси") {
         var proxy by remember(s.proxy) { mutableStateOf(s.proxy.orEmpty()) }
         Setting(proxyTitle, proxyHint) {

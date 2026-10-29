@@ -391,7 +391,7 @@
     <string name="settings_listenbrainz_token">Токен ListenBrainz</string>
     <string name="settings_music_folders">Папки с музыкой</string>
     <string name="settings_network">Сеть</string>
-    <string name="settings_proxy_hint">Прокси только для YouTube, Spotify и Bandcamp (например, 127.0.0.1:10808 или socks://host:port). Яндекс и остальное ходят напрямую.</string>
+    <string name="settings_proxy_hint">Прокси только для YouTube, Spotify, Bandcamp и каталога радио (например, 127.0.0.1:10808 или socks://host:port). Яндекс и остальное ходят напрямую.</string>
     <string name="settings_quality">Качество</string>
     <string name="settings_refresh_library">Обновить медиатеку</string>
     <string name="settings_replaygain">Выравнивание громкости (ReplayGain)</string>

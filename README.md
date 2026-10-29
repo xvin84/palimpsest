@@ -20,6 +20,11 @@ download lands in your music folder as a properly tagged file.
   <img src="docs/screenshots/desktop-player-en.png" width="49%" alt="Computer: the big player with lyrics">
   <img src="docs/screenshots/desktop-menu-en.png" width="49%" alt="Computer: the library and a track's menu">
 </p>
+<p>
+  <img src="docs/demo/phone.gif" width="24%" alt="Phone: internet radio, then the music arriving from the computer and going back">
+  <img src="docs/demo/desktop-en.gif" width="73%" alt="Computer: internet radio, My Wave's sources, the music going to the phone and coming back">
+</p>
+<p>Demo videos: <a href="docs/demo/phone.mp4">phone</a> · <a href="docs/demo/desktop-en.mp4">computer</a></p>
 
 ## Features
 
@@ -58,10 +63,18 @@ download lands in your music folder as a properly tagged file.
 - **Yandex Music**: sign-in with a device code, likes, playlists, search, lossless streaming, downloads with tags,
   covers and synced lyrics; liked tracks download right away. **My Wave** (with mood/character/language tuning and
   activity stations), radio by track or artist, artist pages, albums, similar tracks, new release notifications.
+  The wave carries on after a restart and never repeats a song; **«Shake up the wave»** starts a fresh one when it
+  keeps circling the same few.
 - **YouTube Music**: no account needed — search, streaming, downloads (M4A with tags).
 - **Bandcamp**: search, artists, albums, streaming and downloads.
 - **Spotify**: playlists and albums are imported by link and matched on Yandex or YouTube.
-- The proxy setting applies only to YouTube, Spotify, Bandcamp and the cover databases; everything else goes direct.
+- **My Wave from more places**: YouTube Music's endless mix started from your favourite songs, Bandcamp by genre
+  (a song from each of the genre's top albums), or a mixed wave of your own files, Yandex, YouTube and Bandcamp in the
+  shares you set.
+- **Internet radio**: ~50 000 stations from the open Radio Browser catalog — search, genres, the country's most
+  listened — starred and recent ones, or any stream or `.m3u`/`.pls` by its link. What's on air shows as the song,
+  in the notification too.
+- The proxy setting applies only to YouTube, Spotify, Bandcamp, the cover databases and the radio catalog; everything else goes direct.
 - Offline wave: a mix of your downloads when there's no network — with moods (calm, energetic, focus, sad) from an
   analysis of the tracks themselves (tempo, key, energy) and smooth transitions.
 - Yandex Music, YouTube and Bandcamp links open right in the app.
@@ -75,6 +88,12 @@ download lands in your music folder as a properly tagged file.
   <img src="docs/screenshots/video-cover.png" width="73%" alt="Cover video frame">
 </p>
 
+**Phone ↔ computer**
+- **Move the music** to the other device and back from the player: the queue, the second it's at and the wave travel
+  along. The cover flies off to the other device and lands there, the music fades out on one side and in on the
+  other. Songs one side doesn't have stream from the other over Wi-Fi, the same file.
+- **Sync** likes, playlists and history over the local network, paired once with a six-digit code.
+
 **On the computer**
 - The same library, Yandex Music, YouTube Music, Bandcamp, lyrics and downloads; the window adapts from half a screen
   to full screen, with a big player showing the lyrics and the spectrum.
@@ -83,10 +102,9 @@ download lands in your music folder as a properly tagged file.
 - **«Upgrade to FLAC»**: pick folders and FLAC versions are found for the MP3/AAC files; listen to the old and the new
   file from the same second and decide.
 - **Video from a track**, as on the phone: the cover or the lyrics, 9:16 or 16:9, up to 1440p at 60 fps.
-- **My Wave one click away** in the sidebar, tuned by character, mood and language.
+- **My Wave one click away** in the sidebar, from Yandex, YouTube Music, Bandcamp or all mixed; **Radio** next to it.
 - **Keyboard shortcuts like Yandex Music** (K, J/L, N/P, F/D, R, S, M, W…), any of them can be changed in Settings.
 - A tray icon (closing the window keeps the music going), media keys and the system's player controls (MPRIS on Linux).
-- **Sync with the phone** over the local network: likes, playlists and history, paired with a six-digit code.
 
 **And also**
 - History, most played, Wrapped-style yearly stories, a «now listening» share card (or the file itself), ListenBrainz scrobbling.

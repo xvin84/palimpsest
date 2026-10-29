@@ -2,6 +2,29 @@
 
 **English** | [Русский](CHANGELOG.ru.md)
 
+## 0.6.0 — not released yet
+
+### New
+- **Music moves between the phone and the computer.** «Send to the computer / phone» and «Take from…» in the player
+  carry the queue, the second it's at and the wave on. The cover flies off — sparks behind it, a dotted beam to the
+  other device — and lands there with a ripple; the music fades out on one side and in on the other. Songs one side
+  doesn't have play from the other over Wi-Fi, the same file, seeking included.
+- **Internet radio** on both: ~50 000 stations from the Radio Browser catalog (search, genres, the country's most
+  listened), starred and recent ones, any stream or `.m3u`/`.pls` by its link. What's on air shows as the song, in the
+  notification too. Plain-http stations play, HLS ones too.
+- **My Wave from more places**: YouTube Music's endless mix started from your favourite songs, Bandcamp by genre, or a
+  mixed wave of your own files, Yandex, YouTube and Bandcamp in the shares you set (My Wave → tune → Source).
+- **«Shake up the wave»** — the round arrow in the player while a wave plays (and on the My Wave card): a fresh session
+  that avoids everything already heard, starting now.
+
+### Fixed
+- The wave **went round in circles** after a restart: the last batch came back as an ordinary queue and looped. Now the
+  station is saved with the queue and carries on, never repeating a song (it remembers the last 400).
+- The wave **stopped** when Yandex quietly dropped its session or a batch failed — now it opens a new one and retries.
+- Computer: the wave didn't tell Yandex what was heard and skipped, so it never adapted; now it does.
+- Computer: a track whose download broke off (or was still downloading for «next») could play cut short or fail —
+  every time, even after a restart. Half-downloaded files are never played now.
+
 ## 0.5.1 — 2026-10-28
 
 ### Fixed
