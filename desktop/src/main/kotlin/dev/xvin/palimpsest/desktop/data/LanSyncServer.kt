@@ -42,6 +42,9 @@ class LanSyncServer(private val graph: Graph) {
     private var wrongCodes = 0
     val name: String = runCatching { InetAddress.getLocalHost().hostName }.getOrDefault("Palimpsest")
 
+    /** Where it listens; `-Dpalimpsest.lanPort=…` moves it, so a second copy (a demo recording, tests) can run beside the real one. */
+    val port: Int = System.getProperty("palimpsest.lanPort")?.toIntOrNull() ?: LanSync.PORT
+
     private fun newCode() = "%06d".format(random.nextInt(1_000_000))
 
     @Synchronized
@@ -53,13 +56,13 @@ class LanSyncServer(private val graph: Graph) {
             _status.value = LanStatus()
             return
         }
-        val socket = runCatching { ServerSocket(LanSync.PORT) }.getOrElse {
+        val socket = runCatching { ServerSocket(port) }.getOrElse {
             _status.value = LanStatus(error = it.message); return
         }
         server = socket
         _status.value = LanStatus(running = true, code = newCode())
         job = graph.scope.launch(Dispatchers.IO) {
-            launch { while (isActive) { runCatching { LanTransport.announce(LanSync.PORT, name) }; delay(2_000) } }
+            launch { while (isActive) { runCatching { LanTransport.announce(port, name) }; delay(2_000) } }
             while (isActive) {
                 val client = runCatching { socket.accept() }.getOrNull() ?: break
                 launch { LanTransport.serve(client, ::answer) }

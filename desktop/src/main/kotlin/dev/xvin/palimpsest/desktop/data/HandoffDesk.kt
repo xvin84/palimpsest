@@ -83,7 +83,7 @@ class HandoffDesk(private val graph: Graph) {
             positionMs = st.positionMs,
             playing = st.playing,
             station = graph.player.stationSnapshot(),
-            port = LanSync.PORT,
+            port = graph.lanSync.port,
         )
     }
 
