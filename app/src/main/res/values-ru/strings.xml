@@ -913,4 +913,8 @@
     <string name="err_paid_title">Только для купивших</string>
     <string name="err_paid_expl">Исполнитель разрешает слушать этот трек только после покупки на Bandcamp.</string>
     <string name="err_paid_hint">Другие треки альбома часто можно слушать бесплатно.</string>
+    <string name="action_add_to_library">Добавить в медиатеку</string>
+    <string name="action_remove_from_library">Убрать из медиатеки</string>
+    <string name="added_to_library">«%1$s» теперь в медиатеке</string>
+    <string name="removed_from_library">«%1$s» убран из медиатеки (в истории остаётся)</string>
 </resources>

@@ -904,4 +904,8 @@
     <string name="err_paid_title">Only for those who bought it</string>
     <string name="err_paid_expl">The artist lets this track be heard only after buying it on Bandcamp.</string>
     <string name="err_paid_hint">Other tracks of the album are often free to listen to.</string>
+    <string name="action_add_to_library">Add to library</string>
+    <string name="action_remove_from_library">Remove from library</string>
+    <string name="added_to_library">«%1$s» is in the library</string>
+    <string name="removed_from_library">«%1$s» is out of the library (the history keeps it)</string>
 </resources>

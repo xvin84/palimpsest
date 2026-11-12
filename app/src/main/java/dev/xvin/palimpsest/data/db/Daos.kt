@@ -32,12 +32,20 @@ data class TrackPlayStat(val trackId: Long, val plays: Int, val lastPlayed: Long
 
 data class HourRow(val hour: Int, val plays: Int)
 
+/**
+ * What counts as «the library»: files on the phone, favourites, playlist tracks and what was added
+ * on purpose. A song only played from search or a wave still gets a row (history needs one) but
+ * stays out of the lists — before, every song that went by piled up there with no way out.
+ */
+const val IN_LIBRARY = "(path IS NOT NULL OR liked = 1 OR saved = 1 OR id IN (SELECT trackId FROM playlist_entries))"
+const val T_IN_LIBRARY = "(t.path IS NOT NULL OR t.liked = 1 OR t.saved = 1 OR t.id IN (SELECT trackId FROM playlist_entries))"
+
 @Dao
 interface TrackDao {
     @Query("SELECT path FROM tracks WHERE path IS NOT NULL")
     suspend fun allPaths(): List<String>
 
-    @Query("SELECT * FROM tracks ORDER BY title COLLATE NOCASE")
+    @Query("SELECT * FROM tracks WHERE $IN_LIBRARY ORDER BY title COLLATE NOCASE")
     fun observeAll(): Flow<List<TrackEntity>>
 
     @Query("SELECT * FROM tracks WHERE id = :id")
@@ -125,10 +133,13 @@ interface TrackDao {
     @Query("UPDATE tracks SET liked = :liked WHERE id = :id")
     suspend fun setLiked(id: Long, liked: Boolean)
 
+    @Query("UPDATE tracks SET saved = :saved WHERE id = :id")
+    suspend fun setSaved(id: Long, saved: Boolean)
+
     @Query(
         """
         SELECT album, COALESCE(albumArtist, artist) AS artist, MAX(year) AS year, COUNT(*) AS trackCount, MIN(id) AS coverTrackId
-        FROM tracks WHERE album IS NOT NULL AND album != ''
+        FROM tracks WHERE album IS NOT NULL AND album != '' AND $IN_LIBRARY
         GROUP BY album COLLATE NOCASE, COALESCE(albumArtist, artist) COLLATE NOCASE
         ORDER BY artist COLLATE NOCASE, year, album COLLATE NOCASE
         """,
@@ -139,7 +150,7 @@ interface TrackDao {
     @Query("SELECT folder, COUNT(*) AS trackCount FROM tracks WHERE folder IS NOT NULL GROUP BY folder ORDER BY folder COLLATE NOCASE")
     fun observeFolders(): Flow<List<FolderRow>>
 
-    @Query("SELECT * FROM tracks WHERE album = :album COLLATE NOCASE AND COALESCE(albumArtist, artist) = :artist COLLATE NOCASE ORDER BY discNumber, trackNumber, title")
+    @Query("SELECT * FROM tracks WHERE album = :album COLLATE NOCASE AND COALESCE(albumArtist, artist) = :artist COLLATE NOCASE AND $IN_LIBRARY ORDER BY discNumber, trackNumber, title")
     fun observeAlbumTracks(album: String, artist: String): Flow<List<TrackEntity>>
 
 
@@ -157,7 +168,7 @@ interface TrackDao {
     )
     suspend fun search(q: String): List<TrackEntity>
 
-    @Query("SELECT COUNT(*) FROM tracks")
+    @Query("SELECT COUNT(*) FROM tracks WHERE $IN_LIBRARY")
     fun observeCount(): Flow<Int>
 
     @Query("SELECT * FROM tracks")
@@ -185,7 +196,7 @@ interface TrackDao {
     )
     fun observeMostPlayed(): Flow<List<TrackEntity>>
 
-    @Query("SELECT * FROM tracks ORDER BY addedAt DESC LIMIT 50")
+    @Query("SELECT * FROM tracks WHERE $IN_LIBRARY ORDER BY addedAt DESC LIMIT 50")
     fun observeRecentlyAdded(): Flow<List<TrackEntity>>
 
     /** Tracks you used to love (liked or played 3+ times) that haven't been played for :sinceDays days. */
@@ -409,6 +420,7 @@ interface ArtistDao {
         SELECT ta.name AS artist, COUNT(DISTINCT ta.trackId) AS trackCount,
                COUNT(DISTINCT t.album) AS albumCount, MIN(t.id) AS coverTrackId
         FROM track_artists ta JOIN tracks t ON t.id = ta.trackId
+        WHERE $T_IN_LIBRARY
         GROUP BY ta.name COLLATE NOCASE ORDER BY ta.name COLLATE NOCASE
         """,
     )
@@ -417,7 +429,7 @@ interface ArtistDao {
     @Query(
         """
         SELECT t.* FROM tracks t JOIN track_artists ta ON ta.trackId = t.id
-        WHERE ta.name = :name COLLATE NOCASE
+        WHERE ta.name = :name COLLATE NOCASE AND $T_IN_LIBRARY
         ORDER BY t.year DESC, t.album, t.trackNumber, t.title
         """,
     )

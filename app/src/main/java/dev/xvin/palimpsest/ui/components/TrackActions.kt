@@ -20,6 +20,8 @@ import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.LibraryAdd
+import androidx.compose.material.icons.rounded.LibraryAddCheck
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DriveFileMove
@@ -99,6 +101,18 @@ fun TrackActionsSheet(initial: TrackEntity, onDismiss: () -> Unit) {
             Action(if (t.liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, if (t.liked) tr(R.string.action_unlike) else tr(R.string.action_like)) {
                 scope.launch {
                     graph.setLiked(t, !t.liked).onFailure { nav.toast(tr(R.string.like_not_saved_yandex, it.message)) }
+                }
+            }
+            // A song from a service is in the library only when kept: liked, in a playlist, or added here.
+            if (t.path == null && (t.saved || !t.liked)) {
+                Action(
+                    if (t.saved) Icons.Rounded.LibraryAddCheck else Icons.Rounded.LibraryAdd,
+                    tr(if (t.saved) R.string.action_remove_from_library else R.string.action_add_to_library),
+                ) {
+                    act {
+                        graph.appScope.launch { graph.db.tracks().setSaved(t.id, !t.saved) }
+                        nav.toast(tr(if (t.saved) R.string.removed_from_library else R.string.added_to_library, t.title))
+                    }
                 }
             }
             if (t.remoteId != null && (t.path == null || t.updateAvailable)) {

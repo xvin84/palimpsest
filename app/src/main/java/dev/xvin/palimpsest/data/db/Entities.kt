@@ -60,6 +60,8 @@ data class TrackEntity(
     @ColumnInfo(defaultValue = "NULL") val bpm: Float? = null,
     @ColumnInfo(defaultValue = "NULL") val musicalKey: String? = null,
     @ColumnInfo(defaultValue = "NULL") val energy: Float? = null,
+    /** Added to the library on purpose (a service track that isn't liked or in a playlist). */
+    @ColumnInfo(defaultValue = "0") val saved: Boolean = false,
 ) {
     val isLocal: Boolean get() = path != null
     val albumKey: String get() = "${albumArtist ?: artist}\u0000${album.orEmpty()}"
