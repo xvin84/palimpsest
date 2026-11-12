@@ -47,6 +47,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.Equalizer
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
@@ -78,6 +79,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.lazy.items
+import sh.calvin.reorderable.ReorderableItem
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -737,11 +741,29 @@ internal fun QueueSheet(onDismiss: () -> Unit) {
             Text(tr(R.string.queue), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
             Text("${state.index + 1} / ${queue.size}", color = Ink.Muted, style = MaterialTheme.typography.labelMedium)
         }
+        // Rows carry keys of their own (the same song can be queued twice) and move under the finger;
+        // the player is told once, when the row is dropped.
+        val uids = remember { intArrayOf(0) }
+        val rows = remember { mutableStateListOf<Pair<Int, androidx.media3.common.MediaItem>>() }
+        var dragFrom by remember { mutableStateOf(-1) }
+        LaunchedEffect(queue) {
+            if (dragFrom >= 0) return@LaunchedEffect
+            val kept = rows.groupBy { it.second.mediaId }.mapValues { it.value.toMutableList() }
+            val fresh = queue.map { item -> kept[item.mediaId]?.removeFirstOrNull()?.let { it.first to item } ?: (uids[0]++ to item) }
+            rows.clear(); rows.addAll(fresh)
+        }
+        val reorder = sh.calvin.reorderable.rememberReorderableLazyListState(listState) { from, to ->
+            val a = rows.indexOfFirst { it.first == from.key }
+            val b = rows.indexOfFirst { it.first == to.key }
+            if (a >= 0 && b >= 0) rows.add(b, rows.removeAt(a))
+        }
         LazyColumn(state = listState, modifier = Modifier.fillMaxWidth().height(480.dp)) {
-            itemsIndexed(queue, key = { i, it -> "${it.mediaId}#$i" }) { i, item ->
-                val current = i == state.index
+            items(rows, key = { it.first }) { (uid, item) ->
+                val i = rows.indexOfFirst { it.first == uid }
+                val current = i == state.index && dragFrom < 0
+                ReorderableItem(reorder, key = uid) { dragging ->
                 Row(
-                    Modifier.fillMaxWidth().clickable { graph.player.skipTo(i) }.padding(start = 20.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+                    Modifier.fillMaxWidth().background(if (dragging) Ink.Paper3 else Ink.Paper2).clickable { graph.player.skipTo(i) }.padding(start = 20.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Artwork(item.mediaMetadata.artworkUri ?: item.mediaMetadata.artworkData, item.mediaMetadata.title?.toString() ?: "", Modifier.size(42.dp), corner = 6.dp)
@@ -757,6 +779,19 @@ internal fun QueueSheet(onDismiss: () -> Unit) {
                     Text(formatDuration(item.mediaMetadata.durationMs ?: 0), style = MaterialTheme.typography.labelSmall, color = Ink.Faint)
                     if (!current) IconButton(onClick = { graph.player.remove(i) }) { Icon(Icons.Rounded.Close, tr(R.string.remove), tint = Ink.Faint) }
                     else Spacer(Modifier.width(48.dp))
+                    Icon(
+                        Icons.Rounded.DragHandle, tr(R.string.playlist_drag),
+                        Modifier.draggableHandle(
+                            onDragStarted = { dragFrom = rows.indexOfFirst { it.first == uid } },
+                            onDragStopped = {
+                                val to = rows.indexOfFirst { it.first == uid }
+                                if (dragFrom >= 0 && to >= 0 && to != dragFrom) graph.player.move(dragFrom, to)
+                                dragFrom = -1
+                            },
+                        ).padding(start = 2.dp, end = 12.dp),
+                        tint = Ink.Faint,
+                    )
+                }
                 }
             }
         }
