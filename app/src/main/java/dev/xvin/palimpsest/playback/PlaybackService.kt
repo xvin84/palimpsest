@@ -309,6 +309,19 @@ class PlaybackService : MediaLibraryService() {
     }
 
     private inner class PlayerListener : Player.Listener {
+        override fun onPlaybackStateChanged(state: Int) {
+            // The queue ran out with no wave on it: go on with similar songs (Settings → Playback).
+            // Only music that was playing goes on: a queue put back finished at start-up stays quiet.
+            if (state != Player.STATE_ENDED || player.repeatMode != Player.REPEAT_MODE_OFF || !player.playWhenReady) return
+            if (graph.radio.station.value != null || graph.settings.state.value?.continueSimilar == false) return
+            if (graph.player.sleep.value.endOfTrack || graph.player.sleep.value.endsAt != null) return
+            val last = player.currentMediaItem?.let { MediaItems.trackId(it) }
+            graph.mainScope.launch {
+                val t = last?.let { graph.db.tracks().get(it) }
+                runCatching { graph.continueWithSimilar(t) }
+            }
+        }
+
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             if (skipUnplayableOffline()) return
             cameFromAutoTransition = reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO

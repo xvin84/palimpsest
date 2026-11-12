@@ -970,4 +970,7 @@
     <string name="wave_bans_hint">Songs and artists you said «not this» to. Tap one to bring it back.</string>
     <string name="wave_bans_none">Nothing yet — «👎» in the player while a wave plays.</string>
     <string name="why_prefix">Why: %1$s</string>
+    <string name="continue_like">Like «%1$s»</string>
+    <string name="settings_continue_similar">Go on with similar songs</string>
+    <string name="settings_continue_similar_hint">When the queue runs out, music goes on with songs like the last one (Yandex\'s radio by it, or the wave from your files) instead of stopping.</string>
 </resources>

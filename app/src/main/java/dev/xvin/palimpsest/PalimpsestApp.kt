@@ -250,6 +250,20 @@ class AppGraph(val app: Application) {
 
     /** Plays the offline mix; false if nothing is downloaded yet. */
     /**
+     * The queue ran out: music goes on with songs like the last one — Yandex's radio by that song
+     * when it's a Yandex track and Yandex is signed in, otherwise the wave from your own files —
+     * added after what played, so the queue's history stays.
+     */
+    suspend fun continueWithSimilar(last: dev.xvin.palimpsest.data.db.TrackEntity?) {
+        val title = last?.let { tr(R.string.continue_like, it.title) } ?: tr(R.string.offline_wave)
+        val yandexSeed = last?.takeIf { it.service == Service.YANDEX && it.remoteId != null && yandex.isReady }?.remoteId
+        val ok = yandexSeed != null && radio.start(dev.xvin.palimpsest.core.radio.StationSpec(dev.xvin.palimpsest.core.radio.StationSpec.YANDEX, listOf("track:$yandexSeed"), title), append = true).isSuccess
+        if (!ok && offlineWave.candidates().isNotEmpty()) {
+            radio.start(dev.xvin.palimpsest.core.radio.StationSpec(dev.xvin.palimpsest.core.radio.Waves.LOCAL, emptyList(), title), append = true)
+        }
+    }
+
+    /**
      * The offline wave as a station: a few songs at a time, adapting to skips and «not this», saved
      * with the queue, «shake up» and all. False if nothing is downloaded yet.
      */

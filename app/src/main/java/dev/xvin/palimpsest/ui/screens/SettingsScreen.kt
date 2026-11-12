@@ -575,6 +575,9 @@ private fun settingItems(settings: AppSettings): List<SettingItem> {
     toggle(SettingsCategory.DOWNLOADS, tr(R.string.settings_auto_download_likes), tr(R.string.settings_auto_download_likes_hint), settings.autoDownloadLikes, "likes favorites лайки избранное") {
         launch { graph.settings.setAutoDownloadLikes(it) }
     }
+    toggle(SettingsCategory.PLAYBACK, tr(R.string.settings_continue_similar), tr(R.string.settings_continue_similar_hint), settings.continueSimilar, "autoplay continue similar продолжать похожее автовоспроизведение") {
+        launch { graph.settings.setContinueSimilar(it) }
+    }
     toggle(SettingsCategory.DOWNLOADS, tr(R.string.settings_wifi_only), tr(R.string.settings_wifi_only_hint), settings.wifiOnlyDownloads, "wifi wi-fi mobile data мобильный интернет трафик") {
         launch { graph.settings.setWifiOnlyDownloads(it) }
     }

@@ -981,4 +981,7 @@
     <string name="wave_bans_hint">Песни и исполнители, на которые вы сказали «не то». Нажмите, чтобы вернуть.</string>
     <string name="wave_bans_none">Пока пусто — «👎» в плеере, когда играет волна.</string>
     <string name="why_prefix">Почему: %1$s</string>
+    <string name="continue_like">Похожее на «%1$s»</string>
+    <string name="settings_continue_similar">Продолжать похожим</string>
+    <string name="settings_continue_similar_hint">Когда очередь закончилась, музыка не останавливается, а продолжается похожими песнями (радио Яндекса по последней или волна из ваших файлов).</string>
 </resources>

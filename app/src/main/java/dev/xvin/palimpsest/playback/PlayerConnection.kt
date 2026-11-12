@@ -464,6 +464,8 @@ class PlayerConnection(
     fun toggle() = scope.launch {
         val c = ctrl()
         if (c.playbackState == Player.STATE_IDLE) c.prepare()
+        // The queue played out: Play starts its last song over instead of doing nothing.
+        if (c.playbackState == Player.STATE_ENDED) c.seekTo(c.currentMediaItemIndex, 0)
         if (c.isPlaying) c.pause() else c.play()
     }
 

@@ -63,14 +63,15 @@ class RadioController(
     suspend fun start(seed: String, title: String, extraSeeds: List<String> = emptyList()): Result<Unit> =
         start(StationSpec(StationSpec.YANDEX, listOf(seed) + extraSeeds, title))
 
-    suspend fun start(spec: StationSpec): Result<Unit> = runCatching {
+    /** [append]: the station's songs go after what's in the queue (it ran out) instead of replacing it. */
+    suspend fun start(spec: StationSpec, append: Boolean = false): Result<Unit> = runCatching {
         val seed = spec.seed
         // Starting the same station again remembers what it already played.
         val heard = feed?.save()?.takeIf { it.spec.source == spec.source && it.spec.seed == seed }?.heard
             ?: settings.loadStation()?.takeIf { it.spec.source == spec.source && it.spec.seed == seed }?.heard.orEmpty()
         val f = RadioFeed(spec, source(spec) ?: error(tr(R.string.radio_empty)), heard)
         val rows = f.start().map { row(it) }
-        player.play(rows) // replaces the queue → stops a previous station
+        if (append) player.replaceUpcoming(rows, playNow = true) else player.play(rows) // replaces the queue → stops a previous station
         attach(f)
     }
 
