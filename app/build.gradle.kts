@@ -110,6 +110,7 @@ dependencies {
     implementation(libs.androidx.palette)
     implementation(libs.androidx.webkit)
     implementation(libs.coil.compose)
+    implementation(libs.reorderable)
     implementation(libs.coil.network.okhttp)
     implementation(libs.jaudiotagger)
 

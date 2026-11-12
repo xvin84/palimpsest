@@ -478,3 +478,37 @@ class ReleaseNotesTest {
         check(dev.xvin.palimpsest.core.text.ReleaseNotes.section(cl, "0.4.1") == "- b")
     }
 }
+
+class PlaylistExportTest {
+    private val items = listOf(
+        dev.xvin.palimpsest.core.library.PlaylistItem("Зима", "Вектор А", 201_000, path = "/storage/emulated/0/Music/Вектор А - Зима.flac"),
+        dev.xvin.palimpsest.core.library.PlaylistItem("Yellow", "Coldplay", 266_000, link = "https://music.youtube.com/watch?v=yKNxeF4KMsY"),
+        dev.xvin.palimpsest.core.library.PlaylistItem("Nowhere", "Nobody"),
+    )
+
+    @Test fun textHasEverySongAndItsLink() {
+        val text = dev.xvin.palimpsest.core.library.PlaylistExport.text("Зимнее", items)
+        assertTrue(text.startsWith("Зимнее\n\n1. Вектор А — Зима\n2. Coldplay — Yellow\n   https://music.youtube.com/"))
+        assertTrue(text.endsWith("3. Nobody — Nowhere"))
+    }
+
+    @Test fun m3uWritesFileNamesAndLinksThatTheImportFindsAgain() {
+        val m3u = dev.xvin.palimpsest.core.library.PlaylistExport.m3u("Зимнее", items)
+        assertTrue(m3u.startsWith("#EXTM3U\n#PLAYLIST:Зимнее\n#EXTINF:201,Вектор А - Зима\nВектор А - Зима.flac\n"))
+        // A song with neither a file nor a link has nowhere to point to.
+        assertEquals(2, dev.xvin.palimpsest.core.library.M3u.entries(m3u).size)
+        val index = dev.xvin.palimpsest.core.library.M3u.indexByFileName(listOf("/sdcard/Music/Murglar/Вектор А - Зима.flac"))
+        assertEquals("/sdcard/Music/Murglar/Вектор А - Зима.flac", dev.xvin.palimpsest.core.library.M3u.match(dev.xvin.palimpsest.core.library.M3u.entries(m3u)[0], index))
+    }
+
+    @Test fun fileNamesAreSafeEverywhere() {
+        assertEquals("AC DC best.m3u8", dev.xvin.palimpsest.core.library.PlaylistExport.fileName("AC/DC: best?", "m3u8"))
+        assertEquals("playlist.m3u8", dev.xvin.palimpsest.core.library.PlaylistExport.fileName("///", "m3u8"))
+    }
+
+    @Test fun linksPointAtEachService() {
+        assertEquals("https://music.yandex.ru/album/5/track/7", dev.xvin.palimpsest.core.library.TrackLinks.web(Service.YANDEX, "7", "5"))
+        assertEquals("https://artist.bandcamp.com/track/x", dev.xvin.palimpsest.core.library.TrackLinks.web(Service.BANDCAMP, "artist.bandcamp.com/track/x"))
+        assertNull(dev.xvin.palimpsest.core.library.TrackLinks.web(Service.LOCAL, "1"))
+    }
+}

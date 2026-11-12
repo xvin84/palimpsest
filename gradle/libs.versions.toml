@@ -19,6 +19,7 @@ coil = "3.6.3"
 jaudiotagger = "3.0.1"
 dbusJava = "5.1.1"
 newpipe = "v0.27.1"
+reorderable = "3.1.0"
 webkit = "1.17.1"
 desugar = "2.1.5"
 junit = "4.13.2"
@@ -32,6 +33,7 @@ kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-t
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 okhttp-mockwebserver = { module = "com.squareup.okhttp3:mockwebserver3", version.ref = "okhttp" }
+reorderable = { module = "sh.calvin.reorderable:reorderable", version.ref = "reorderable" }
 newpipe-extractor = { module = "com.github.TeamNewPipe:NewPipeExtractor", version.ref = "newpipe" }
 jaudiotagger = { module = "net.jthink:jaudiotagger", version.ref = "jaudiotagger" }
 dbus-java-core = { module = "com.github.hypfvieh:dbus-java-core", version.ref = "dbusJava" }

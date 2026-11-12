@@ -60,6 +60,7 @@ enum class TrackListKind { ALBUM, ARTIST, FOLDER, PLAYLIST, LIKED, UPDATES, MOST
 
 @Composable
 fun TrackListScreen(kind: TrackListKind, key: String, extra: String?) {
+    if (kind == TrackListKind.PLAYLIST) { key.toLongOrNull()?.let { PlaylistScreen(it) }; return }
     val graph = LocalGraph.current
     val nav = LocalNav.current
     val scope = rememberCoroutineScope()

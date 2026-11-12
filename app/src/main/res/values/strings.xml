@@ -908,4 +908,36 @@
     <string name="action_remove_from_library">Remove from library</string>
     <string name="added_to_library">«%1$s» is in the library</string>
     <string name="removed_from_library">«%1$s» is out of the library (the history keeps it)</string>
+    <string name="playlist_listen_through">Listen through</string>
+    <string name="preview_started">A few seconds of each song, one after another</string>
+    <string name="preview_now">Listening through · %1$d of %2$d</string>
+    <string name="preview_keep">Play this one</string>
+    <string name="preview_stop">Stop</string>
+    <string name="share_playlist">Share the playlist</string>
+    <string name="share_as_card">As a picture</string>
+    <string name="share_as_text">As text with links</string>
+    <string name="share_as_file">As an .m3u8 file (for other players)</string>
+    <string name="playlist_card_more">and %1$d more</string>
+    <string name="playlist_add_songs">Add songs</string>
+    <string name="playlist_change_cover">Change the cover</string>
+    <string name="playlist_reset_cover">Cover from the songs</string>
+    <string name="playlist_cover_failed">Couldn\'t read that picture</string>
+    <string name="playlist_duplicate">Duplicate</string>
+    <string name="playlist_copy_name">%1$s (copy)</string>
+    <string name="playlist_duplicated">Made «%1$s»</string>
+    <string name="playlist_export">Save as .m3u8</string>
+    <string name="playlist_exported">Saved</string>
+    <string name="playlist_export_failed">Couldn\'t save the file</string>
+    <string name="playlist_delete">Delete the playlist</string>
+    <string name="playlist_delete_text">«%1$s» goes, the songs stay in the library.</string>
+    <string name="playlist_deleted">«%1$s» deleted</string>
+    <string name="playlist_removed_song">«%1$s» is out of the playlist</string>
+    <string name="playlist_drag">Drag to move</string>
+    <string name="playlist_empty_hint">Empty for now. Add songs here, or with ⋮ → «Add to playlist» on any song.</string>
+    <string name="playlist_already_in">already here</string>
+    <string name="add_n">Add (%1$d)</string>
+    <plurals name="playlist_added_n">
+        <item quantity="one">%d song added</item>
+        <item quantity="other">%d songs added</item>
+    </plurals>
 </resources>

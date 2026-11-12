@@ -50,6 +50,8 @@ data class PlayerUiState(
     val error: String? = null,
 )
 
+data class PreviewState(val title: String, val index: Int, val total: Int)
+
 data class SleepTimer(val endsAt: Long?, val endOfTrack: Boolean = false)
 
 /** A/B listening: the library file (A) against one archived version (B) of the same track. */
@@ -208,8 +210,59 @@ class PlayerConnection(
     private fun bare(id: String) = MediaItem.Builder().setMediaId(id).build()
 
     fun play(tracks: List<TrackEntity>, startIndex: Int = 0, shuffle: Boolean = false): Job {
-        onQueueReplaced?.invoke()
+        queueReplaced()
         return playInternal(tracks, startIndex, shuffle)
+    }
+
+    // --- Preview: a taste of every song in a row ---------------------------------------------------
+
+    private fun queueReplaced() {
+        onQueueReplaced?.invoke()
+        previewJob?.cancel()
+    }
+
+    private val _preview = MutableStateFlow<PreviewState?>(null)
+    /** What «Listen through» is on: the list's name and which song of how many. */
+    val preview: StateFlow<PreviewState?> = _preview
+    private var previewJob: Job? = null
+
+    /**
+     * Plays [tracks] a few seconds each, from about a third in (past the intro, near the chorus), to
+     * hear what a playlist is like without listening to all of it. Anything else played stops it.
+     */
+    fun preview(tracks: List<TrackEntity>, title: String) {
+        val start = play(tracks)
+        previewJob = scope.launch {
+            start.join()
+            val c = ctrl()
+            try {
+                while (true) {
+                    val idx = c.currentMediaItemIndex
+                    _preview.value = PreviewState(title, idx + 1, c.mediaItemCount)
+                    // A stream knows its length only once it starts loading.
+                    kotlinx.coroutines.withTimeoutOrNull(6_000) { while (c.duration <= 0) delay(100) }
+                    if (c.duration > 0 && c.currentMediaItemIndex == idx) c.seekTo((c.duration * 0.33).toLong())
+                    delay(SNIPPET_MS)
+                    // Skipped by hand meanwhile: give the song that's on now its own few seconds.
+                    if (c.currentMediaItemIndex != idx) continue
+                    if (!c.hasNextMediaItem()) { c.pause(); break }
+                    c.seekToNextMediaItem()
+                }
+            } finally {
+                _preview.value = null
+            }
+        }
+    }
+
+    /** Stops the preview; [keep]: the song on now plays on from its start instead of pausing. */
+    fun stopPreview(keep: Boolean) {
+        previewJob?.cancel()
+        previewJob = null
+        _preview.value = null
+        scope.launch {
+            val c = ctrl()
+            if (keep) { c.seekTo(0); c.play() } else c.pause()
+        }
     }
 
     private fun playInternal(all: List<TrackEntity>, startIndex: Int, shuffle: Boolean) = scope.launch {
@@ -268,7 +321,7 @@ class PlayerConnection(
      * from the computer) from the same second, the volume rising from silence once it sounds.
      */
     fun playHandoff(ids: List<String>, index: Int, positionMs: Long, playing: Boolean): Job {
-        onQueueReplaced?.invoke()
+        queueReplaced()
         return scope.launch {
             val c = ctrl()
             fadeJob?.cancel()
@@ -316,7 +369,7 @@ class PlayerConnection(
 
     /** Plays an internet radio station (it replaces the queue, like playing anything else). */
     fun playStation(station: dev.xvin.palimpsest.core.radio.RadioStation): Job {
-        onQueueReplaced?.invoke()
+        queueReplaced()
         return scope.launch {
             val c = ctrl()
             fadeJob?.cancel()
@@ -330,7 +383,7 @@ class PlayerConnection(
 
     /** Plays a file handed to us by another app (file manager, Telegram, …). */
     fun playExternal(uri: Uri, libraryTrack: TrackEntity?): Job {
-        onQueueReplaced?.invoke()
+        queueReplaced()
         return playExternalInternal(uri, libraryTrack)
     }
 
@@ -473,5 +526,6 @@ class PlayerConnection(
 
     companion object {
         private const val FADE_MS = 10_000L
+        private const val SNIPPET_MS = 12_000L
     }
 }

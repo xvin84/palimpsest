@@ -387,14 +387,16 @@ private fun PlaylistRow(p: PlaylistEntity, onClick: () -> Unit) {
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (p.coverUrl != null) Artwork(p.coverUrl, p.name, Modifier.size(44.dp))
-        else Box(Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)).background(Ink.Paper3), contentAlignment = Alignment.Center) {
-            Icon(Icons.AutoMirrored.Rounded.PlaylistPlay, null, tint = Ink.Muted)
-        }
+        val graph = LocalGraph.current
+        val tracks by remember(p.id) { graph.db.playlists().observeTracks(p.id) }.collectAsStateWithLifecycle(emptyList())
+        dev.xvin.palimpsest.ui.components.PlaylistCover(p, tracks, Modifier.size(52.dp), corner = 10.dp)
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(p.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            p.service?.let { Text(it.label, style = MaterialTheme.typography.bodySmall, color = Ink.Muted) }
+            Text(
+                listOfNotNull(plural(R.plurals.tracks, tracks.size), p.service?.label).joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall, color = Ink.Muted,
+            )
         }
     }
 }
