@@ -274,9 +274,11 @@ class PlayerConnection(
         val tracks = if (isOnline()) all else kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             all.filter { it === picked || offlinePlayable(it) }.ifEmpty { all }
         }
-        c.shuffleModeEnabled = shuffle
-        val start = if (shuffle) tracks.indices.random() else tracks.indexOf(picked).takeIf { it >= 0 } ?: startIndex.coerceIn(0, tracks.lastIndex)
-        c.setMediaItems(tracks.map { bare(it.id.toString()) }, start, 0)
+        // «Shuffle» buttons: an order that sounds shuffled (no artist twice in a row), played straight.
+        val order = if (shuffle) dev.xvin.palimpsest.core.library.SmartShuffle.order(tracks, { it.artist }) else tracks
+        c.shuffleModeEnabled = false
+        val start = if (shuffle) 0 else tracks.indexOf(picked).takeIf { it >= 0 } ?: startIndex.coerceIn(0, tracks.lastIndex)
+        c.setMediaItems(order.map { bare(it.id.toString()) }, start, 0)
         c.prepare()
         c.play()
     }

@@ -156,7 +156,8 @@ class Player(private val graph: Graph) {
         failedInARow = 0
         val start = if (shuffle) tracks.indices.random() else startIndex.coerceIn(0, tracks.lastIndex)
         _state.value = _state.value.copy(queue = tracks, index = start, shuffle = shuffle, radio = radio, error = null)
-        order = if (shuffle) listOf(start) + tracks.indices.filter { it != start }.shuffled() else tracks.indices.toList()
+        // An order that sounds shuffled: no artist twice in a row (see SmartShuffle).
+        order = if (shuffle) listOf(start) + dev.xvin.palimpsest.core.library.SmartShuffle.order(tracks.indices.filter { it != start }, { tracks[it].artist }) else tracks.indices.toList()
         startCurrent(startMs)
     }
 
@@ -328,7 +329,7 @@ class Player(private val graph: Graph) {
 
     fun setShuffle(on: Boolean) {
         val st = _state.value
-        order = if (on) listOf(st.index) + st.queue.indices.filter { it != st.index }.shuffled() else st.queue.indices.toList()
+        order = if (on) listOf(st.index) + dev.xvin.palimpsest.core.library.SmartShuffle.order(st.queue.indices.filter { it != st.index }, { st.queue[it].artist }) else st.queue.indices.toList()
         _state.value = st.copy(shuffle = on)
     }
 

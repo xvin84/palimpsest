@@ -595,3 +595,14 @@ class LocalWaveTest {
         assertTrue(unplayedShare(1f) > unplayedShare(0f) + 0.2)
     }
 }
+
+class SmartShuffleTest {
+    @Test fun noArtistTwiceInARowWhenAvoidable() {
+        val songs = (1..4).flatMap { a -> (1..5).map { "A$a-$it" } }
+        repeat(20) { seed ->
+            val out = dev.xvin.palimpsest.core.library.SmartShuffle.order(songs, { it.substringBefore('-') }, kotlin.random.Random(seed))
+            assertEquals(songs.toSet(), out.toSet())
+            out.zipWithNext().forEach { (a, b) -> assertTrue("seed $seed: $a then $b", a.substringBefore('-') != b.substringBefore('-')) }
+        }
+    }
+}
