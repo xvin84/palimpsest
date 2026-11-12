@@ -59,7 +59,7 @@ class Duplicates(private val db: AppDatabase, private val versions: VersionRepos
         val dao = db.tracks()
         var kept = g.keep
         for (o in g.others) {
-            o.path?.let { p -> versions.absorb(kept, File(p), tr(R.string.dup_note_from, o.folder ?: File(p).parent)) }
+            o.path?.let { p -> versions.absorb(kept, File(p), DUP_NOTE + (o.folder ?: File(p).parent)) }
             dao.repointPlaylists(o.id, kept.id)
             dao.repointPlays(o.id, kept.id)
             dao.repointVersions(o.id, kept.id)
@@ -76,4 +76,14 @@ class Duplicates(private val db: AppDatabase, private val versions: VersionRepos
         dao.update(kept)
         artists.syncAll()
     }
+}
+
+/** A version's note is stored as a marker and worded when shown, so it follows the app's language. */
+const val DUP_NOTE = "dup:"
+
+/** A version's note as shown: «Duplicate from …» in today's language (older notes were stored already worded). */
+fun versionNote(note: String): String {
+    val folder = note.removePrefix(DUP_NOTE).takeIf { note.startsWith(DUP_NOTE) }
+        ?: Regex("""^(?:Duplicate from|Дубликат из|Дубль из) [“«"](.*)[”»"]$""").find(note)?.groupValues?.get(1)
+    return if (folder != null) tr(R.string.dup_note_from, folder) else note
 }

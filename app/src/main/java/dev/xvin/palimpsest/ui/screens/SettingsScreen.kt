@@ -509,6 +509,8 @@ private fun settingItems(settings: AppSettings): List<SettingItem> {
                     }) { Icon(Icons.Rounded.Close, tr(R.string.remove), tint = Ink.Muted) }
                 }
             }
+            val pick = rememberFolderPicker { r -> launch { graph.settings.setMusicRoots((settings.musicRoots + r).distinct()); rescan(graph, nav, force = false) } }
+            OutlinedButton(onClick = pick, Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) { Text(tr(R.string.choose_folder)) }
             Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(newRoot, { newRoot = it }, Modifier.weight(1f), singleLine = true, label = { Text("/storage/emulated/0/…") })
                 TextButton(onClick = {
@@ -547,6 +549,8 @@ private fun settingItems(settings: AppSettings): List<SettingItem> {
         FieldRow(tr(R.string.settings_download_dir), tr(R.string.settings_download_dir_hint_1) + tr(R.string.settings_download_dir_hint_2), settings.downloadDir, tr(R.string.settings_download_dir)) {
             launch { graph.settings.setDownloadDir(it.trim().trimEnd('/')) }
         }
+        val pick = rememberFolderPicker { dir -> launch { graph.settings.setDownloadDir(dir); nav.toast(tr(R.string.saved_to, dir)) } }
+        OutlinedButton(onClick = pick, Modifier.padding(horizontal = 16.dp)) { Text(tr(R.string.choose_folder)) }
     }
     val qualityTitle = tr(R.string.settings_quality)
     add(SettingsCategory.DOWNLOADS, qualityTitle, tr(R.string.settings_quality_hint), "quality flac lossless качество") {
@@ -570,6 +574,9 @@ private fun settingItems(settings: AppSettings): List<SettingItem> {
     }
     toggle(SettingsCategory.DOWNLOADS, tr(R.string.settings_auto_download_likes), tr(R.string.settings_auto_download_likes_hint), settings.autoDownloadLikes, "likes favorites лайки избранное") {
         launch { graph.settings.setAutoDownloadLikes(it) }
+    }
+    toggle(SettingsCategory.DOWNLOADS, tr(R.string.settings_wifi_only), tr(R.string.settings_wifi_only_hint), settings.wifiOnlyDownloads, "wifi wi-fi mobile data мобильный интернет трафик") {
+        launch { graph.settings.setWifiOnlyDownloads(it) }
     }
 
     // --- Lyrics ---
@@ -772,4 +779,23 @@ fun ToggleRow(title: String, body: String?, checked: Boolean, onChange: (Boolean
         Spacer(Modifier.width(12.dp))
         Switch(checked, onChange)
     }
+}
+
+/**
+ * The system's folder picker instead of typing a path: what it hands back (a «primary:Music/…» tree)
+ * is turned into the plain path the scanner and downloads work with.
+ */
+@Composable
+private fun rememberFolderPicker(onPicked: (String) -> Unit): () -> Unit {
+    val nav = LocalNav.current
+    val launcher = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val path = runCatching {
+            val (volume, rel) = android.provider.DocumentsContract.getTreeDocumentId(uri).split(':', limit = 2).let { it[0] to it.getOrElse(1) { "" } }
+            val base = if (volume == "primary") android.os.Environment.getExternalStorageDirectory().absolutePath else "/storage/$volume"
+            java.io.File(base, rel).absolutePath.trimEnd('/')
+        }.getOrNull()
+        if (path != null) onPicked(path) else nav.toast(tr(R.string.folder_not_usable))
+    }
+    return { launcher.launch(null) }
 }

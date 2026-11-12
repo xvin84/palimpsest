@@ -109,6 +109,8 @@ data class AppSettings(
     val renderAspect: String?,
     val renderQuality: String?,
     val autoDownloadLikes: Boolean,
+    /** Downloads wait for Wi-Fi (or any unmetered network) instead of using mobile data. */
+    val wifiOnlyDownloads: Boolean = false,
     /** Output device key → EQ profile name. */
     val deviceEq: Map<String, String>,
     val listenBrainzToken: String?,
@@ -175,6 +177,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
         val renderAspect = stringPreferencesKey("render_aspect")
         val renderQuality = stringPreferencesKey("render_quality")
         val autoDownloadLikes = booleanPreferencesKey("auto_download_likes")
+        val wifiOnlyDownloads = booleanPreferencesKey("wifi_only_downloads")
         val deviceEq = stringPreferencesKey("device_eq")
         val lbToken = stringPreferencesKey("listenbrainz_token")
         val lbUser = stringPreferencesKey("listenbrainz_user")
@@ -232,6 +235,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
             renderQuality = p[K.renderQuality],
             lyricsTranslation = p[K.lyricsTranslation]?.let { runCatching { LyricsTranslation.valueOf(it) }.getOrNull() } ?: LyricsTranslation.OFF,
             autoDownloadLikes = p[K.autoDownloadLikes] ?: true,
+            wifiOnlyDownloads = p[K.wifiOnlyDownloads] ?: false,
             deviceEq = p[K.deviceEq]?.let { runCatching { json.decodeFromString<Map<String, String>>(it) }.getOrNull() } ?: emptyMap(),
             listenBrainzToken = p[K.lbToken],
             listenBrainzUser = p[K.lbUser],
@@ -280,6 +284,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
         it[K.renderMode] = mode; it[K.renderAspect] = aspect; it[K.renderQuality] = quality
     }
     suspend fun setAutoDownloadLikes(on: Boolean) = edit { it[K.autoDownloadLikes] = on }
+    suspend fun setWifiOnlyDownloads(on: Boolean) = edit { it[K.wifiOnlyDownloads] = on }
     suspend fun setDeviceEq(map: Map<String, String>) = edit { it[K.deviceEq] = json.encodeToString(map) }
     suspend fun setFadeSec(sec: Int) = edit { it[K.fadeSec] = sec }
     suspend fun setStreamCacheMb(mb: Int) = edit { it[K.streamCacheMb] = mb }

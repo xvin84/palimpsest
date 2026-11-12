@@ -46,6 +46,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.verticalDrag
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -192,7 +196,11 @@ fun SeekBar(
     }
 }
 
-/** Vertical fader for EQ bands: drag or tap anywhere on the column; centre line marks 0. */
+/**
+ * Vertical fader for EQ bands: drag the knob (by as much as the finger moves, it doesn't jump to it),
+ * double-tap for 0; the centre line marks 0. A touch elsewhere on the column scrolls the page — a
+ * scroll that started on a fader used to throw the band to the finger.
+ */
 @Composable
 fun VerticalFader(
     value: Float,
@@ -204,11 +212,24 @@ fun VerticalFader(
     fun toValue(y: Float, h: Int) = (range.endInclusive - (y / h).coerceIn(0f, 1f) * (range.endInclusive - range.start))
     val frac = (value - range.start) / (range.endInclusive - range.start)
     val zero = (0f - range.start) / (range.endInclusive - range.start)
+    val latest by androidx.compose.runtime.rememberUpdatedState(value)
     androidx.compose.foundation.Canvas(
         modifier
-            .pointerInput(range) { detectTapGestures { o -> onChange(toValue(o.y, size.height)) } }
+            .pointerInput(range) { detectTapGestures(onDoubleTap = { onChange(0f.coerceIn(range)) }) }
             .pointerInput(range) {
-                detectVerticalDragGestures { change, _ -> onChange(toValue(change.position.y, size.height)) }
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val span = range.endInclusive - range.start
+                    val knob = size.height * (1 - (latest - range.start) / span)
+                    if (kotlin.math.abs(down.position.y - knob) > 32.dp.toPx()) return@awaitEachGesture
+                    down.consume()
+                    var v = latest
+                    verticalDrag(down.id) { change ->
+                        v = (v - change.positionChange().y / size.height * span).coerceIn(range)
+                        onChange(v)
+                        change.consume()
+                    }
+                }
             },
     ) {
         val cx = size.width / 2

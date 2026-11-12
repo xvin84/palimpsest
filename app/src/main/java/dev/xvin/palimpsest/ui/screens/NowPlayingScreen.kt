@@ -491,7 +491,7 @@ internal fun LyricsPane(track: TrackEntity?, positionMs: Long, onSeek: (Long) ->
             }
         }
         !parsed.isSynced -> Box(Modifier.fillMaxSize()) {
-            LaunchedEffect(touches) { controlsVisible = true; kotlinx.coroutines.delay(3000); controlsVisible = false }
+            LaunchedEffect(touches) { controlsVisible = true; kotlinx.coroutines.delay(6000); controlsVisible = false }
             LazyColumn(Modifier.fillMaxSize().then(touchCatcher), contentPadding = PaddingValues(top = 48.dp, bottom = 24.dp)) {
                 itemsIndexed(parsed.lines) { _, l ->
                     Text(l.text, style = MaterialTheme.typography.titleMedium, color = Ink.Text, modifier = Modifier.padding(vertical = 3.dp))
@@ -540,7 +540,7 @@ internal fun LyricsPane(track: TrackEntity?, positionMs: Long, onSeek: (Long) ->
             }
             LaunchedEffect(touches, status) {
                 controlsVisible = true
-                if (status != TranslationStatus.Working) { kotlinx.coroutines.delay(3000); controlsVisible = false }
+                if (status != TranslationStatus.Working) { kotlinx.coroutines.delay(6000); controlsVisible = false }
             }
             Box(Modifier.fillMaxSize()) {
             LazyColumn(

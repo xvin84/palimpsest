@@ -961,4 +961,9 @@
     <string name="links_card_text">Android открывает ссылки на Яндекс Музыку, YouTube и Bandcamp в браузере, пока вы не разрешите Palimpsest: «Открывать поддерживаемые ссылки» → добавить ссылки.</string>
     <string name="links_card_action">Разрешить</string>
     <string name="links_card_on">Ссылки открываются здесь</string>
+    <string name="settings_wifi_only">Скачивать только по Wi-Fi</string>
+    <string name="settings_wifi_only_hint">Загрузки ждут Wi-Fi и не тратят мобильный интернет; слушать онлайн это не мешает.</string>
+    <string name="choose_folder">Выбрать папку…</string>
+    <string name="folder_not_usable">Эту папку не получится использовать — выберите папку на телефоне или карте памяти</string>
+    <string name="saved_to">Сохранено: %1$s</string>
 </resources>

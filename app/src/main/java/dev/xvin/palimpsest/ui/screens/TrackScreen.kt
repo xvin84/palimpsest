@@ -346,7 +346,7 @@ private fun VersionCard(v: TrackVersionEntity, fmt: SimpleDateFormat, t: TrackEn
                     ).joinToString(" · "),
                     style = MaterialTheme.typography.labelSmall, color = Ink.Muted,
                 )
-                v.note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Ink.Faint) }
+                v.note?.let { Text(dev.xvin.palimpsest.data.library.versionNote(it), style = MaterialTheme.typography.bodySmall, color = Ink.Faint) }
                 if (!exists) Text(tr(R.string.file_not_found), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
             }
             if (exists) IconButton(onClick = {

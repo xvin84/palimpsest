@@ -950,4 +950,9 @@
     <string name="links_card_text">Android opens links to Yandex Music, YouTube and Bandcamp in the browser until you allow Palimpsest to: «Open supported links» → add the links.</string>
     <string name="links_card_action">Allow</string>
     <string name="links_card_on">Links open here</string>
+    <string name="settings_wifi_only">Download only over Wi-Fi</string>
+    <string name="settings_wifi_only_hint">Downloads wait for Wi-Fi instead of using mobile data; streaming isn\'t affected.</string>
+    <string name="choose_folder">Choose a folder…</string>
+    <string name="folder_not_usable">That folder can\'t be used — pick one on the phone or a memory card</string>
+    <string name="saved_to">Saved: %1$s</string>
 </resources>

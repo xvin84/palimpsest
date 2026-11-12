@@ -128,7 +128,11 @@ class Downloads(
                         DownloadWorker.KEY_KEEP_OLD to (keepOld?.toString() ?: ""),
                     ),
                 )
-                .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+                .setConstraints(
+                    Constraints.Builder()
+                        .setRequiredNetworkType(if (settings.state.value?.wifiOnlyDownloads == true) NetworkType.UNMETERED else NetworkType.CONNECTED)
+                        .build(),
+                )
                 .build()
             wm.enqueueUniqueWork(UNIQUE, ExistingWorkPolicy.APPEND_OR_REPLACE, req)
         }
