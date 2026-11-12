@@ -275,6 +275,9 @@ private fun ApplicationScope.App(showRequests: kotlinx.coroutines.channels.Recei
             val action = stroke?.takeIf(KeyboardOwner::letThrough)?.let(keys::get)
             when {
                 action != null -> runHotAction(action, graph, nav, controls)
+                // A music link pasted anywhere outside a field opens (a song plays, an album opens).
+                (stroke == "Ctrl+V" || stroke == "Meta+V") && !KeyboardOwner.busy ->
+                    clipboardText()?.takeIf(::hasMusicLink)?.let { openLink(graph, nav, it); true } ?: false
                 // Media keys on the keyboard always work.
                 e.key == Key.MediaPlayPause -> { graph.player.toggle(); true }
                 e.key == Key.MediaNext -> { graph.player.next(); true }

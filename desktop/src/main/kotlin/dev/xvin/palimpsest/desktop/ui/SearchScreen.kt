@@ -85,6 +85,23 @@ fun SearchScreen() {
     Column(Modifier.fillMaxSize().padding(start = 28.dp, end = 20.dp, top = 22.dp)) {
         Text(t("Поиск", "Search"), style = MaterialTheme.typography.displayMedium)
         PField(query, { query = it }, t("Исполнитель, альбом, трек", "Artist, album, track"), Modifier.fillMaxWidth(), height = 42.dp, textModifier = Modifier.padding(top = 14.dp, bottom = 12.dp).focusRequester(focus))
+        // A link in the field: open it rather than search for its text.
+        if (remember(query) { hasMusicLink(query) }) {
+            val nav = LocalNav.current
+            Row(
+                Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(Radius.md)).background(LocalPal.current.paper2).padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(t("Это ссылка", "That's a link"), style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        t("Яндекс, YouTube, Bandcamp — или Spotify, Apple Music, Deezer и другие: песня найдётся в сервисе, который здесь играет", "Yandex, YouTube, Bandcamp — or Spotify, Apple Music, Deezer and others: the song is found on a service that plays here"),
+                        style = Type.meta, color = LocalPal.current.muted,
+                    )
+                }
+                PButton(t("Открыть", "Open"), { openLink(graph, nav, query) }, kind = Kind.PRIMARY)
+            }
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Tabs(searchSources.map { it to label(it) }, source, { source = it })
             Spacer(Modifier.width(16.dp))
