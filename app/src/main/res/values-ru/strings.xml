@@ -984,4 +984,16 @@
     <string name="continue_like">Похожее на «%1$s»</string>
     <string name="settings_continue_similar">Продолжать похожим</string>
     <string name="settings_continue_similar_hint">Когда очередь закончилась, музыка не останавливается, а продолжается похожими песнями (радио Яндекса по последней или волна из ваших файлов).</string>
+    <string name="queue_stop_after">Остановиться после этой</string>
+    <string name="queue_save_playlist">Сохранить как плейлист</string>
+    <string name="queue_playlist_name">Очередь</string>
+    <string name="queue_clear_next">Очистить «Дальше»</string>
+    <string name="queue_played">Играло</string>
+    <string name="queue_played_n">Играло · %1$d — показать</string>
+    <string name="queue_now">Сейчас</string>
+    <string name="queue_next">Дальше</string>
+    <string name="queue_after_stop">Потом музыка остановится.</string>
+    <string name="queue_after_station">Потом продолжится «%1$s»: новые песни будут добавляться сами.</string>
+    <string name="queue_after_similar">Потом — похожее на последнюю песню (Настройки → Воспроизведение → «Продолжать похожим»).</string>
+    <string name="queue_after_silence">Потом музыка остановится.</string>
 </resources>

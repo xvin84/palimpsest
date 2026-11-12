@@ -79,6 +79,11 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
+import androidx.compose.material.icons.rounded.ClearAll
+import androidx.compose.material.icons.rounded.CheckBoxOutlineBlank
+import androidx.compose.material.icons.rounded.CheckBox
 import androidx.compose.foundation.lazy.items
 import sh.calvin.reorderable.ReorderableItem
 import androidx.compose.runtime.mutableStateListOf
@@ -739,11 +744,40 @@ internal fun QueueSheet(onDismiss: () -> Unit) {
     val graph = LocalGraph.current
     val queue by graph.player.queue.collectAsStateWithLifecycle()
     val state by graph.player.state.collectAsStateWithLifecycle()
-    val listState = rememberLazyListState(initialFirstVisibleItemIndex = (state.index - 1).coerceAtLeast(0))
+    val listState = rememberLazyListState()
+    val nav = LocalNav.current
+    val scope = rememberCoroutineScope()
+    val station by graph.radio.station.collectAsStateWithLifecycle()
+    val sleep by graph.player.sleep.collectAsStateWithLifecycle()
+    val settings by graph.settings.state.collectAsStateWithLifecycle()
+    var showPlayed by remember { mutableStateOf(false) }
+    var menu by remember { mutableStateOf(false) }
+    var saving by remember { mutableStateOf(false) }
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ink.Paper2) {
-        Row(Modifier.padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.padding(start = 20.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(tr(R.string.queue), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
             Text("${state.index + 1} / ${queue.size}", color = Ink.Muted, style = MaterialTheme.typography.labelMedium)
+            Box {
+                IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, tr(R.string.more)) }
+                DropdownMenu(menu, { menu = false }, containerColor = Ink.Paper2) {
+                    DropdownMenuItem(
+                        text = { Text(tr(R.string.queue_stop_after)) },
+                        leadingIcon = { Icon(if (sleep.endOfTrack) Icons.Rounded.CheckBox else Icons.Rounded.CheckBoxOutlineBlank, null) },
+                        onClick = { menu = false; if (sleep.endOfTrack) graph.player.cancelSleep() else graph.player.sleepAtEndOfTrack() },
+                    )
+                    DropdownMenuItem(text = { Text(tr(R.string.queue_save_playlist)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, null) }, onClick = { menu = false; saving = true })
+                    DropdownMenuItem(text = { Text(tr(R.string.queue_clear_next)) }, leadingIcon = { Icon(Icons.Rounded.ClearAll, null) }, onClick = { menu = false; graph.player.clearUpcoming() })
+                }
+            }
+        }
+        if (saving) NameDialog(tr(R.string.queue_save_playlist), tr(R.string.queue_playlist_name), onDismiss = { saving = false }) { name ->
+            saving = false
+            val ids = queue.mapNotNull { dev.xvin.palimpsest.playback.MediaItems.trackId(it) }
+            scope.launch {
+                val id = graph.db.playlists().insert(dev.xvin.palimpsest.data.db.PlaylistEntity(name = name))
+                graph.db.playlists().append(id, ids)
+                nav.toast(tr(R.string.playlist_duplicated, name))
+            }
         }
         // Rows carry keys of their own (the same song can be queued twice) and move under the finger;
         // the player is told once, when the row is dropped.
@@ -761,8 +795,21 @@ internal fun QueueSheet(onDismiss: () -> Unit) {
             val b = rows.indexOfFirst { it.first == to.key }
             if (a >= 0 && b >= 0) rows.add(b, rows.removeAt(a))
         }
+        @Composable
+        fun Section(text: String, modifier: Modifier = Modifier) =
+            Text(text.uppercase(), modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 4.dp), style = MaterialTheme.typography.labelSmall, color = Ink.Muted)
+        // What played (folded away), what plays now, what's next, and what comes after the end.
+        val playedCount = state.index.coerceAtMost(rows.size)
+        // The rows arrive a frame after the sheet: start at the top (the folded «Played»), not where the list was.
+        LaunchedEffect(rows.isNotEmpty()) { if (rows.isNotEmpty()) listState.scrollToItem(0) }
         LazyColumn(state = listState, modifier = Modifier.fillMaxWidth().height(480.dp)) {
-            items(rows, key = { it.first }) { (uid, item) ->
+            if (playedCount > 0) item(key = "h-played") {
+                Section(
+                    if (showPlayed) tr(R.string.queue_played) else tr(R.string.queue_played_n, playedCount),
+                    Modifier.clickable { showPlayed = !showPlayed },
+                )
+            }
+            fun LazyListScope.rowsOf(part: List<Pair<Int, androidx.media3.common.MediaItem>>) = items(part, key = { it.first }) { (uid, item) ->
                 val i = rows.indexOfFirst { it.first == uid }
                 val current = i == state.index && dragFrom < 0
                 ReorderableItem(reorder, key = uid) { dragging ->
@@ -797,6 +844,22 @@ internal fun QueueSheet(onDismiss: () -> Unit) {
                     )
                 }
                 }
+            }
+            if (showPlayed) rowsOf(rows.take(playedCount))
+            item(key = "h-now") { Section(tr(R.string.queue_now)) }
+            rowsOf(rows.drop(playedCount).take(1))
+            if (rows.size > playedCount + 1) item(key = "h-next") { Section(tr(R.string.queue_next)) }
+            rowsOf(rows.drop(playedCount + 1))
+            item(key = "h-after") {
+                Text(
+                    when {
+                        sleep.endOfTrack -> tr(R.string.queue_after_stop)
+                        station != null -> tr(R.string.queue_after_station, station!!.title)
+                        settings?.continueSimilar != false -> tr(R.string.queue_after_similar)
+                        else -> tr(R.string.queue_after_silence)
+                    },
+                    Modifier.fillMaxWidth().padding(20.dp), style = MaterialTheme.typography.bodySmall, color = Ink.Faint,
+                )
             }
         }
         Spacer(Modifier.navigationBarsPadding())

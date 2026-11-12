@@ -973,4 +973,16 @@
     <string name="continue_like">Like «%1$s»</string>
     <string name="settings_continue_similar">Go on with similar songs</string>
     <string name="settings_continue_similar_hint">When the queue runs out, music goes on with songs like the last one (Yandex\'s radio by it, or the wave from your files) instead of stopping.</string>
+    <string name="queue_stop_after">Stop after this song</string>
+    <string name="queue_save_playlist">Save as a playlist</string>
+    <string name="queue_playlist_name">Queue</string>
+    <string name="queue_clear_next">Clear what\'s next</string>
+    <string name="queue_played">Played</string>
+    <string name="queue_played_n">Played · %1$d — show</string>
+    <string name="queue_now">Now</string>
+    <string name="queue_next">Next</string>
+    <string name="queue_after_stop">Then the music stops.</string>
+    <string name="queue_after_station">Then «%1$s» goes on: new songs come by themselves.</string>
+    <string name="queue_after_similar">Then songs like the last one (Settings → Playback → «Go on with similar songs»).</string>
+    <string name="queue_after_silence">Then the music stops.</string>
 </resources>

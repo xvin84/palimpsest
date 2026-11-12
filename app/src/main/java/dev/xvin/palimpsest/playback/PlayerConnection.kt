@@ -474,6 +474,8 @@ class PlayerConnection(
     fun seekTo(ms: Long) = scope.launch { ctrl().seekTo(ms) }
     fun skipTo(index: Int) = scope.launch { ctrl().seekTo(index, 0) }
     fun remove(index: Int) = scope.launch { ctrl().removeMediaItem(index) }
+    /** Everything after the song playing now goes; the history and the song stay. */
+    fun clearUpcoming() = scope.launch { val c = ctrl(); if (c.currentMediaItemIndex + 1 < c.mediaItemCount) c.removeMediaItems(c.currentMediaItemIndex + 1, c.mediaItemCount) }
     fun move(from: Int, to: Int) = scope.launch { ctrl().moveMediaItem(from, to) }
     fun clearQueue() = scope.launch { ctrl().clearMediaItems() }
 
