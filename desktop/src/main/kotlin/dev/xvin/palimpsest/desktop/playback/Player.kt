@@ -526,7 +526,7 @@ class Player(private val graph: Graph) {
         // Starting the same station again remembers what it already played.
         val heard = (feed?.save() ?: graph.settings.value.lastStation)?.takeIf { it.spec.source == spec.source && it.spec.seed == spec.seed }?.heard.orEmpty()
         val f = RadioFeed(spec, sourceFor(spec) ?: error("Sign in to Yandex Music first"), heard)
-        val tracks = f.start().mapNotNull(::trackFor)
+        val tracks = f.start().mapNotNull(::trackFor).filter(::allowed).ifEmpty { error("Everything the station brought is left out by «Not this»") }
         endRadio()
         feed = f
         play(tracks, 0, radio = title)
@@ -547,7 +547,7 @@ class Player(private val graph: Graph) {
             )
             for (spec in specs) {
                 val f = RadioFeed(spec, sourceFor(spec) ?: continue, emptyList())
-                val tracks = runCatching { f.start() }.getOrDefault(emptyList()).mapNotNull(::trackFor)
+                val tracks = runCatching { f.start() }.getOrDefault(emptyList()).mapNotNull(::trackFor).filter(::allowed)
                 if (tracks.isEmpty()) continue
                 val st = _state.value
                 feed = f
@@ -566,7 +566,7 @@ class Player(private val graph: Graph) {
         val f = feed ?: return
         _shaking.value = true
         try {
-            val tracks = f.shake().mapNotNull(::trackFor)
+            val tracks = f.shake().mapNotNull(::trackFor).filter(::allowed)
             val st = _state.value
             val keep = st.queue.take(st.index + 1)
             _state.value = st.copy(queue = keep + tracks, index = keep.size, error = null)
@@ -591,6 +591,26 @@ class Player(private val graph: Graph) {
         local = { seeds -> localWave(seeds) },
         http = graph.http,
     )
+
+    /** «Not this» holds for every wave: banned songs and artists are dropped from what a station brings. */
+    private fun allowed(t: Track): Boolean {
+        val bans = graph.settings.value.wave.bans
+        return bans.isEmpty() || ("t:${t.id}" !in bans && t.artists.none { "a:${it.lowercase()}" in bans })
+    }
+
+    /** «Не то»: the song playing now is out of every wave for good, and the next one starts. */
+    fun notThis(): Track? {
+        val t = _state.value.current ?: return null
+        banFromWaves("t:${t.id}", "${t.artist} — ${t.title}")
+        next()
+        return t
+    }
+
+    fun banFromWaves(key: String, label: String) =
+        graph.settings.update { it.copy(wave = it.wave.copy(bans = it.wave.bans + (key to label))) }
+
+    fun unbanFromWaves(key: String) =
+        graph.settings.update { it.copy(wave = it.wave.copy(bans = it.wave.bans - key)) }
 
     /** A station's song as a library track: this computer's own file for the mixed wave's local part, else the service track. */
     private fun trackFor(r: RemoteTrack): Track? = if (r.service == Service.LOCAL) graph.library.get(r.id) else graph.library.ensureRemote(r)
@@ -655,7 +675,7 @@ class Player(private val graph: Graph) {
                 if (fresh.isEmpty()) continue
                 if (feed !== f) return@launch
                 val atEnd = _state.value.index >= _state.value.queue.size - 1
-                enqueue(fresh.mapNotNull(::trackFor))
+                enqueue(fresh.mapNotNull(::trackFor).filter(::allowed))
                 saveQueue()
                 if (thenAdvance && atEnd) advance(+1, user = false)
                 return@launch

@@ -586,6 +586,7 @@ private fun PlayerBar(compact: Boolean) {
                             Text(it, style = Type.meta, color = pal.faint, maxLines = 1)
                             Spacer(Modifier.width(2.dp))
                             ShakeWaveButton(size = 18.dp, iconSize = 12.dp, tint = pal.faint)
+                            NotThisButton(size = 18.dp, iconSize = 12.dp, tint = pal.faint)
                         }
                     }
                 }

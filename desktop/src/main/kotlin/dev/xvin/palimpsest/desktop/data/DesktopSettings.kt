@@ -28,6 +28,8 @@ data class WavePrefs(
     val mixBandcamp: Int = 0,
     /** Own-files wave: 0 — the songs you know, 1 — the ones you hardly ever play. */
     val novelty: Float = 0.5f,
+    /** What «Не то» left out of every wave: `t:<track id>` or `a:<artist, lowercase>` → what to show. */
+    val bans: Map<String, String> = emptyMap(),
 ) {
     val shares: Map<String, Int> get() = mapOf("local" to mixLocal, "yandex" to mixYandex, "youtube" to mixYouTube, "bandcamp" to mixBandcamp)
 

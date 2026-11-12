@@ -25,6 +25,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material.icons.rounded.Autorenew
+import androidx.compose.material.icons.rounded.ThumbDownOffAlt
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.xvin.palimpsest.core.model.WaveStation
@@ -152,6 +153,23 @@ fun WaveTuningDialog(onDismiss: () -> Unit) {
                     onDismiss()
                 }, icon = Icons.Rounded.PlayArrow)
             }
+            // What «Не то» left out, a click bringing each back.
+            Spacer(Modifier.height(20.dp))
+            Caption(t("Не в волнах", "Left out of waves"))
+            Spacer(Modifier.height(4.dp))
+            Text(
+                if (w.bans.isEmpty()) t("Пусто. Кнопка «Не то» у играющей песни убирает её из всех волн.", "Nothing yet. «Not this» beside a playing song leaves it out of every wave.")
+                else t("Нажми, чтобы вернуть.", "Click one to bring it back."),
+                style = MaterialTheme.typography.bodySmall, color = pal.muted,
+            )
+            if (w.bans.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    w.bans.entries.reversed().forEach { (key, label) ->
+                        Pill((if (key.startsWith("a:")) t("исполнитель: ", "artist: ") else "") + label + "  ✕", false, { graph.player.unbanFromWaves(key) })
+                    }
+                }
+            }
             val list = stations
             if (!list.isNullOrEmpty()) {
                 Spacer(Modifier.height(20.dp))
@@ -190,5 +208,27 @@ fun ShakeWaveButton(size: androidx.compose.ui.unit.Dp = 22.dp, iconSize: android
         },
         size = size, iconSize = iconSize, tint = tint,
         iconModifier = Modifier.graphicsLayer { rotationZ = turn.value },
+    )
+}
+
+/**
+ * «Не то» while a wave plays: the song is out of every wave for good and the next one starts; the
+ * note offers to leave out the whole artist too. The wave's settings list them to bring back.
+ */
+@Composable
+fun NotThisButton(size: androidx.compose.ui.unit.Dp = 22.dp, iconSize: androidx.compose.ui.unit.Dp = 14.dp, tint: androidx.compose.ui.graphics.Color? = null) {
+    val graph = LocalGraph.current
+    val nav = LocalNav.current
+    PIconButton(
+        androidx.compose.material.icons.Icons.Rounded.ThumbDownOffAlt, t("Не то", "Not this"),
+        {
+            graph.player.notThis()?.let { tr ->
+                val artist = tr.artists.firstOrNull() ?: tr.artist
+                nav.toast(t("«${tr.title}» больше не попадёт в волны", "«${tr.title}» won’t come up in waves again"), t("И $artist тоже", "$artist too")) {
+                    graph.player.banFromWaves("a:${artist.lowercase()}", artist)
+                }
+            }
+        },
+        size = size, iconSize = iconSize, tint = tint,
     )
 }
