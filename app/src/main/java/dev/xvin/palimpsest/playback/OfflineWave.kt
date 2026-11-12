@@ -30,23 +30,27 @@ class OfflineWave(private val db: AppDatabase) {
         for ((tid, st) in stats) artistsOf[tid].orEmpty().forEach { affinity[it] = (affinity[it] ?: 0.0) + st.plays }
         val maxAffinity = affinity.values.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
 
+        // Heard in the last hours — skipped, unless that's the whole library (a small one, or a long day).
+        val hours = 6 * 3600_000L
+        val skipFresh = tracks.any { t -> stats[t.id]?.let { now - it.lastPlayed >= hours } ?: true }
         fun weight(t: TrackEntity): Double {
             val st = stats[t.id]
             val since = st?.let { now - it.lastPlayed } ?: Long.MAX_VALUE
-            if (since < 6 * 3600_000L) return 0.0 // heard in the last hours — skip
-            val recency = if (since < 2 * 86_400_000L) 0.25 else 1.0
+            if (since < hours && skipFresh) return 0.0
+            val recency = if (since < hours) 0.05 else if (since < 2 * 86_400_000L) 0.25 else 1.0
             val artist = artistsOf[t.id].orEmpty().maxOfOrNull { affinity[it] ?: 0.0 } ?: 0.0
             val base = if (st == null) 0.6 else 0.4 + ln(1.0 + st.plays)
             return (base + (if (t.liked) 1.5 else 0.0) + 2.0 * artist / maxAffinity) * recency * mood.fit(t) * (0.6 + random.nextDouble() * 0.8)
         }
 
         // Weighted sampling without replacement (Efraimidis–Spirakis).
-        val picked = tracks.mapNotNull { t -> weight(t).takeIf { it > 0 }?.let { w -> t to Math.pow(random.nextDouble(), 1.0 / w) } }
-            .sortedByDescending { it.second }.take(count).map { it.first }.toMutableList()
+        val sampled = tracks.mapNotNull { t -> weight(t).takeIf { it > 0 }?.let { w -> t to Math.pow(random.nextDouble(), 1.0 / w) } }
+            .sortedByDescending { it.second }.take(count).map { it.first }
 
-        if (mood != WaveMood.ANY && picked.isEmpty()) return@withContext emptyList()
-        val ordered = flow(picked, random)
-        picked.clear(); picked.addAll(ordered)
+        if (mood != WaveMood.ANY && sampled.isEmpty()) return@withContext emptyList()
+        // A copy: flow() hands back its input untouched when too little is analysed, and clearing
+        // that in place emptied the whole wave on any library that wasn't analysed yet.
+        val picked = flow(sampled, random).toMutableList()
 
         // Avoid the same artist twice in a row.
         for (i in 1 until picked.size) {

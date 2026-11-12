@@ -900,4 +900,10 @@
     <string name="health_tags_progress">Теги: %1$s из %2$s, заполнено %3$s</string>
     <string name="health_tags_done">Теги заполнены у %1$s из %2$s</string>
     <string name="health_covers_done">Обложки найдены для %1$s из %2$s</string>
+    <string name="glitch_silent_title">Звук пропал, хотя песня шла</string>
+    <string name="glitch_silent_text">Полоска двигалась, а звука не было. Плеер перезапустил звук с места, где он пропал.</string>
+    <string name="glitch_quiet_title">Громкость застряла на нуле</string>
+    <string name="glitch_quiet_text">Затухание не вернулось обратно. Громкость восстановлена.</string>
+    <string name="glitch_eq_title">Эквалайзер сломался на битом куске звука</string>
+    <string name="glitch_eq_text">Его сбросили, чтобы песня не играла дальше в тишине.</string>
 </resources>

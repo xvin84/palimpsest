@@ -55,6 +55,18 @@ class EqualizerTest {
         assertEquals(6.0, profile.responseDb(1000.0), 0.05)
     }
 
+    @Test fun oneBadSampleDoesNotSilenceTheRest() {
+        val profile = EqProfile("t", filters = listOf(EqFilter(FilterType.PEAK, 1000.0, 6.0, 1.0)))
+        val eq = Equalizer().apply { configure(48_000, 2); setProfile(profile) }
+        val bad = sine(1000.0, 48_000, 4800).also { it[100] = Float.NaN }
+        eq.process(bad, 4800)
+        assertEquals(1, eq.blowUps)
+        val next = sine(1000.0, 48_000, 4800)
+        eq.process(next, 4800)
+        assertTrue(next.all { it.isFinite() })
+        assertTrue(rms(next, 2000) > 0.2)
+    }
+
     @Test fun limiterPreventsClipping() {
         val eq = Equalizer().apply { configure(44_100, 2); setGainDb(18.0) }
         val buf = sine(200.0, 44_100, 44_100)

@@ -130,6 +130,12 @@ class ErrorCenter(private val context: Context) {
         return info
     }
 
+    /** Logs something that went wrong without an exception (the playback watchdog's findings); never shown. */
+    fun note(title: String, explanation: String, details: String, context: String? = null) {
+        _log.update { (listOf(ErrorInfo(title, explanation, emptyList(), details, context = context)) + it).take(MAX) }
+        runCatching { persist() }
+    }
+
     private fun isCancellation(t: Throwable): Boolean = generateSequence(t) { it.cause }.take(8).any {
         it is kotlinx.coroutines.CancellationException ||
             (it is java.io.InterruptedIOException && it !is SocketTimeoutException && it.message?.contains("timeout", true) != true)

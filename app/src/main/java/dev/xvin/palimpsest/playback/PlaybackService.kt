@@ -85,6 +85,16 @@ class PlaybackService : MediaLibraryService() {
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
         player.addListener(PlayerListener())
+        // Errors the player gets over by itself never reach onPlayerError, but they're exactly what's
+        // behind a song that plays in silence — keep them in the error log.
+        player.addAnalyticsListener(object : androidx.media3.exoplayer.analytics.AnalyticsListener {
+            override fun onAudioSinkError(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, audioSinkError: Exception) {
+                graph.errors.report(audioSinkError, player.currentMediaItem?.mediaMetadata?.title?.toString(), show = false)
+            }
+            override fun onAudioCodecError(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, audioCodecError: Exception) {
+                graph.errors.report(audioCodecError, player.currentMediaItem?.mediaMetadata?.title?.toString(), show = false)
+            }
+        })
         // A radio station's song changed: the item gets it as its title (the notification, the app), the stream plays on.
         scope.launch {
             InternetRadioItems.onAir.collect { pair ->
@@ -138,6 +148,7 @@ class PlaybackService : MediaLibraryService() {
                 player.volume = kotlin.math.sin(v * Math.PI / 2).toFloat()
             }
         }
+        watchSilence(fx)
         // Persist the queue now and then so a crash or reboot loses at most a few seconds.
         scope.launch {
             while (isActive) {
@@ -170,6 +181,73 @@ class PlaybackService : MediaLibraryService() {
         session = null
         scope.cancel()
         super.onDestroy()
+    }
+
+    /**
+     * The bar moves but nothing is heard: seen on the wave, both online and off, and the song then
+     * seemed to start half a minute in. Once a second this checks that sound really flows through the
+     * chain while the player says it plays, that the volume and the handoff fade aren't stuck at zero,
+     * and that the EQ didn't break — notes what it found in the error log (Settings → About → Errors)
+     * and puts the sound back, from where it went quiet.
+     */
+    private fun watchSilence(fx: AudioEffects) = scope.launch {
+        var lastFrames = fx.framesIn
+        var stuck = 0
+        var quietFrom = 0L
+        var lowVolume = 0
+        var fadedOut = 0
+        var blowUps = fx.equalizer.blowUps
+        while (isActive) {
+            delay(1000)
+            val playing = player.isPlaying
+            val frames = fx.framesIn
+            if (playing && fx.inChain && frames == lastFrames) {
+                if (stuck++ == 0) quietFrom = (player.currentPosition - 1000).coerceAtLeast(0)
+            } else stuck = 0
+            lastFrames = frames
+            if (stuck >= 3) {
+                noteGlitch(R.string.glitch_silent_title, R.string.glitch_silent_text, fx, "quiet since ${quietFrom / 1000}s")
+                stuck = 0
+                player.seekTo(quietFrom)
+            }
+            // The fade between tracks sets the volume every 80 ms while it's on, so a near-zero one
+            // outside the first and last seconds of a song means it's stuck.
+            val fadeMs = (graph.settings.state.value?.fadeSec ?: 0) * 1000L
+            val pos = player.currentPosition
+            val edge = fadeMs > 0 && (pos < fadeMs + 1000 || player.duration - pos < fadeMs + 1000)
+            lowVolume = if (playing && player.volume < 0.05f && !edge && graph.player.sleep.value.endsAt == null) lowVolume + 1 else 0
+            if (lowVolume >= 3) {
+                noteGlitch(R.string.glitch_quiet_title, R.string.glitch_quiet_text, fx, "player.volume=${player.volume}")
+                player.volume = 1f
+                lowVolume = 0
+            }
+            // The handoff fade-out pauses within a couple of seconds; playing on at zero is a leftover.
+            fadedOut = if (playing && fx.fadeTarget < 0.5f) fadedOut + 1 else 0
+            if (fadedOut >= 10) {
+                noteGlitch(R.string.glitch_quiet_title, R.string.glitch_quiet_text, fx, "handoff fade=${fx.fadeTarget}")
+                fx.fadeSet(1f)
+                fadedOut = 0
+            }
+            if (fx.equalizer.blowUps != blowUps) {
+                blowUps = fx.equalizer.blowUps
+                noteGlitch(R.string.glitch_eq_title, R.string.glitch_eq_text, fx, "eq resets=$blowUps")
+            }
+        }
+    }
+
+    private fun noteGlitch(title: Int, text: Int, fx: AudioEffects, what: String) {
+        val item = player.currentMediaItem
+        val details = buildString {
+            appendLine(what)
+            appendLine("track: ${item?.mediaMetadata?.artist} — ${item?.mediaMetadata?.title} (${item?.mediaId})")
+            appendLine("source: ${item?.localConfiguration?.uri?.scheme}")
+            appendLine("at ${player.currentPosition / 1000}s of ${player.duration / 1000}s, item ${player.currentMediaItemIndex + 1}/${player.mediaItemCount}")
+            appendLine("volume=${player.volume} fade=${fx.fadeTarget} eq=${fx.equalizer.enabled} frames=${fx.framesIn}")
+            appendLine("format: ${player.audioFormat?.sampleMimeType} ${player.audioFormat?.sampleRate} Hz, pcm=${player.audioFormat?.pcmEncoding}")
+            append("output: ${graph.outputs.current.value.key}")
+        }
+        android.util.Log.w("Palimpsest", "playback glitch: $details")
+        graph.errors.note(dev.xvin.palimpsest.i18n.tr(title), dev.xvin.palimpsest.i18n.tr(text), details, dev.xvin.palimpsest.i18n.tr(R.string.my_wave).takeIf { graph.radio.station.value != null })
     }
 
     private fun applyReplayGain(item: MediaItem?) {

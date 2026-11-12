@@ -34,6 +34,15 @@ class AudioEffects {
 
     /** Straight to [value], with no glide (before a fade-in starts from silence). */
     fun fadeSet(value: Float) { fadeTarget = value.coerceIn(0f, 1f); fadeSnap = true }
+
+    /**
+     * Frames that went through the chain, and whether the chain is in use for this stream at all
+     * (24-bit packed passes it by) — the service's watchdog checks sound really flows while the bar moves.
+     */
+    @Volatile var framesIn = 0L
+        internal set
+    @Volatile var inChain = false
+        internal set
 }
 
 /**
@@ -48,8 +57,10 @@ class EffectsAudioProcessor(private val fx: AudioEffects) : BaseAudioProcessor()
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
         if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT && inputAudioFormat.encoding != C.ENCODING_PCM_FLOAT) {
+            fx.inChain = false
             return AudioProcessor.AudioFormat.NOT_SET
         }
+        fx.inChain = true
         fx.equalizer.configure(inputAudioFormat.sampleRate, inputAudioFormat.channelCount)
         fx.spectrum.sampleRate = inputAudioFormat.sampleRate
         return inputAudioFormat
@@ -64,6 +75,7 @@ class EffectsAudioProcessor(private val fx: AudioEffects) : BaseAudioProcessor()
         val bytesPerSample = if (is16) 2 else 4
         val samples = remaining / bytesPerSample
         val frames = samples / ch
+        fx.framesIn += frames
         val eq = fx.equalizer
         val needEq = !eq.isTransparent
         val needTap = fx.analyzerActive
@@ -112,6 +124,7 @@ class EffectsAudioProcessor(private val fx: AudioEffects) : BaseAudioProcessor()
     }
 
     override fun onReset() {
+        fx.inChain = false
         fx.equalizer.reset()
         fx.spectrum.clear()
     }

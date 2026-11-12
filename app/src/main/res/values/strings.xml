@@ -891,4 +891,10 @@
     <string name="health_tags_progress">Tags: %1$s of %2$s, filled in %3$s</string>
     <string name="health_tags_done">Tags filled in for %1$s of %2$s</string>
     <string name="health_covers_done">Covers found for %1$s of %2$s</string>
+    <string name="glitch_silent_title">The sound went missing while the song played</string>
+    <string name="glitch_silent_text">The bar moved but no sound came through. The player restarted the sound from where it went quiet.</string>
+    <string name="glitch_quiet_title">The volume got stuck at zero</string>
+    <string name="glitch_quiet_text">A fade didn\'t come back up. The volume was put back.</string>
+    <string name="glitch_eq_title">The equalizer broke on a damaged bit of audio</string>
+    <string name="glitch_eq_text">It was reset so the song wouldn\'t go on in silence.</string>
 </resources>

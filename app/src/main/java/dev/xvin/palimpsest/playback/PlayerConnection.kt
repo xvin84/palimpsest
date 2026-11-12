@@ -357,7 +357,18 @@ class PlayerConnection(
         c.play()
     }
 
-    fun stopAb() { _ab.value = null }
+    /** Ends A/B on the library file (A), at the same second, even if the old version (B) was playing. */
+    fun stopAb() = scope.launch {
+        val ab = _ab.value ?: return@launch
+        _ab.value = null
+        if (!abPlayingB()) return@launch
+        val c = ctrl()
+        val idx = c.currentMediaItemIndex
+        val pos = c.currentPosition
+        c.replaceMediaItem(idx, bare(ab.trackId.toString()))
+        c.seekTo(idx, pos)
+        c.play()
+    }
 
     /** Back from a version to the track's library file, at the same second (after «same song?»). */
     fun backToTrack(trackId: Long) = scope.launch {

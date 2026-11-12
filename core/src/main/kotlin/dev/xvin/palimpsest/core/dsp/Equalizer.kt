@@ -25,6 +25,10 @@ class Equalizer {
     private var z2 = Array(0) { DoubleArray(0) }
     private var limiterEnv = 0f
 
+    /** How many times the filters went NaN/infinite and were reset (a broken one would stay silent). */
+    @Volatile var blowUps = 0
+        private set
+
     var enabled: Boolean = true
         set(value) { field = value; dirty = true }
 
@@ -91,6 +95,14 @@ class Equalizer {
                 buf[i] = x.toFloat()
                 i += ch
             }
+        }
+        // One bad sample (a corrupt frame from the decoder) poisons the filter state for good, and a NaN
+        // becomes 0 on the way out — the song would play on in silence until the next seek.
+        if (n > 0 && z1.any { s -> s.any { !it.isFinite() } } || !limiterEnv.isFinite()) {
+            blowUps++
+            reset()
+            buf.fill(0f, 0, frames * ch)
+            return
         }
         limit(buf, frames * ch, ch)
     }
