@@ -1004,4 +1004,8 @@
     <string name="nostalgia_title">Nostalgia · %1$d–%2$d</string>
     <string name="nostalgia_pick">Which year?</string>
     <string name="nostalgia_starting">Gathering the hits of %1$d–%2$d…</string>
+    <string name="wave_subtitle_short">Endless, for you</string>
+    <string name="offline_wave_subtitle_short">Your downloads</string>
+    <string name="iradio_subtitle_short">The world\'s stations</string>
+    <string name="wave_mood_pick">Mood</string>
 </resources>

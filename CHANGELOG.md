@@ -2,6 +2,13 @@
 
 **English** | [Русский](CHANGELOG.ru.md)
 
+## 0.8.1 — 2026-11-12
+
+### Changed
+- **The library breathes again**: My Wave, the offline wave, Nostalgia and internet radio are one row of small tiles
+  instead of four big cards, so the songs start on the first screen. The wave's tuning, the offline wave's moods (⋮)
+  and Nostalgia's year (✎) sit in the tiles' corners.
+
 ## 0.8.0 — 2026-11-12
 
 ### New

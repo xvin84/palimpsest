@@ -1019,4 +1019,8 @@
     <string name="nostalgia_title">Ностальгия · %1$d–%2$d</string>
     <string name="nostalgia_pick">Какой год?</string>
     <string name="nostalgia_starting">Собираю хиты %1$d–%2$d…</string>
+    <string name="wave_subtitle_short">Бесконечно, под вас</string>
+    <string name="offline_wave_subtitle_short">Из скачанного</string>
+    <string name="iradio_subtitle_short">Станции мира</string>
+    <string name="wave_mood_pick">Настроение</string>
 </resources>

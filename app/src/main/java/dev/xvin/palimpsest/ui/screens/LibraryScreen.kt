@@ -48,6 +48,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -190,10 +192,18 @@ private fun TracksTab() {
         if (hasWave && listState.firstVisibleItemIndex <= 1) listState.scrollToItem(0)
     }
     LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 16.dp)) {
-        if (hasWave) item(key = "wave") { MyWaveCard(s.wave) }
-        item(key = "offline-wave") { OfflineWaveRow() }
-        item(key = "nostalgia") { NostalgiaRow() }
-        item(key = "internet-radio") { InternetRadioRow() }
+        // The ways to just put music on, as one row of tiles: the songs start right under it.
+        item(key = "stations") {
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                if (hasWave) MyWaveCard(s.wave)
+                OfflineWaveRow()
+                NostalgiaRow()
+                InternetRadioRow()
+            }
+        }
         item {
             Row(
                 Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
@@ -428,14 +438,19 @@ private fun MyWaveCard(wave: dev.xvin.palimpsest.data.settings.WavePrefs) {
     if (tuning) WaveTuningSheet(onDismiss = { tuning = false })
     val accent = LocalAccent.current
     val active = station?.title == tr(R.string.my_wave)
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
-            .clip(RoundedCornerShape(18.dp))
-            .background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(accent.copy(alpha = 0.55f), accent.copy(alpha = 0.12f))))
-            .clickable(enabled = !starting) {
-                if (active) { nav.openPlayer(); return@clickable }
+    StationTile(
+        title = tr(R.string.my_wave),
+        subtitle = if (active) tr(R.string.playing_now) else tr(R.string.wave_subtitle_short),
+        background = androidx.compose.ui.graphics.Brush.linearGradient(listOf(accent.copy(alpha = 0.75f), accent.copy(alpha = 0.25f))),
+        emblem = {
+            if (starting) androidx.compose.material3.CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+            else if (active) dev.xvin.palimpsest.ui.components.ShakeWaveButton(Ink.Text)
+            else Icon(Icons.Rounded.PlayArrow, tr(R.string.play), Modifier.size(28.dp), tint = Ink.Text)
+        },
+        action = { IconButton(onClick = { tuning = true }, Modifier.size(32.dp)) { Icon(Icons.Rounded.Tune, tr(R.string.wave_tune), Modifier.size(18.dp), tint = Ink.Text) } },
+        onClick = click@{
+                if (starting) return@click
+                if (active) { nav.openPlayer(); return@click }
                 starting = true
                 scope.launch {
                     graph.startMyWave()
@@ -449,43 +464,19 @@ private fun MyWaveCard(wave: dev.xvin.palimpsest.data.settings.WavePrefs) {
                         }
                     starting = false
                 }
-            }
-            .padding(horizontal = 18.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(tr(R.string.my_wave), style = MaterialTheme.typography.headlineSmall)
-            Text(
-                if (active) tr(R.string.playing_now) else tr(R.string.wave_subtitle),
-                style = MaterialTheme.typography.bodySmall, color = Ink.Text.copy(alpha = 0.8f),
-            )
-        }
-        IconButton(onClick = { tuning = true }) { Icon(Icons.Rounded.Tune, tr(R.string.wave_tune), tint = Ink.Text) }
-        Box(Modifier.size(48.dp).clip(CircleShape).background(Ink.Text), contentAlignment = Alignment.Center) {
-            if (starting) androidx.compose.material3.CircularProgressIndicator(Modifier.size(22.dp), color = Ink.Paper, strokeWidth = 2.dp)
-            // While it plays, the button shakes the wave up instead.
-            else if (active) dev.xvin.palimpsest.ui.components.ShakeWaveButton(Ink.Paper)
-            else Text("▶", color = Ink.Paper, style = MaterialTheme.typography.titleLarge)
-        }
-    }
+            },
+    )
 }
 
 /** The way into internet radio, under the waves. */
 @Composable
 private fun InternetRadioRow() {
     val nav = LocalNav.current
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).clip(RoundedCornerShape(14.dp)).background(Ink.Paper2)
-            .clickable { nav.openInternetRadio() }.padding(horizontal = 18.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(Icons.Rounded.Radio, null, Modifier.size(22.dp), tint = Ink.Muted)
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f)) {
-            Text(tr(R.string.iradio_title), style = MaterialTheme.typography.titleMedium)
-            Text(tr(R.string.iradio_subtitle), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
-        }
-    }
+    StationTile(
+        title = tr(R.string.iradio_title), subtitle = tr(R.string.iradio_subtitle_short),
+        emblem = { Icon(Icons.Rounded.Radio, null, Modifier.size(26.dp), tint = Ink.Muted) },
+        onClick = { nav.openInternetRadio() },
+    )
 }
 
 /** «Офлайн-волна»: a mix of downloaded tracks shaped by your history; works with no network at all. */
@@ -500,44 +491,28 @@ private fun OfflineWaveRow() {
             if (graph.startOfflineWave(mood)) nav.openPlayer() else nav.toast(tr(R.string.offline_wave_empty))
         }
     }
-    Column(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp).clip(RoundedCornerShape(14.dp)).background(Ink.Paper2),
-    ) {
-        Row(
-            Modifier.fillMaxWidth().clickable { start(dev.xvin.palimpsest.playback.WaveMood.ANY) }.padding(horizontal = 18.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_my_wave), null, Modifier.size(22.dp), tint = Ink.Muted)
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text(tr(R.string.offline_wave), style = MaterialTheme.typography.titleMedium)
-                Text(tr(R.string.offline_wave_subtitle), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
-            }
-            Spacer(Modifier.width(10.dp))
-            Box(Modifier.size(40.dp).clip(androidx.compose.foundation.shape.CircleShape).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.PlayArrow, tr(R.string.play), Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onPrimary)
-            }
-        }
+    var moods by remember { mutableStateOf(false) }
+    StationTile(
+        title = tr(R.string.offline_wave), subtitle = tr(R.string.offline_wave_subtitle_short),
+        emblem = { Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_my_wave), null, Modifier.size(26.dp), tint = Ink.Muted) },
         // Moods need the audio analysed (Library health → Analyse audio).
-        if (analysed > 0) {
-            Row(
-                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = 12.dp, end = 12.dp, bottom = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                listOf(
-                    dev.xvin.palimpsest.playback.WaveMood.CALM to R.string.mood_calm,
-                    dev.xvin.palimpsest.playback.WaveMood.ENERGETIC to R.string.mood_energetic,
-                    dev.xvin.palimpsest.playback.WaveMood.FOCUS to R.string.mood_focus,
-                    dev.xvin.palimpsest.playback.WaveMood.SAD to R.string.mood_sad,
-                ).forEach { (mood, label) ->
-                    Text(
-                        tr(label), style = MaterialTheme.typography.labelLarge,
-                        modifier = Modifier.clip(RoundedCornerShape(50)).background(Ink.Paper3).clickable { start(mood) }.padding(horizontal = 14.dp, vertical = 7.dp),
-                    )
+        action = if (analysed > 0) ({
+            Box {
+                IconButton(onClick = { moods = true }, Modifier.size(32.dp)) { Icon(Icons.Rounded.MoreVert, tr(R.string.wave_mood_pick), Modifier.size(18.dp), tint = Ink.Muted) }
+                androidx.compose.material3.DropdownMenu(moods, { moods = false }, containerColor = Ink.Paper2) {
+                    listOf(
+                        dev.xvin.palimpsest.playback.WaveMood.CALM to R.string.mood_calm,
+                        dev.xvin.palimpsest.playback.WaveMood.ENERGETIC to R.string.mood_energetic,
+                        dev.xvin.palimpsest.playback.WaveMood.FOCUS to R.string.mood_focus,
+                        dev.xvin.palimpsest.playback.WaveMood.SAD to R.string.mood_sad,
+                    ).forEach { (mood, label) ->
+                        androidx.compose.material3.DropdownMenuItem(text = { Text(tr(label)) }, onClick = { moods = false; start(mood) })
+                    }
                 }
             }
-        }
-    }
+        }) else null,
+        onClick = { start(dev.xvin.palimpsest.playback.WaveMood.ANY) },
+    )
 }
 
 /**
@@ -560,19 +535,12 @@ private fun NostalgiaRow() {
         }
         nav.toast(tr(R.string.nostalgia_starting, years.first, years.last))
     }
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp).clip(RoundedCornerShape(14.dp)).background(Ink.Paper2)
-            .clickable { start(year) }.padding(horizontal = 18.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text("⌛", style = MaterialTheme.typography.titleLarge, color = Ink.Muted)
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f)) {
-            Text(tr(R.string.nostalgia), style = MaterialTheme.typography.titleMedium)
-            Text(tr(R.string.nostalgia_subtitle, span.first, span.last), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
-        }
-        TextButton(onClick = { picking = true }) { Text(year.toString()) }
-    }
+    StationTile(
+        title = tr(R.string.nostalgia), subtitle = "${span.first}–${span.last}",
+        emblem = { Text(year.toString(), style = MaterialTheme.typography.titleLarge, color = Ink.Text) },
+        action = { IconButton(onClick = { picking = true }, Modifier.size(32.dp)) { Icon(Icons.Rounded.Edit, tr(R.string.nostalgia_pick), Modifier.size(18.dp), tint = Ink.Muted) } },
+        onClick = { start(year) },
+    )
     if (picking) {
         var y by remember { mutableIntStateOf(year) }
         androidx.compose.material3.AlertDialog(
@@ -595,5 +563,32 @@ private fun NostalgiaRow() {
             },
             dismissButton = { TextButton(onClick = { picking = false }) { Text(tr(R.string.cancel)) } },
         )
+    }
+}
+
+/**
+ * One way to put music on, as a small tile of the row above the songs: an emblem (play, the wave's
+ * sign, the year…) and an optional action in the top corners, the name and a word under them.
+ */
+@Composable
+private fun StationTile(
+    title: String,
+    subtitle: String,
+    emblem: @Composable () -> Unit,
+    onClick: () -> Unit,
+    background: androidx.compose.ui.graphics.Brush = androidx.compose.ui.graphics.SolidColor(Ink.Paper2),
+    action: (@Composable () -> Unit)? = null,
+) {
+    Column(
+        Modifier.width(138.dp).height(112.dp).clip(RoundedCornerShape(18.dp)).background(background).clickable(onClick = onClick)
+            .padding(start = 14.dp, end = 6.dp, top = 10.dp, bottom = 12.dp),
+    ) {
+        Row(Modifier.fillMaxWidth().height(32.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)) { emblem() }
+            action?.invoke()
+        }
+        Spacer(Modifier.weight(1f))
+        Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(end = 8.dp))
+        Text(subtitle, style = MaterialTheme.typography.labelSmall, color = Ink.Text.copy(alpha = 0.65f), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(end = 8.dp))
     }
 }
