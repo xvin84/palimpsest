@@ -1016,4 +1016,7 @@
         <item quantity="other">%d songs are here twice</item>
     </plurals>
     <string name="dup_hint_merge">Merge</string>
+    <string name="eq_autoeq_model">Your headphones\' model</string>
+    <string name="eq_autoeq_measured">measured by %1$s</string>
+    <string name="eq_autoeq_paste">Or paste a ParametricEQ.txt</string>
 </resources>

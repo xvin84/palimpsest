@@ -697,3 +697,18 @@ class HlsFetchTest {
         dev.xvin.palimpsest.core.net.HlsFetch.parts("https://a.example/p.m3u8", "#EXTM3U\n#EXT-X-KEY:METHOD=AES-128,URI=\"k\"\nseg.ts")
     }
 }
+
+class AutoEqCatalogTest {
+    @Test fun parsesIndexLinesWithBracketsInNames() {
+        val md = """
+            # Index
+            - [Sennheiser HD 600](./oratory1990/over-ear/Sennheiser%20HD%20600) by oratory1990
+            - [1MORE Aero (ANC Off)](./HypetheSonics/GRAS%20RA0045%20in-ear/1MORE%20Aero%20(ANC%20Off)) by HypetheSonics on GRAS RA0045
+        """.trimIndent()
+        val e = dev.xvin.palimpsest.core.dsp.AutoEqCatalog.parse(md)
+        assertEquals(2, e.size)
+        assertEquals("./oratory1990/over-ear/Sennheiser%20HD%20600", e[0].path)
+        assertEquals("./HypetheSonics/GRAS%20RA0045%20in-ear/1MORE%20Aero%20(ANC%20Off)", e[1].path)
+        assertEquals("HypetheSonics", e[1].source)
+    }
+}

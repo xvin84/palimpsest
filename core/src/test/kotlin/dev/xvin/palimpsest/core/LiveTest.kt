@@ -113,6 +113,15 @@ class LiveTest {
         check(f.length() > 100_000)
     }
 
+    @Test fun autoEq() = runBlocking {
+        val c = dev.xvin.palimpsest.core.dsp.AutoEqCatalog(okhttp3.OkHttpClient())
+        val found = c.search("hd 600")
+        println("AutoEQ: " + found.take(4).joinToString { "${it.name} (${it.source})" })
+        val p = c.profile(found.first())
+        println("AutoEQ profile ${p.name}: preamp ${p.preampDb}, ${p.filters.size} filters")
+        check(p.filters.isNotEmpty())
+    }
+
     @Test fun nostalgia() = runBlocking {
         val proxy = System.getenv("HTTPS_PROXY")?.let { java.net.URI(it) }
         val http = okhttp3.OkHttpClient.Builder().apply {

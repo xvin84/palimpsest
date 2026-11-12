@@ -1033,4 +1033,7 @@
         <item quantity="other">%d песни лежат дважды</item>
     </plurals>
     <string name="dup_hint_merge">Объединить</string>
+    <string name="eq_autoeq_model">Модель ваших наушников</string>
+    <string name="eq_autoeq_measured">измерил %1$s</string>
+    <string name="eq_autoeq_paste">Или вставьте ParametricEQ.txt</string>
 </resources>

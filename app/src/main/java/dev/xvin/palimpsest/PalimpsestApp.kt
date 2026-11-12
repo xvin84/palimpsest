@@ -257,6 +257,7 @@ class AppGraph(val app: Application) {
     val storage = dev.xvin.palimpsest.data.Storage(app, db, versions, backups) { streamCache }
 
     val radioBrowser = dev.xvin.palimpsest.core.radio.RadioBrowser(http)
+    val autoEq = dev.xvin.palimpsest.core.dsp.AutoEqCatalog(http)
 
     /** Plays an internet radio station and remembers it among the recent ones. */
     suspend fun playStation(st: dev.xvin.palimpsest.core.radio.RadioStation) {

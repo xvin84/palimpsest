@@ -26,6 +26,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -176,30 +179,62 @@ fun EqualizerScreen() {
         var text by remember { mutableStateOf("") }
         var name by remember { mutableStateOf("") }
         var error by remember { mutableStateOf<String?>(null) }
+        var model by remember { mutableStateOf("") }
+        var paste by remember { mutableStateOf(false) }
+        var applying by remember { mutableStateOf(false) }
+        // Your headphones by name, from AutoEQ's ~9 000 measured models; tap one and it's on.
+        val found by produceState<List<dev.xvin.palimpsest.core.dsp.AutoEqCatalog.Entry>?>(emptyList(), model) {
+            if (model.isBlank()) { value = emptyList(); return@produceState }
+            kotlinx.coroutines.delay(350)
+            value = null
+            value = runCatching { graph.autoEq.search(model) }.onFailure { error = it.message }.getOrDefault(emptyList())
+        }
+        fun apply(p: dev.xvin.palimpsest.core.dsp.EqProfile) {
+            scope.launch {
+                graph.settings.setCustomEqProfiles(settings.customEqProfiles.filter { it.name != p.name } + p)
+                graph.settings.setEqProfile(p)
+                graph.settings.setEqEnabled(true)
+            }
+            importing = false
+        }
         AlertDialog(
             onDismissRequest = { importing = false },
             containerColor = Ink.Paper2,
             title = { Text(tr(R.string.eq_autoeq_import)) },
             text = {
                 Column {
+                    OutlinedTextField(model, { model = it; error = null }, label = { Text(tr(R.string.eq_autoeq_model)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    when {
+                        found == null || applying -> androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 8.dp))
+                        found!!.isEmpty() && model.isNotBlank() -> Text(tr(R.string.nothing_found), Modifier.padding(vertical = 8.dp), color = Ink.Muted)
+                        else -> androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max = 240.dp)) {
+                            items(found!!.size) { i ->
+                                val e = found!![i]
+                                Column(Modifier.fillMaxWidth().clickable(enabled = !applying) {
+                                    applying = true
+                                    scope.launch {
+                                        runCatching { graph.autoEq.profile(e) }.onSuccess(::apply).onFailure { error = it.message }
+                                        applying = false
+                                    }
+                                }.padding(vertical = 8.dp)) {
+                                    Text(e.name, maxLines = 1)
+                                    Text(tr(R.string.eq_autoeq_measured, e.source), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
+                                }
+                            }
+                        }
+                    }
+                    TextButton(onClick = { paste = !paste }) { Text(tr(R.string.eq_autoeq_paste)) }
+                    if (paste) {
                     OutlinedTextField(name, { name = it }, label = { Text(tr(R.string.headphones)) }, singleLine = true)
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(text, { text = it }, label = { Text("ParametricEQ.txt") }, minLines = 5, maxLines = 10)
+                    }
                     error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
-                    runCatching { AutoEqParser.parse(text, name.ifBlank { "AutoEQ" }) }
-                        .onSuccess { p ->
-                            scope.launch {
-                                graph.settings.setCustomEqProfiles(settings.customEqProfiles.filter { it.name != p.name } + p)
-                                graph.settings.setEqProfile(p)
-                                graph.settings.setEqEnabled(true)
-                            }
-                            importing = false
-                        }
-                        .onFailure { error = it.message }
+                if (paste) TextButton(onClick = {
+                    runCatching { AutoEqParser.parse(text, name.ifBlank { "AutoEQ" }) }.onSuccess(::apply).onFailure { error = it.message }
                 }) { Text(tr(R.string.import_label)) }
             },
             dismissButton = { TextButton(onClick = { importing = false }) { Text(tr(R.string.cancel)) } },
