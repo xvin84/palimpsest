@@ -275,7 +275,7 @@ private class FrameDrawer(
     private val vertical = aspect == RenderAspect.VERTICAL
     private val unit = min(w, h) / 1080f
 
-    private val serif: Typeface = font("font/playfair_display.ttf").let { runCatching { it.makeClone(FontVariation("wght", 760f)) }.getOrDefault(it) }
+    private val serif: Typeface = font("font/literata.ttf").let { runCatching { it.makeClone(FontVariation("wght", 760f)) }.getOrDefault(it) }
     private val sans: Typeface = font("font/manrope.ttf")
     private val sansBold: Typeface = runCatching { sans.makeClone(FontVariation("wght", 650f)) }.getOrDefault(sans)
     private val fonts = FontCollection().apply {

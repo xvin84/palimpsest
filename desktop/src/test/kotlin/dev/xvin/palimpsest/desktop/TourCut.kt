@@ -101,7 +101,7 @@ fun main(args: Array<String>) {
     val total = deskFrames + phoneFrames
 
     val fonts = File("src/main/resources/font")
-    val serif = FontMgr.default.makeFromFile(File(fonts, "playfair_display.ttf").absolutePath)!!
+    val serif = FontMgr.default.makeFromFile(File(fonts, "literata.ttf").absolutePath)!!
     val manrope = FontMgr.default.makeFromFile(File(fonts, "manrope.ttf").absolutePath)!!
     fun manrope(weight: Float): Typeface = manrope.makeClone(arrayOf(FontVariation("wght", weight)))
     val sans = manrope(500f)

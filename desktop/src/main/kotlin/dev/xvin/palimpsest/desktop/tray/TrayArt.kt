@@ -38,7 +38,7 @@ object TrayArt {
     private fun font(name: String): Font? = runCatching {
         TrayArt::class.java.getResourceAsStream("/font/$name")!!.use { Font.createFont(Font.TRUETYPE_FONT, it) }
     }.getOrNull()
-    private val serif by lazy { font("playfair_display.ttf") ?: Font(Font.SERIF, Font.BOLD, 12) }
+    private val serif by lazy { font("literata.ttf") ?: Font(Font.SERIF, Font.BOLD, 12) }
     private val sans by lazy { font("manrope.ttf") ?: Font(Font.SANS_SERIF, Font.BOLD, 12) }
 
     fun draw(look: Look, size: Int): BufferedImage {

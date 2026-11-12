@@ -69,7 +69,7 @@ fun lane(theme: DesktopTheme, tint: Color): Pal = when (theme) {
 private fun face(file: String, weight: Int) =
     Font(file, FontWeight(weight), FontStyle.Normal, FontVariation.Settings(FontVariation.weight(weight)))
 
-val Serif = FontFamily(face("font/playfair_display.ttf", 600), face("font/playfair_display.ttf", 700))
+val Serif = FontFamily(face("font/literata.ttf", 600), face("font/literata.ttf", 700))
 val Sans = FontFamily(listOf(400, 500, 600, 700, 800).map { face("font/manrope.ttf", it) })
 
 /** Corners on one scale, so things side by side agree. */
