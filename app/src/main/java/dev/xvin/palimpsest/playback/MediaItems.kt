@@ -57,6 +57,9 @@ object MediaItems {
             .setMediaId(track.id.toString())
             .setUri(uri)
             .setMediaMetadata(meta)
+            // SoundCloud streams are HLS: the player asks for the playlist through our scheme and then
+            // fetches the parts itself (see PalimpsestDataSource).
+            .apply { if (track.path == null && track.service == dev.xvin.palimpsest.core.model.Service.SOUNDCLOUD) setMimeType(androidx.media3.common.MimeTypes.APPLICATION_M3U8) }
             .build()
     }
 

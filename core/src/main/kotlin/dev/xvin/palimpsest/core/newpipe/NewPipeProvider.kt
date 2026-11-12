@@ -47,6 +47,7 @@ class NewPipeProvider private constructor(
 
     companion object {
         fun bandcamp(http: OkHttpClient) = NewPipeProvider(Service.BANDCAMP, org.schabi.newpipe.extractor.ServiceList.Bandcamp, http)
+        fun soundcloud(http: OkHttpClient) = NewPipeProvider(Service.SOUNDCLOUD, org.schabi.newpipe.extractor.ServiceList.SoundCloud, http)
     }
 
     init {
@@ -139,8 +140,11 @@ class NewPipeProvider private constructor(
             }
             val direct = info.audioStreams.filter { it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP && it.isUrl }
             val s = (if (quality == Quality.NORMAL) direct.minByOrNull { it.averageBitrate } else direct.maxByOrNull { it.averageBitrate })
-                ?: throw ProviderException("${service.displayName}: no direct audio for $id")
-            StreamInfo(url = s.content, codec = s.format?.suffix ?: "mp3", bitrateKbps = s.averageBitrate.coerceAtLeast(0))
+            if (s != null) return@withContext StreamInfo(url = s.content, codec = s.format?.suffix ?: "mp3", bitrateKbps = s.averageBitrate.coerceAtLeast(0))
+            // SoundCloud now serves most songs only as HLS (unencrypted AAC in fMP4 parts).
+            val hls = info.audioStreams.filter { it.deliveryMethod == DeliveryMethod.HLS && it.isUrl }
+                .maxByOrNull { it.averageBitrate } ?: throw ProviderException("${service.displayName}: no audio for $id")
+            StreamInfo(url = hls.content, codec = hls.format?.suffix ?: "m4a", bitrateKbps = hls.averageBitrate.coerceAtLeast(0), hls = true)
         }
     }
 

@@ -15,7 +15,7 @@ import java.net.URI
 object SongLink {
     private val HOSTS = listOf(
         "open.spotify.com", "spotify.link", "music.apple.com", "itunes.apple.com", "deezer.com", "deezer.page.link", "link.deezer.com",
-        "soundcloud.com", "on.soundcloud.com", "tidal.com", "listen.tidal.com", "music.amazon.com", "song.link", "album.link", "odesli.co",
+        "on.soundcloud.com", "tidal.com", "listen.tidal.com", "music.amazon.com", "song.link", "album.link", "odesli.co",
         "audiomack.com", "boomplay.com", "pandora.com", "napster.com",
     )
     private val URL_IN_TEXT = Regex("""https?://\S+""")

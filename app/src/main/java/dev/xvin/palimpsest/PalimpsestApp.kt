@@ -120,7 +120,7 @@ class AppGraph(val app: Application) {
 
     /** Optional proxy used only for YouTube/Spotify hosts (often unreachable directly). */
     private val proxySelector = object : ProxySelector() {
-        private val hosts = listOf("youtube.com", "googlevideo.com", "ytimg.com", "youtu.be", "ggpht.com", "googleapis.com", "googleusercontent.com", "spotify.com", "scdn.co", "spotifycdn.com", "musicbrainz.org", "coverartarchive.org", "archive.org", "bandcamp.com", "bcbits.com", "radio-browser.info")
+        private val hosts = listOf("youtube.com", "googlevideo.com", "ytimg.com", "youtu.be", "ggpht.com", "googleapis.com", "googleusercontent.com", "spotify.com", "scdn.co", "spotifycdn.com", "musicbrainz.org", "coverartarchive.org", "archive.org", "bandcamp.com", "bcbits.com", "soundcloud.com", "sndcdn.com", "soundcloud.cloud", "radio-browser.info")
 
         override fun select(uri: URI?): List<Proxy> {
             val proxy = settings.state.value?.proxy
@@ -158,6 +158,7 @@ class AppGraph(val app: Application) {
     val yandex = YandexMusicProvider({ settings.state.value?.yandexToken }, http)
     val youtube: YouTubeProvider by lazy { YouTubeProvider(http) }
     val bandcamp: dev.xvin.palimpsest.core.newpipe.NewPipeProvider by lazy { dev.xvin.palimpsest.core.newpipe.NewPipeProvider.bandcamp(http) }
+    val soundcloud: dev.xvin.palimpsest.core.newpipe.NewPipeProvider by lazy { dev.xvin.palimpsest.core.newpipe.NewPipeProvider.soundcloud(http) }
 
     /** Lazy view so YouTube/NewPipe only initialises when first used. */
     val providers: Map<Service, MusicProvider> = object : AbstractMap<Service, MusicProvider>() {
@@ -166,12 +167,14 @@ class AppGraph(val app: Application) {
                 java.util.AbstractMap.SimpleEntry(Service.YANDEX, yandex as MusicProvider),
                 java.util.AbstractMap.SimpleEntry(Service.YOUTUBE, youtube as MusicProvider),
                 java.util.AbstractMap.SimpleEntry(Service.BANDCAMP, bandcamp as MusicProvider),
+                java.util.AbstractMap.SimpleEntry(Service.SOUNDCLOUD, soundcloud as MusicProvider),
             )
 
         override fun get(key: Service): MusicProvider? = when (key) {
             Service.YANDEX -> yandex
             Service.YOUTUBE -> youtube
             Service.BANDCAMP -> bandcamp
+            Service.SOUNDCLOUD -> soundcloud
             else -> null
         }
     }

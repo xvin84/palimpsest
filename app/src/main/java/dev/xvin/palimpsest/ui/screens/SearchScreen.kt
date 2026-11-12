@@ -308,6 +308,7 @@ fun SearchScreen() {
             Pill(tr(R.string.service_yandex), source == Service.YANDEX, { source = Service.YANDEX })
             Pill("YouTube Music", source == Service.YOUTUBE, { source = Service.YOUTUBE })
             Pill("Bandcamp", source == Service.BANDCAMP, { source = Service.BANDCAMP })
+            Pill("SoundCloud", source == Service.SOUNDCLOUD, { source = Service.SOUNDCLOUD })
         }
         Row(
             Modifier.fillMaxWidth().padding(top = 8.dp),
@@ -359,7 +360,7 @@ fun SearchScreen() {
             }
         }
         // YouTube and Bandcamp are the ones that need a proxy from some countries (Settings → Network).
-        val proxied = source == Service.YOUTUBE || source == Service.BANDCAMP
+        val proxied = source == Service.YOUTUBE || source == Service.BANDCAMP || source == Service.SOUNDCLOUD
         if (proxied && settings?.proxy.isNullOrBlank() && ((loading && slow) || error != null)) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(tr(R.string.proxy_hint_search, source!!.displayName), style = MaterialTheme.typography.bodySmall, color = Ink.Muted, modifier = Modifier.weight(1f))

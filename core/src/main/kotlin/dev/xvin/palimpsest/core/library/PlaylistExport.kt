@@ -9,7 +9,7 @@ object TrackLinks {
         return when (service) {
             Service.YANDEX -> YandexLinks.trackUrl(remoteAlbumId, id)
             Service.YOUTUBE -> "https://music.youtube.com/watch?v=$id"
-            Service.BANDCAMP -> if (id.startsWith("http")) id else "https://$id"
+            Service.BANDCAMP, Service.SOUNDCLOUD -> if (id.startsWith("http")) id else "https://$id"
             else -> null
         }
     }

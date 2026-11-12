@@ -95,6 +95,24 @@ class LiveTest {
         check(album.tracks.isNotEmpty())
     }
 
+    @Test fun soundcloud() = runBlocking {
+        val proxy = System.getenv("HTTPS_PROXY")?.let { java.net.URI(it) }
+        val http = okhttp3.OkHttpClient.Builder().apply {
+            if (proxy != null) proxy(java.net.Proxy(java.net.Proxy.Type.HTTP, java.net.InetSocketAddress(proxy.host, proxy.port)))
+        }.build()
+        val sc = dev.xvin.palimpsest.core.newpipe.NewPipeProvider.soundcloud(http)
+        val r = sc.searchAll("lofi chill", dev.xvin.palimpsest.core.model.SearchType.ALL)
+        println("SC tracks: " + r.tracks.take(3).joinToString { "${it.artists} — ${it.title} [${it.id}] ${it.durationMs / 1000}s" })
+        println("SC artists: " + r.artists.take(2).joinToString { it.name } + "; albums: " + r.albums.take(2).joinToString { it.title })
+        val t = r.tracks.first()
+        val s = sc.resolveStream(t.id)
+        println("SC stream hls=${s.hls} ${s.codec} ${s.bitrateKbps}")
+        val f = java.io.File(System.getProperty("java.io.tmpdir"), "sc-test.m4a")
+        f.outputStream().use { dev.xvin.palimpsest.core.net.HlsFetch.download(http, s.url, it) }
+        println("SC file ${f.absolutePath} ${f.length()} bytes")
+        check(f.length() > 100_000)
+    }
+
     @Test fun nostalgia() = runBlocking {
         val proxy = System.getenv("HTTPS_PROXY")?.let { java.net.URI(it) }
         val http = okhttp3.OkHttpClient.Builder().apply {

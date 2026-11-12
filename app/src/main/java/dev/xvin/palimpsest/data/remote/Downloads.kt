@@ -190,7 +190,9 @@ class Downloads(
             }
             while (true) {
                 try {
-                    fetch(info.url, info.headers, tmp, info.aesCtrKey) { p -> set(trackId) { it.copy(progress = p) } }
+                    // SoundCloud's HLS: the parts joined into one .m4a.
+                    if (info.hls) tmp.outputStream().use { out -> dev.xvin.palimpsest.core.net.HlsFetch.download(http, info.url, out) { p -> set(trackId) { it.copy(progress = p) } } }
+                    else fetch(info.url, info.headers, tmp, info.aesCtrKey) { p -> set(trackId) { it.copy(progress = p) } }
                     break
                 } catch (e: IOException) {
                     if (++attempt >= 3 || e.message?.startsWith("HTTP 4") != true) throw e
@@ -329,6 +331,7 @@ class Downloads(
             Service.YOUTUBE -> "YouTube"
             Service.SPOTIFY -> "Spotify"
             Service.BANDCAMP -> "Bandcamp"
+            Service.SOUNDCLOUD -> "SoundCloud"
             Service.LOCAL -> "Разное"
         }
     }

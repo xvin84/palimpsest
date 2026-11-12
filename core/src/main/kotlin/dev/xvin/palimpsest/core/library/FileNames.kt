@@ -77,6 +77,7 @@ object FileNames {
             if ("youtube.com" in urlTag || "youtu.be" in urlTag) return Service.YOUTUBE
             if ("spotify.com" in urlTag) return Service.SPOTIFY
             if ("bandcamp.com" in urlTag) return Service.BANDCAMP
+            if ("soundcloud.com" in urlTag) return Service.SOUNDCLOUD
         }
         val lower = relativePath.lowercase()
         return when {
@@ -84,6 +85,7 @@ object FileNames {
             "youtube" in lower || ytId.containsMatchIn(relativePath.substringBeforeLast('.')) -> Service.YOUTUBE
             "spotify" in lower -> Service.SPOTIFY
             "bandcamp" in lower -> Service.BANDCAMP
+            "soundcloud" in lower -> Service.SOUNDCLOUD
             else -> Service.LOCAL
         }
     }

@@ -36,6 +36,13 @@ data class MusicLink(val service: Service, val kind: Kind, val id: String) {
                     segs.firstOrNull()?.startsWith("@") == true -> MusicLink(Service.YOUTUBE, Kind.ARTIST, "https://www.youtube.com/${segs[0]}")
                     else -> null
                 }
+                // soundcloud.com/<artist>, /<artist>/<song>, /<artist>/sets/<list>
+                host == "soundcloud.com" -> when {
+                    segs.size == 1 -> MusicLink(Service.SOUNDCLOUD, Kind.ARTIST, "soundcloud.com/${segs[0]}")
+                    segs.size >= 3 && segs[1] == "sets" -> MusicLink(Service.SOUNDCLOUD, Kind.PLAYLIST, "soundcloud.com/${segs[0]}/sets/${segs[2]}")
+                    segs.size == 2 -> MusicLink(Service.SOUNDCLOUD, Kind.TRACK, "soundcloud.com/${segs[0]}/${segs[1]}")
+                    else -> null
+                }
                 host.endsWith(".bandcamp.com") -> when (segs.firstOrNull()) {
                     "track" -> if (segs.size > 1) MusicLink(Service.BANDCAMP, Kind.TRACK, "$host/track/${segs[1]}") else null
                     "album" -> if (segs.size > 1) MusicLink(Service.BANDCAMP, Kind.ALBUM, "$host/album/${segs[1]}") else null

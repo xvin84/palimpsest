@@ -124,19 +124,22 @@ class PalimpsestDataSource(
     private val remote: DataSource,
     private val lan: DataSource,
     private val radio: DataSource,
+    /** Resolved without the cache: an HLS playlist (SoundCloud) holds signed links that expire. */
+    private val uncached: DataSource,
 ) : DataSource {
     private var current: DataSource? = null
 
     override fun addTransferListener(transferListener: TransferListener) {
         local.addTransferListener(transferListener)
         remote.addTransferListener(transferListener)
+        uncached.addTransferListener(transferListener)
         lan.addTransferListener(transferListener)
         radio.addTransferListener(transferListener)
     }
 
     override fun open(dataSpec: DataSpec): Long {
         val src = when (dataSpec.uri.scheme) {
-            StreamResolver.SCHEME -> remote
+            StreamResolver.SCHEME -> if (dataSpec.uri.host == dev.xvin.palimpsest.core.model.Service.SOUNDCLOUD.name) uncached else remote
             LanItem.SCHEME -> lan
             InternetRadioItems.SCHEME -> radio
             else -> local
@@ -162,7 +165,7 @@ class PalimpsestDataSource(
                 .setUpstreamDataSourceFactory { resolving }
                 .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
                 .createDataSource()
-            return PalimpsestDataSource(localFactory.createDataSource(), cached, LanDataSource(), InternetRadioDataSource())
+            return PalimpsestDataSource(localFactory.createDataSource(), cached, LanDataSource(), InternetRadioDataSource(), ResolvingStreamDataSource(resolver, localFactory))
         }
     }
 }

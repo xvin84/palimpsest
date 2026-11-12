@@ -13,6 +13,7 @@ enum class Service(val displayName: String) {
     YOUTUBE("YouTube"),
     SPOTIFY("Spotify"),
     BANDCAMP("Bandcamp"),
+    SOUNDCLOUD("SoundCloud"),
 }
 
 /** A track as a remote service describes it, before it enters the local library. */
@@ -115,6 +116,11 @@ data class StreamInfo(
     val headers: Map<String, String> = emptyMap(),
     /** AES-128-CTR key (zero IV) for services that serve encrypted streams. */
     val aesCtrKey: ByteArray? = null,
+    /**
+     * [url] is an HLS playlist, not a file (SoundCloud): played as HLS, and for a file fetched part
+     * by part and joined (see [dev.xvin.palimpsest.core.net.HlsFetch]).
+     */
+    val hls: Boolean = false,
 ) {
     val extension: String
         get() = codec.lowercase().let { c ->

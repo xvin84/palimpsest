@@ -674,3 +674,26 @@ class PlaylistSyncTest {
         assertEquals("9", m.single().id)
     }
 }
+
+class HlsFetchTest {
+    @Test fun initThenSegmentsResolved() {
+        val text = """
+            #EXTM3U
+            #EXT-X-VERSION:7
+            #EXT-X-MAP:URI="init.mp4?x=1"
+            #EXTINF:10.0,
+            seg-1.m4s
+            #EXTINF:10.0,
+            https://cdn.example/seg-2.m4s
+            #EXT-X-ENDLIST
+        """.trimIndent()
+        assertEquals(
+            listOf("https://a.example/aac/init.mp4?x=1", "https://a.example/aac/seg-1.m4s", "https://cdn.example/seg-2.m4s"),
+            dev.xvin.palimpsest.core.net.HlsFetch.parts("https://a.example/aac/playlist.m3u8?sig=1", text),
+        )
+    }
+
+    @Test(expected = java.io.IOException::class) fun encryptedStops() {
+        dev.xvin.palimpsest.core.net.HlsFetch.parts("https://a.example/p.m3u8", "#EXTM3U\n#EXT-X-KEY:METHOD=AES-128,URI=\"k\"\nseg.ts")
+    }
+}
