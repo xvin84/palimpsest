@@ -2,6 +2,19 @@
 
 **English** | [Русский](CHANGELOG.ru.md)
 
+## 0.8.2 — 2026-11-12
+
+### New
+- **SoundCloud**: search, artists and playlists, songs play and download as tagged `.m4a` with the cover — phone and
+  computer; SoundCloud links open right in the app. From some countries it needs the proxy, like YouTube.
+- **AutoEQ by headphone model**: in the equalizer type your model, pick it from ~9 000 measured ones, and the
+  correction is on (no more copying a file from GitHub). Phone and computer.
+- The library says when **songs are in it twice**, with a way to merge them.
+- An artist's page shows **your albums** of theirs.
+
+### Fixed
+- Internet radio opens on **your country's stations** (the system's region), not France's.
+
 ## 0.8.1 — 2026-11-12
 
 ### Fixed
