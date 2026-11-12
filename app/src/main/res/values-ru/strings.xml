@@ -31,7 +31,7 @@
     <string name="artist_albums">Альбомы и синглы</string>
     <string name="artist_card_failed">Карточку из Яндекса загрузить не удалось</string>
     <string name="artist_in_library">В медиатеке · %1$s</string>
-    <string name="artist_play_downloaded">Скачанное</string>
+    <string name="artist_play_downloaded">Слушать</string>
     <string name="artist_popular">Популярное</string>
     <string name="artist_you_have">у тебя %1$s</string>
     <string name="back">Назад</string>
@@ -996,4 +996,22 @@
     <string name="queue_after_station">Потом продолжится «%1$s»: новые песни будут добавляться сами.</string>
     <string name="queue_after_similar">Потом — похожее на последнюю песню (Настройки → Воспроизведение → «Продолжать похожим»).</string>
     <string name="queue_after_silence">Потом музыка остановится.</string>
+    <string name="queue_library_next">Ваши (%1$d) — следующими</string>
+    <string name="queue_library_end">Ваши (%1$d) — в конец</string>
+    <string name="queue_popular_next">Популярное — следующими</string>
+    <string name="queue_popular_end">Популярное — в конец</string>
+    <plurals name="queued_n">
+        <item quantity="one">%d песня добавлена в очередь</item>
+        <item quantity="few">%d песни добавлены в очередь</item>
+        <item quantity="many">%d песен добавлено в очередь</item>
+        <item quantity="other">%d песни добавлено в очередь</item>
+    </plurals>
+    <plurals name="queued_next_n">
+        <item quantity="one">%d песня сыграет следующей</item>
+        <item quantity="few">%d песни сыграют следующими</item>
+        <item quantity="many">%d песен сыграют следующими</item>
+        <item quantity="other">%d песни сыграют следующими</item>
+    </plurals>
+    <string name="queue_all_next">Всё — следующими</string>
+    <string name="queue_all_end">Всё — в конец очереди</string>
 </resources>

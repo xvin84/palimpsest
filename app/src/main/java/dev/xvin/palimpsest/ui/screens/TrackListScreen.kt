@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Edit
@@ -136,6 +137,10 @@ fun TrackListScreen(kind: TrackListKind, key: String, extra: String?) {
                     }
                     OutlinedButton(onClick = { graph.player.play(tracks, shuffle = true) }, enabled = tracks.isNotEmpty()) {
                         Icon(Icons.Rounded.Shuffle, null); Spacer(Modifier.width(6.dp)); Text(tr(R.string.shuffled))
+                    }
+                    // The whole album / list after what's queued.
+                    IconButton(onClick = { graph.player.enqueue(tracks); nav.toast(dev.xvin.palimpsest.i18n.plural(R.plurals.queued_n, tracks.size)) }, enabled = tracks.isNotEmpty()) {
+                        Icon(Icons.AutoMirrored.Rounded.QueueMusic, tr(R.string.action_enqueue))
                     }
                     if (remoteOnly.isNotEmpty()) {
                         IconButton(onClick = {

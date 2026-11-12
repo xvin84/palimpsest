@@ -36,6 +36,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -87,6 +88,13 @@ private fun rememberRemoteActions(): RemoteActions {
                 }
             },
             more = { r -> scope.launch { nav.showActions(graph.remote.ensureTrack(r)) } },
+            enqueue = { list, next ->
+                scope.launch {
+                    val rows = list.filter { it.available }.map { graph.remote.ensureTrack(it) }
+                    if (next) graph.player.playNext(rows) else graph.player.enqueue(rows)
+                    nav.toast(plural(if (next) R.plurals.queued_next_n else R.plurals.queued_n, rows.size))
+                }
+            },
         )
     }
 }
@@ -95,6 +103,8 @@ private class RemoteActions(
     val play: (List<RemoteTrack>, Int) -> Unit,
     val download: (List<RemoteTrack>) -> Unit,
     val more: (RemoteTrack) -> Unit,
+    /** Into the queue: right after the song on now ([next]), or at its end. */
+    val enqueue: (List<RemoteTrack>, Boolean) -> Unit,
 )
 
 @Composable
@@ -139,6 +149,23 @@ fun ArtistScreen(name: String, remoteId: String?, service: Service = Service.YAN
                         Text(tr(R.string.artist_play_downloaded), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     OutlinedButton(onClick = { graph.player.play(local, shuffle = true) }, contentPadding = compactPadding) { Icon(Icons.Rounded.Shuffle, tr(R.string.shuffle)) }
+                }
+                // The whole artist into the queue: what's in the library, or their popular songs.
+                val popular = artist?.popular.orEmpty()
+                if (local.isNotEmpty() || popular.isNotEmpty()) Box {
+                    var queueMenu by remember { mutableStateOf(false) }
+                    OutlinedButton(onClick = { queueMenu = true }, contentPadding = compactPadding) { Icon(Icons.AutoMirrored.Rounded.QueueMusic, tr(R.string.action_enqueue)) }
+                    androidx.compose.material3.DropdownMenu(queueMenu, { queueMenu = false }, containerColor = Ink.Paper2) {
+                        fun item(text: String, run: () -> Unit) = @Composable { androidx.compose.material3.DropdownMenuItem(text = { Text(text) }, onClick = { queueMenu = false; run() }) }
+                        if (local.isNotEmpty()) {
+                            item(tr(R.string.queue_library_next, local.size)) { graph.player.playNext(local); nav.toast(plural(R.plurals.queued_next_n, local.size)) }()
+                            item(tr(R.string.queue_library_end, local.size)) { graph.player.enqueue(local); nav.toast(plural(R.plurals.queued_n, local.size)) }()
+                        }
+                        if (popular.isNotEmpty()) {
+                            item(tr(R.string.queue_popular_next)) { actions.enqueue(popular, true) }()
+                            item(tr(R.string.queue_popular_end)) { actions.enqueue(popular, false) }()
+                        }
+                    }
                 }
                 artist?.takeIf { it.artist.service == Service.YANDEX }?.let { a ->
                     OutlinedButton(onClick = {
@@ -316,6 +343,7 @@ private fun RemoteListLayout(
                 Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Button(onClick = { actions.play(tracks, 0) }, enabled = tracks.isNotEmpty()) { Icon(Icons.Rounded.PlayArrow, null); Spacer(Modifier.width(6.dp)); Text(tr(R.string.listen)) }
                     OutlinedButton(onClick = { actions.play(tracks.shuffled(), 0) }, enabled = tracks.isNotEmpty()) { Icon(Icons.Rounded.Shuffle, null) }
+                    OutlinedButton(onClick = { actions.enqueue(tracks, false) }, enabled = tracks.isNotEmpty()) { Icon(Icons.AutoMirrored.Rounded.QueueMusic, tr(R.string.action_enqueue)) }
                     OutlinedButton(onClick = { actions.download(tracks) }, enabled = tracks.isNotEmpty()) { Icon(Icons.Rounded.Download, null); Spacer(Modifier.width(6.dp)); Text(tr(R.string.download)) }
                 }
             }

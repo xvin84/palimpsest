@@ -30,6 +30,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
@@ -214,6 +215,10 @@ fun PlaylistScreen(id: Long) {
                                 if (p.coverUrl != null) item(Icons.Rounded.GridView, tr(R.string.playlist_reset_cover)) { scope.launch { dao.setCover(id, null) } }()
                             }
                             item(Icons.Rounded.FastForward, tr(R.string.playlist_listen_through)) { graph.player.preview(tracks, p.name) }()
+                            if (tracks.isNotEmpty()) {
+                                item(Icons.AutoMirrored.Rounded.QueueMusic, tr(R.string.queue_all_next)) { graph.player.playNext(tracks); nav.toast(plural(R.plurals.queued_next_n, tracks.size)) }()
+                                item(Icons.AutoMirrored.Rounded.QueueMusic, tr(R.string.queue_all_end)) { graph.player.enqueue(tracks); nav.toast(plural(R.plurals.queued_n, tracks.size)) }()
+                            }
                             item(Icons.Rounded.ContentCopy, tr(R.string.playlist_duplicate)) {
                                 scope.launch {
                                     val name = tr(R.string.playlist_copy_name, p.name)

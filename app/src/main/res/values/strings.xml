@@ -32,7 +32,7 @@
     <string name="artist_albums">Albums and singles</string>
     <string name="artist_card_failed">Couldn\'t load the artist card from Yandex</string>
     <string name="artist_in_library">In your library · %1$s</string>
-    <string name="artist_play_downloaded">Downloaded</string>
+    <string name="artist_play_downloaded">Listen</string>
     <string name="artist_popular">Popular</string>
     <string name="artist_you_have">you have %1$s</string>
     <string name="back">Back</string>
@@ -985,4 +985,18 @@
     <string name="queue_after_station">Then «%1$s» goes on: new songs come by themselves.</string>
     <string name="queue_after_similar">Then songs like the last one (Settings → Playback → «Go on with similar songs»).</string>
     <string name="queue_after_silence">Then the music stops.</string>
+    <string name="queue_library_next">Yours (%1$d) — next</string>
+    <string name="queue_library_end">Yours (%1$d) — to the end</string>
+    <string name="queue_popular_next">Popular — next</string>
+    <string name="queue_popular_end">Popular — to the end</string>
+    <plurals name="queued_n">
+        <item quantity="one">%d song added to the queue</item>
+        <item quantity="other">%d songs added to the queue</item>
+    </plurals>
+    <plurals name="queued_next_n">
+        <item quantity="one">%d song plays next</item>
+        <item quantity="other">%d songs play next</item>
+    </plurals>
+    <string name="queue_all_next">All of it — next</string>
+    <string name="queue_all_end">All of it — to the end of the queue</string>
 </resources>
