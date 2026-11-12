@@ -36,6 +36,11 @@ interface StationSource {
 
     /** Listening feedback so the station adapts. Best effort, never throws. */
     suspend fun started(track: RemoteTrack) {}
+    /**
+     * A source that keeps track of freshness itself (your own files): the feed then holds back only
+     * the last few songs instead of everything heard, or a small library would run dry after one round.
+     */
+    val allowsRepeats: Boolean get() = false
     suspend fun ended(track: RemoteTrack, playedSec: Double, finished: Boolean) {}
 }
 
@@ -88,7 +93,13 @@ class RadioFeed(val spec: StationSpec, private val source: StationSource, heard:
     private fun avoid() = heard.toList().takeLast(50)
 
     private fun keep(tracks: List<RemoteTrack>): List<RemoteTrack> {
-        val out = tracks.distinctBy(::keyOf).filter { keyOf(it) !in heard }
+        val unique = tracks.distinctBy(::keyOf)
+        val out = if (!source.allowsRepeats) unique.filter { keyOf(it) !in heard }
+        else {
+            // A library smaller than the gap: hold back less rather than stop — at least not the song just heard.
+            val recent = heard.toList()
+            unique.filter { keyOf(it) !in recent.takeLast(REPEAT_GAP) }.ifEmpty { unique.filter { keyOf(it) !in recent.takeLast(1) } }
+        }
         out.forEach { heard += keyOf(it) }
         while (heard.size > KEEP) heard.remove(heard.first())
         return out
@@ -99,6 +110,7 @@ class RadioFeed(val spec: StationSpec, private val source: StationSource, heard:
 
     companion object {
         private const val KEEP = 400
+        private const val REPEAT_GAP = 12
 
         /** The same song keeps its key between sessions (Yandex adds «:album» to some ids). */
         fun keyOf(t: RemoteTrack): String = "${t.service}:" + if (t.service == Service.YANDEX) t.id.substringBefore(':') else t.id

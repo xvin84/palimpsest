@@ -21,7 +21,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
@@ -87,6 +91,13 @@ fun WaveTuningSheet(onDismiss: () -> Unit) {
             Group(tr(R.string.wave_mood), w.mood, listOf("" to tr(R.string.wave_any_n), "active" to tr(R.string.wave_mood_active), "fun" to tr(R.string.wave_mood_fun), "calm" to tr(R.string.wave_mood_calm), "sad" to tr(R.string.wave_mood_sad))) { set(w.copy(mood = it)) }
             Group(tr(R.string.language), w.language, listOf("" to tr(R.string.wave_any_m), "russian" to tr(R.string.wave_lang_russian), "not-russian" to tr(R.string.wave_lang_foreign), "without-words" to tr(R.string.wave_lang_instrumental))) { set(w.copy(language = it)) }
             }
+            // Own files: the offline wave and the mixed wave's share.
+            Spacer(Modifier.height(16.dp))
+            Text(tr(R.string.wave_novelty).uppercase(), style = MaterialTheme.typography.labelSmall, color = Ink.Muted)
+            Text(tr(R.string.wave_novelty_hint), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
+            var novelty by remember(w.novelty) { mutableFloatStateOf(w.novelty) }
+            androidx.compose.material3.Slider(novelty, { novelty = it }, onValueChangeFinished = { set(w.copy(novelty = novelty)) }, steps = 3)
+            WaveBans()
             Spacer(Modifier.height(16.dp))
             Button(onClick = {
                 // The sheet closes right away, so its own scope would cancel the start mid-request.
@@ -140,5 +151,22 @@ private fun Group(title: String, value: String, options: List<Pair<String, Strin
     Spacer(Modifier.height(8.dp))
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         options.forEach { (v, label) -> Pill(label, value == v, { onPick(v) }) }
+    }
+}
+
+/** What «not this» left out of waves, a tap bringing each back. */
+@Composable
+private fun WaveBans() {
+    val graph = LocalGraph.current
+    val scope = rememberCoroutineScope()
+    val bans by graph.db.wave().observeBans().collectAsStateWithLifecycle(emptyList())
+    Spacer(Modifier.height(16.dp))
+    Text(tr(R.string.wave_bans).uppercase(), style = MaterialTheme.typography.labelSmall, color = Ink.Muted)
+    Text(if (bans.isEmpty()) tr(R.string.wave_bans_none) else tr(R.string.wave_bans_hint), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
+    if (bans.isNotEmpty()) {
+        Spacer(Modifier.height(8.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            bans.forEach { b -> Pill((if (b.key.startsWith("a:")) "👤 " else "") + b.label + "  ✕", false, { scope.launch { graph.db.wave().unban(b.key) } }) }
+        }
     }
 }

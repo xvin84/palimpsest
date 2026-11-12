@@ -262,6 +262,7 @@ fun LaneNowPlaying(onClose: () -> Unit) {
                     }
                 }
                 Spacer(Modifier.weight(1f))
+                dev.xvin.palimpsest.ui.components.NotThisButton(Color.White)
                 dev.xvin.palimpsest.ui.components.ShakeWaveButton(Color.White)
                 dev.xvin.palimpsest.ui.components.HandoffButton(Color.White)
                 Box {

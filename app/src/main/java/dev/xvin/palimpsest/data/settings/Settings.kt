@@ -42,6 +42,8 @@ data class WavePrefs(
     val mixYandex: Int = 2,
     val mixYouTube: Int = 1,
     val mixBandcamp: Int = 0,
+    /** Own-files wave: 0 — the songs you know, 1 — the ones you hardly ever play. */
+    val novelty: Float = 0.5f,
 ) {
     val shares: Map<String, Int> get() = mapOf("local" to mixLocal, "yandex" to mixYandex, "youtube" to mixYouTube, "bandcamp" to mixBandcamp)
 
@@ -187,6 +189,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
         val waveSource = stringPreferencesKey("wave_source")
         val waveTag = stringPreferencesKey("wave_bandcamp_tag")
         val waveMix = stringPreferencesKey("wave_mix")
+        val waveNovelty = androidx.datastore.preferences.core.floatPreferencesKey("wave_novelty")
         val fadeSec = androidx.datastore.preferences.core.intPreferencesKey("fade_sec")
         val streamCacheMb = androidx.datastore.preferences.core.intPreferencesKey("stream_cache_mb")
         val embedLyrics = booleanPreferencesKey("embed_lyrics")
@@ -243,6 +246,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
                 WavePrefs(
                     p[K.waveDiversity].orEmpty(), p[K.waveMood].orEmpty(), p[K.waveLanguage].orEmpty(),
                     p[K.waveSource] ?: dev.xvin.palimpsest.core.radio.StationSpec.YANDEX, p[K.waveTag] ?: "ambient", m[0], m[1], m[2], m[3],
+                    novelty = p[K.waveNovelty] ?: 0.5f,
                 )
             },
             fadeSec = p[K.fadeSec] ?: 0,
@@ -310,6 +314,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
         it[K.waveDiversity] = w.diversity; it[K.waveMood] = w.mood; it[K.waveLanguage] = w.language
         it[K.waveSource] = w.source; it[K.waveTag] = w.bandcampTag
         it[K.waveMix] = listOf(w.mixLocal, w.mixYandex, w.mixYouTube, w.mixBandcamp).joinToString(",")
+        it[K.waveNovelty] = w.novelty
     }
     suspend fun setListenBrainz(token: String?, user: String?) = edit {
         if (token == null) { it.remove(K.lbToken); it.remove(K.lbUser) } else { it[K.lbToken] = token; if (user != null) it[K.lbUser] = user }

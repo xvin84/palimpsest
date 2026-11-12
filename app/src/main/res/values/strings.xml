@@ -955,4 +955,19 @@
     <string name="choose_folder">Choose a folder…</string>
     <string name="folder_not_usable">That folder can\'t be used — pick one on the phone or a memory card</string>
     <string name="saved_to">Saved: %1$s</string>
+    <string name="wave_not_this">Not this</string>
+    <string name="wave_not_this_done">«%1$s» won\'t come up in waves again</string>
+    <string name="wave_not_artist_too">Nor %1$s</string>
+    <string name="why_favourite">a favourite of yours</string>
+    <string name="why_artist">an artist you play a lot</string>
+    <string name="why_new">you haven\'t played it yet</string>
+    <string name="why_long_ago">you haven\'t heard it in a while</string>
+    <string name="why_often">you play it often</string>
+    <string name="why_flows">flows on from the last one</string>
+    <string name="wave_novelty">Familiar ↔ new</string>
+    <string name="wave_novelty_hint">For the wave from your own files: the songs you know, or the ones you hardly ever play.</string>
+    <string name="wave_bans">Left out of waves</string>
+    <string name="wave_bans_hint">Songs and artists you said «not this» to. Tap one to bring it back.</string>
+    <string name="wave_bans_none">Nothing yet — «👎» in the player while a wave plays.</string>
+    <string name="why_prefix">Why: %1$s</string>
 </resources>

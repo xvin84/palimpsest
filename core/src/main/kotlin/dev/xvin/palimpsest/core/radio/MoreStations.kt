@@ -165,6 +165,8 @@ object Waves {
     const val YOUTUBE = "youtube"
     const val BANDCAMP = "bandcamp"
     const val MIX = "mix"
+    /** Only your own files (the offline wave); seeds may carry `mood:CALM` and the like. */
+    const val LOCAL = "local"
 
     /** The spec for the wave the settings describe. [favourites] seed YouTube (a few of the user's songs). */
     fun spec(source: String, title: String, yandexTuning: List<String>, favourites: List<String>, bandcampTag: String, shares: Map<String, Int>): StationSpec = when (source) {
@@ -183,7 +185,7 @@ object Waves {
         yandex: ((List<String>) -> StationSource)?,
         youtube: YouTubeProvider?,
         bandcamp: dev.xvin.palimpsest.core.model.BrowsableProvider?,
-        local: (() -> StationSource)?,
+        local: ((List<String>) -> StationSource)?,
         http: OkHttpClient = Http.client,
     ): StationSource? {
         val tag = spec.seeds.firstOrNull { it.startsWith("tag:") }?.removePrefix("tag:") ?: "ambient"
@@ -192,11 +194,12 @@ object Waves {
             StationSpec.YANDEX -> yandex?.invoke(spec.seeds)
             YOUTUBE -> youtube?.let { YouTubeStation(it, songs.ifEmpty { listOf("q:lofi hip hop") }) }
             BANDCAMP -> bandcamp?.let { BandcampStation(it, tag, http) }
+            LOCAL -> local?.invoke(spec.seeds)
             MIX -> {
                 val shares = spec.seeds.filter { it.startsWith("w:") }.associate { it.removePrefix("w:").substringBefore('=') to (it.substringAfter('=').toIntOrNull() ?: 0) }
                 val parts = shares.mapNotNull { (part, w) ->
                     val src = when (part) {
-                        "local" -> local?.invoke()
+                        "local" -> local?.invoke(emptyList())
                         StationSpec.YANDEX -> yandex?.invoke(listOf(StationSpec.MY_WAVE) + spec.seeds.filter { it.startsWith("setting") })
                         YOUTUBE -> youtube?.let { YouTubeStation(it, songs.ifEmpty { listOf("q:lofi hip hop") }) }
                         BANDCAMP -> bandcamp?.let { BandcampStation(it, tag, http) }

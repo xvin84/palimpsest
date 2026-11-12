@@ -410,6 +410,13 @@ class PlaybackService : MediaLibraryService() {
 
         fun flush() {
             checkpoint()
+            // Left in the first half minute (not ended, not a load that failed at once): a skip.
+            val left = item
+            val ms = total()
+            val trackId = left?.let { MediaItems.trackId(it) }
+            if (trackId != null && recordedId == null && !recording && ms in 1_000 until dev.xvin.palimpsest.core.radio.LocalWave.SKIP_SEC.toLong() * 1000 &&
+                ms < duration(left) * 9 / 10
+            ) graph.appScope.launch(Dispatchers.IO) { graph.db.wave().skip(dev.xvin.palimpsest.data.db.SkipEntity(trackId = trackId, at = System.currentTimeMillis())) }
             item = null
             listened = 0
             segmentStart = 0

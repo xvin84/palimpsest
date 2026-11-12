@@ -555,3 +555,43 @@ class SongLinkPreferenceTest {
         assertEquals(Service.YANDEX, dev.xvin.palimpsest.core.links.SongLink.pick("""https://music.yandex.ru/track/1""", yandexFirst = false)?.service)
     }
 }
+
+class LocalWaveTest {
+    private fun lib(artists: List<String>, perArtist: Int, plays: (Int) -> Int = { 0 }) = artists.flatMapIndexed { ai, a ->
+        (0 until perArtist).map { i -> dev.xvin.palimpsest.core.radio.WaveCandidate("$a$i", "song $i", listOf(a), 180_000, plays = plays(ai * perArtist + i)) }
+    }
+
+    @Test fun smallLibraryNeverRunsDry() = kotlinx.coroutines.runBlocking {
+        val wave = dev.xvin.palimpsest.core.radio.LocalWave({ lib(listOf("A", "B"), 3) }, random = kotlin.random.Random(1))
+        val feed = dev.xvin.palimpsest.core.radio.RadioFeed(dev.xvin.palimpsest.core.radio.StationSpec("local", emptyList(), "w"), wave)
+        assertTrue(feed.start().isNotEmpty())
+        repeat(10) { assertTrue("batch $it", feed.next().isNotEmpty()) }
+    }
+
+    @Test fun skippedArtistFadesForTheSession() = kotlinx.coroutines.runBlocking {
+        val wave = dev.xvin.palimpsest.core.radio.LocalWave({ lib(listOf("A", "B"), 40) }, random = kotlin.random.Random(2))
+        wave.open(emptyList())
+        repeat(3) { wave.ended(dev.xvin.palimpsest.core.model.RemoteTrack(Service.LOCAL, "B$it", "s", listOf("B")), 5.0, false) }
+        val next = (1..5).flatMap { wave.more(emptyList()) }
+        val b = next.count { it.artists == listOf("B") }
+        assertTrue("B came $b of ${next.size}", b < next.size / 4)
+    }
+
+    @Test fun bansAndArtistGap() = kotlinx.coroutines.runBlocking {
+        val artists = (1..12).map { "R$it" }
+        val wave = dev.xvin.palimpsest.core.radio.LocalWave({ lib(artists, 5) }, banned = { setOf("a:r1", "t:R20") }, random = kotlin.random.Random(3))
+        val picks = wave.open(emptyList()) + wave.more(emptyList()) + wave.more(emptyList())
+        assertTrue(picks.none { it.artists == listOf("R1") || it.id == "R20" })
+        picks.zipWithNext().forEach { (a, b) -> assertTrue("$a then $b", a.artists != b.artists) }
+    }
+
+    @Test fun noveltyLeansToTheUnplayed() = kotlinx.coroutines.runBlocking {
+        val songs = lib((1..20).map { "N$it" }, 5) { if (it % 2 == 0) 30 else 0 }
+        fun unplayedShare(n: Float) = kotlinx.coroutines.runBlocking {
+            val w = dev.xvin.palimpsest.core.radio.LocalWave({ songs }, novelty = { n }, random = kotlin.random.Random(4))
+            val picks = w.open(emptyList()) + (1..10).flatMap { w.more(emptyList()) }
+            picks.count { p -> songs.first { it.id == p.id }.plays == 0 }.toDouble() / picks.size
+        }
+        assertTrue(unplayedShare(1f) > unplayedShare(0f) + 0.2)
+    }
+}

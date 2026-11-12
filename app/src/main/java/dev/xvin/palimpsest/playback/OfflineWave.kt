@@ -1,108 +1,54 @@
 package dev.xvin.palimpsest.playback
 
-import dev.xvin.palimpsest.core.analysis.AudioFeatures
+import dev.xvin.palimpsest.core.radio.LocalWave
+import dev.xvin.palimpsest.core.radio.WaveCandidate
+import dev.xvin.palimpsest.core.radio.WaveMoodKind
 import dev.xvin.palimpsest.data.db.AppDatabase
-import dev.xvin.palimpsest.data.db.TrackEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
-import kotlin.math.abs
-import kotlin.math.ln
-import kotlin.random.Random
+
+/** The moods the offline wave offers (they need the audio analysed). */
+typealias WaveMood = WaveMoodKind
 
 /**
- * «Офлайн-волна»: an endless-feeling mix built only from downloaded files, tuned by your own
- * history — favourites and favourite artists more often, just-heard tracks less, and a share of
- * never-played tracks so the library keeps surprising you. With the audio analysed it also follows a
- * [WaveMood] and orders the mix so tempo, key and energy flow from one track into the next.
+ * «Офлайн-волна»: your downloaded files as an endless station ([LocalWave] picks and learns; this
+ * hands it what the library knows — plays, skips, likes, the audio analysis — and the bans).
  */
 class OfflineWave(private val db: AppDatabase) {
 
-    suspend fun build(count: Int = 60, random: Random = Random.Default, mood: WaveMood = WaveMood.ANY): List<TrackEntity> = withContext(Dispatchers.IO) {
-        val now = System.currentTimeMillis()
+    suspend fun candidates(): List<WaveCandidate> = withContext(Dispatchers.IO) {
         val tracks = db.tracks().all().filter { it.path != null && File(it.path).isFile }
         if (tracks.isEmpty()) return@withContext emptyList()
         val stats = db.plays().trackStats().associateBy { it.trackId }
-        val artistsOf = db.artists().all().groupBy({ it.trackId }, { it.name.lowercase() })
-
-        // How much you listen to each artist (recent-ish weight via play counts).
-        val affinity = HashMap<String, Double>()
-        for ((tid, st) in stats) artistsOf[tid].orEmpty().forEach { affinity[it] = (affinity[it] ?: 0.0) + st.plays }
-        val maxAffinity = affinity.values.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
-
-        // Heard in the last hours — skipped, unless that's the whole library (a small one, or a long day).
-        val hours = 6 * 3600_000L
-        val skipFresh = tracks.any { t -> stats[t.id]?.let { now - it.lastPlayed >= hours } ?: true }
-        fun weight(t: TrackEntity): Double {
+        val skips = db.wave().skipStats(System.currentTimeMillis() - 90L * 86_400_000).associateBy { it.trackId }
+        val artistsOf = db.artists().all().groupBy({ it.trackId }, { it.name })
+        tracks.map { t ->
             val st = stats[t.id]
-            val since = st?.let { now - it.lastPlayed } ?: Long.MAX_VALUE
-            if (since < hours && skipFresh) return 0.0
-            val recency = if (since < hours) 0.05 else if (since < 2 * 86_400_000L) 0.25 else 1.0
-            val artist = artistsOf[t.id].orEmpty().maxOfOrNull { affinity[it] ?: 0.0 } ?: 0.0
-            val base = if (st == null) 0.6 else 0.4 + ln(1.0 + st.plays)
-            return (base + (if (t.liked) 1.5 else 0.0) + 2.0 * artist / maxAffinity) * recency * mood.fit(t) * (0.6 + random.nextDouble() * 0.8)
+            val sk = skips[t.id]
+            WaveCandidate(
+                id = t.id.toString(), title = t.title, artists = artistsOf[t.id].orEmpty().ifEmpty { listOf(t.artist) },
+                durationMs = t.durationMs, liked = t.liked,
+                plays = st?.plays ?: 0, lastPlayedAt = st?.lastPlayed,
+                skips = sk?.skips ?: 0, lastSkippedAt = sk?.lastSkipped,
+                bpm = t.bpm, musicalKey = t.musicalKey, energy = t.energy,
+            )
         }
-
-        // Weighted sampling without replacement (Efraimidis–Spirakis).
-        val sampled = tracks.mapNotNull { t -> weight(t).takeIf { it > 0 }?.let { w -> t to Math.pow(random.nextDouble(), 1.0 / w) } }
-            .sortedByDescending { it.second }.take(count).map { it.first }
-
-        if (mood != WaveMood.ANY && sampled.isEmpty()) return@withContext emptyList()
-        // A copy: flow() hands back its input untouched when too little is analysed, and clearing
-        // that in place emptied the whole wave on any library that wasn't analysed yet.
-        val picked = flow(sampled, random).toMutableList()
-
-        // Avoid the same artist twice in a row.
-        for (i in 1 until picked.size) {
-            if (picked[i].artist.equals(picked[i - 1].artist, true)) {
-                val j = (i + 1 until picked.size).firstOrNull { !picked[it].artist.equals(picked[i - 1].artist, true) } ?: continue
-                picked[i] = picked[j].also { picked[j] = picked[i] }
-            }
-        }
-        picked
     }
 
-    /**
-     * Greedy chain through the picks: each next track is the smoothest of a few still-likely ones,
-     * so the mix keeps your taste's order roughly but avoids jarring jumps. Without analysis the
-     * order stays as picked.
-     */
-    private fun flow(picked: List<TrackEntity>, random: Random): List<TrackEntity> {
-        if (picked.count { it.bpm != null && it.bpm > 0 } < picked.size / 2) return picked
-        val left = picked.toMutableList()
-        val out = ArrayList<TrackEntity>(picked.size)
-        out += left.removeAt(0)
-        while (left.isNotEmpty()) {
-            val a = out.last()
-            val window = left.take(LOOKAHEAD)
-            val next = window.minBy { b ->
-                AudioFeatures.transitionCost(a.bpm, a.musicalKey, a.energy, b.bpm, b.musicalKey, b.energy) +
-                    left.indexOf(b) * 0.15 + random.nextDouble() * 0.3
-            }
-            left.remove(next); out += next
-        }
-        return out
-    }
-
-    private companion object { const val LOOKAHEAD = 6 }
+    /** A station over the library; [seeds] may carry `mood:CALM` and the like. */
+    fun station(seeds: List<String>, novelty: () -> Float): LocalWave = LocalWave(
+        candidates = ::candidates,
+        banned = { db.wave().banKeys().toSet() },
+        novelty = novelty,
+        mood = seeds.firstNotNullOfOrNull { s -> s.removePrefix("mood:").takeIf { s.startsWith("mood:") }?.let { runCatching { WaveMoodKind.valueOf(it) }.getOrNull() } } ?: WaveMoodKind.ANY,
+    )
 }
 
-/** What the offline wave should feel like; tracks that don't fit are rare, not banned. */
-enum class WaveMood {
-    ANY, CALM, ENERGETIC, FOCUS, SAD;
-
-    fun fit(t: TrackEntity): Double {
-        if (this == ANY) return 1.0
-        val bpm = t.bpm?.takeIf { it > 0 } ?: return 0.25
-        val e = t.energy ?: 0.5f
-        val minor = t.musicalKey?.endsWith("A") == true
-        val score = when (this) {
-            CALM -> (1 - e) * 1.6 + (if (bpm < 100) 0.6 else if (bpm < 115) 0.2 else 0.0)
-            ENERGETIC -> e * 1.6 + (if (bpm in 118f..175f) 0.6 else 0.0)
-            FOCUS -> (1 - abs(e - 0.55) * 3).coerceAtLeast(0.0) + (if (bpm in 85f..125f) 0.6 else 0.0)
-            SAD -> (if (minor) 0.9 else 0.0) + (1 - e) * 0.9 + (if (bpm < 105) 0.4 else 0.0)
-            ANY -> 1.0
-        }
-        return (score * score).coerceAtLeast(0.02)
-    }
+fun moodLabel(m: WaveMood): Int = when (m) {
+    WaveMood.CALM -> dev.xvin.palimpsest.R.string.mood_calm
+    WaveMood.ENERGETIC -> dev.xvin.palimpsest.R.string.mood_energetic
+    WaveMood.FOCUS -> dev.xvin.palimpsest.R.string.mood_focus
+    WaveMood.SAD -> dev.xvin.palimpsest.R.string.mood_sad
+    WaveMood.ANY -> dev.xvin.palimpsest.R.string.offline_wave
 }

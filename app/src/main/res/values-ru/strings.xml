@@ -966,4 +966,19 @@
     <string name="choose_folder">Выбрать папку…</string>
     <string name="folder_not_usable">Эту папку не получится использовать — выберите папку на телефоне или карте памяти</string>
     <string name="saved_to">Сохранено: %1$s</string>
+    <string name="wave_not_this">Не то</string>
+    <string name="wave_not_this_done">«%1$s» больше не попадёт в волны</string>
+    <string name="wave_not_artist_too">И %1$s тоже</string>
+    <string name="why_favourite">любимая песня</string>
+    <string name="why_artist">исполнитель, которого вы много слушаете</string>
+    <string name="why_new">вы её ещё не слушали</string>
+    <string name="why_long_ago">давно не звучала</string>
+    <string name="why_often">часто слушаете</string>
+    <string name="why_flows">плавно продолжает предыдущую</string>
+    <string name="wave_novelty">Знакомое ↔ новое</string>
+    <string name="wave_novelty_hint">Для волны из своих файлов: песни, которые вы знаете, или те, что почти не звучали.</string>
+    <string name="wave_bans">Исключено из волн</string>
+    <string name="wave_bans_hint">Песни и исполнители, на которые вы сказали «не то». Нажмите, чтобы вернуть.</string>
+    <string name="wave_bans_none">Пока пусто — «👎» в плеере, когда играет волна.</string>
+    <string name="why_prefix">Почему: %1$s</string>
 </resources>

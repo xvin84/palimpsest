@@ -214,11 +214,14 @@ fun NowPlayingScreen(onClose: () -> Unit) {
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(station?.title?.uppercase() ?: tr(R.string.now_playing_caps), style = MaterialTheme.typography.labelSmall, color = if (station != null) accent else Ink.Muted, maxLines = 1)
                     Text(
-                        track?.let { techLine(it) }
+                        // On the own-files wave: why this song came up; elsewhere what it is.
+                        station?.let { dev.xvin.palimpsest.ui.components.waveReason(graph, np.trackId) }?.let { tr(R.string.why_prefix, it) }
+                            ?: track?.let { techLine(it) }
                             ?: tr(if (np.mediaId.startsWith(dev.xvin.palimpsest.playback.InternetRadioItems.PREFIX)) R.string.iradio_title else R.string.external_file),
                         style = MaterialTheme.typography.labelSmall, color = Ink.Faint, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                 }
+                dev.xvin.palimpsest.ui.components.NotThisButton(Ink.Text)
                 dev.xvin.palimpsest.ui.components.ShakeWaveButton(Ink.Text)
                 dev.xvin.palimpsest.ui.components.HandoffButton(Ink.Text)
                 Box {

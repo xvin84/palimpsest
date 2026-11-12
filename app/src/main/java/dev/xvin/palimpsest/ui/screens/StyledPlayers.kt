@@ -193,7 +193,8 @@ internal fun PlayerMenu(bits: PlayerBits, tint: Color, onQueue: () -> Unit) {
     var showSleep by remember { mutableStateOf(false) }
     var showSpeed by remember { mutableStateOf(false) }
     var showShare by remember { mutableStateOf(false) }
-    dev.xvin.palimpsest.ui.components.ShakeWaveButton(tint)
+    dev.xvin.palimpsest.ui.components.NotThisButton(tint)
+                dev.xvin.palimpsest.ui.components.ShakeWaveButton(tint)
     dev.xvin.palimpsest.ui.components.HandoffButton(tint)
     Box {
         IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, tr(R.string.more), tint = tint) }

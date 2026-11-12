@@ -483,3 +483,27 @@ interface ArtistDao {
         insertAll(names.mapIndexed { i, n -> TrackArtistEntity(trackId, i, n, remoteIds.getOrNull(i)) })
     }
 }
+
+data class SkipStat(val trackId: Long, val skips: Int, val lastSkipped: Long)
+
+@Dao
+interface WaveDao {
+    @Insert
+    suspend fun skip(s: SkipEntity)
+
+    /** Skips of the last three months, per song (older ones no longer say anything). */
+    @Query("SELECT trackId, COUNT(*) AS skips, MAX(at) AS lastSkipped FROM skips WHERE at > :since GROUP BY trackId")
+    suspend fun skipStats(since: Long): List<SkipStat>
+
+    @Insert(onConflict = androidx.room.OnConflictStrategy.REPLACE)
+    suspend fun ban(b: WaveBanEntity)
+
+    @Query("DELETE FROM wave_bans WHERE `key` = :key")
+    suspend fun unban(key: String)
+
+    @Query("SELECT * FROM wave_bans ORDER BY at DESC")
+    fun observeBans(): Flow<List<WaveBanEntity>>
+
+    @Query("SELECT `key` FROM wave_bans")
+    suspend fun banKeys(): List<String>
+}

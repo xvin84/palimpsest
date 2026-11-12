@@ -139,3 +139,19 @@ data class TrackArtistEntity(
     /** Service artist id (Yandex) when known — opens the artist card without searching. */
     val remoteId: String?,
 )
+
+/** A song left in its first half minute — the wave plays it less for a while. */
+@Entity(tableName = "skips", indices = [Index("trackId")])
+data class SkipEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val trackId: Long,
+    val at: Long,
+)
+
+/** «Not this» in a wave: «t:<trackId>» for a song, «a:<artist, lower case>» for an artist. */
+@Entity(tableName = "wave_bans")
+data class WaveBanEntity(
+    @PrimaryKey val key: String,
+    val label: String,
+    val at: Long = System.currentTimeMillis(),
+)

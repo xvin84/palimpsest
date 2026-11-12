@@ -32,8 +32,8 @@ class RadioController(
     private val settings: Settings,
     private val scope: CoroutineScope,
     private val http: okhttp3.OkHttpClient,
-    /** Songs from this phone's own files, for the mixed wave. */
-    private val local: () -> StationSource,
+    /** Songs from this phone's own files: the offline wave, and the mixed wave's share (seeds: `mood:…`). */
+    private val local: (List<String>) -> StationSource,
 ) {
     data class Station(val seed: String, val title: String)
 
@@ -141,7 +141,12 @@ class RadioController(
             val now = System.currentTimeMillis()
             playing?.let { prev -> scope.launch { f.ended(prev, now - startedAt, durationMs) } }
             val track = np.trackId?.let { db.tracks().get(it) }
-            playing = track?.remoteId?.let { RemoteTrack(track.service, it, track.title, listOf(track.artist)) }
+            // Own files go to the station too (as LOCAL), or the offline wave wouldn't hear of skips.
+            playing = track?.let { t ->
+                if (t.remoteId != null && f.spec.source != dev.xvin.palimpsest.core.radio.Waves.LOCAL) RemoteTrack(t.service, t.remoteId, t.title, listOf(t.artist))
+                else if (t.path != null) RemoteTrack(dev.xvin.palimpsest.core.model.Service.LOCAL, t.id.toString(), t.title, listOf(t.artist))
+                else null
+            }
             startedAt = now
             durationMs = track?.durationMs?.takeIf { it > 0 } ?: np.durationMs
             lastIndex = s.index
@@ -163,7 +168,8 @@ class RadioController(
                     if (feed !== f) return@launch
                     val fresh = runCatching { f.next() }.getOrDefault(emptyList())
                     if (fresh.isEmpty()) continue
-                    val rows = fresh.mapNotNull { runCatching { row(it) }.getOrNull() }
+                    val rows = allowed(fresh.mapNotNull { runCatching { row(it) }.getOrNull() })
+                    if (rows.isEmpty()) continue
                     if (feed === f) player.enqueue(rows)
                     persist()
                     return@launch
@@ -172,6 +178,13 @@ class RadioController(
                 loading = false
             }
         }
+    }
+
+    /** «Not this» holds for every wave: banned songs and artists are dropped from what a station brings. */
+    private suspend fun allowed(rows: List<dev.xvin.palimpsest.data.db.TrackEntity>): List<dev.xvin.palimpsest.data.db.TrackEntity> {
+        val bans = db.wave().banKeys().toSet()
+        if (bans.isEmpty()) return rows
+        return rows.filter { t -> "t:${t.id}" !in bans && dev.xvin.palimpsest.core.library.ArtistNames.split(t.artist).none { "a:${it.lowercase()}" in bans } }
     }
 
     companion object {

@@ -212,13 +212,11 @@ class AppGraph(val app: Application) {
         length > 0 && streamCache.isCached(key, 0, length)
     }.getOrDefault(false)
     val offlineWave = dev.xvin.palimpsest.playback.OfflineWave(db)
-    val radio = dev.xvin.palimpsest.playback.RadioController(remote, db, player, settings, mainScope, http) {
-        // The mixed wave's own-files part: the offline mix, a handful at a time.
-        object : dev.xvin.palimpsest.core.radio.StationSource {
-            suspend fun pick() = offlineWave.build(count = 12).map { dev.xvin.palimpsest.core.model.RemoteTrack(dev.xvin.palimpsest.core.model.Service.LOCAL, it.id.toString(), it.title, listOf(it.artist), durationMs = it.durationMs) }
-            override suspend fun open(avoid: List<String>) = pick()
-            override suspend fun more(avoid: List<String>) = pick()
-        }
+    /** The own-files wave playing now, if any — it knows why it picked each song. */
+    @Volatile var localWave: dev.xvin.palimpsest.core.radio.LocalWave? = null
+        private set
+    val radio = dev.xvin.palimpsest.playback.RadioController(remote, db, player, settings, mainScope, http) { seeds ->
+        offlineWave.station(seeds) { settings.state.value?.wave?.novelty ?: 0.5f }.also { localWave = it }
     }
     val handoff = dev.xvin.palimpsest.playback.PhoneHandoff(db, remote, { lanSync }, player, radio, mainScope)
     val lanServer = dev.xvin.palimpsest.data.sync.PhoneLanServer({ lanSync }, handoff, appScope).also { it.follow() }
@@ -251,11 +249,14 @@ class AppGraph(val app: Application) {
     }
 
     /** Plays the offline mix; false if nothing is downloaded yet. */
+    /**
+     * The offline wave as a station: a few songs at a time, adapting to skips and «not this», saved
+     * with the queue, «shake up» and all. False if nothing is downloaded yet.
+     */
     suspend fun startOfflineWave(mood: dev.xvin.palimpsest.playback.WaveMood = dev.xvin.palimpsest.playback.WaveMood.ANY): Boolean {
-        val list = offlineWave.build(mood = mood)
-        if (list.isEmpty()) return false
-        player.play(list)
-        return true
+        if (offlineWave.candidates().isEmpty()) return false
+        val title = tr(R.string.offline_wave) + if (mood != dev.xvin.palimpsest.playback.WaveMood.ANY) " · " + tr(dev.xvin.palimpsest.playback.moodLabel(mood)) else ""
+        return radio.start(dev.xvin.palimpsest.core.radio.StationSpec(dev.xvin.palimpsest.core.radio.Waves.LOCAL, listOf("mood:${mood.name}"), title)).isSuccess
     }
 
     /** ♥: likes locally and in Yandex, and (by default) downloads the track right away. */
