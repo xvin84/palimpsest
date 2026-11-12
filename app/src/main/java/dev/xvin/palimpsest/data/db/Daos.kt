@@ -133,6 +133,10 @@ interface TrackDao {
     @Query("UPDATE tracks SET liked = :liked WHERE id = :id")
     suspend fun setLiked(id: Long, liked: Boolean)
 
+    /** Which tracks are liked, as one short string — to notice a change without reading every liked row. */
+    @Query("SELECT COUNT(*) || ':' || COALESCE(SUM(id), 0) || ':' || COALESCE(MAX(id), 0) FROM tracks WHERE liked = 1")
+    fun observeLikedStamp(): Flow<String>
+
     @Query("UPDATE tracks SET saved = :saved WHERE id = :id")
     suspend fun setSaved(id: Long, saved: Boolean)
 

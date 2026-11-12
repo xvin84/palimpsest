@@ -39,6 +39,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.retryWhen
+import kotlinx.coroutines.flow.distinctUntilChanged
 import okhttp3.OkHttpClient
 import java.io.File
 import java.io.IOException
@@ -72,13 +74,17 @@ class PalimpsestApp : Application(), SingletonImageLoader.Factory {
         }
         // A like or a playlist edit reaches the computer a few seconds later, not at the next round.
         graph.appScope.launch {
+            // Light stamps, not the rows themselves: reading 800+ liked tracks on every change to the
+            // tracks table (a rescan makes hundreds) broke on the phone and took the app down with it.
             kotlinx.coroutines.flow.combine(
-                graph.db.tracks().observeLiked(),
+                graph.db.tracks().observeLikedStamp(),
                 graph.db.playlists().observeAll(),
                 graph.db.playlists().observeEntriesStamp(),
-            ) { _, _, _ -> Unit }
+            ) { a, b, c -> Triple(a, b, c) }
+                .distinctUntilChanged()
                 .drop(1)
                 .debounce(4_000)
+                .retryWhen { e, _ -> e !is kotlinx.coroutines.CancellationException && run { kotlinx.coroutines.delay(10_000); true } }
                 .collect { runCatching { graph.lanSync.syncIfChanged() } }
         }
     }
@@ -97,8 +103,16 @@ class PalimpsestApp : Application(), SingletonImageLoader.Factory {
 /** Hand-rolled dependency container: everything long-lived, created once per process. */
 @OptIn(UnstableApi::class)
 class AppGraph(val app: Application) {
-    val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    /**
+     * Background work that fails goes to the error log (Settings → About → Errors) instead of taking
+     * the whole app — and the music — down with it.
+     */
+    private val backgroundFailure = kotlinx.coroutines.CoroutineExceptionHandler { _, e ->
+        android.util.Log.e("Palimpsest", "background work failed", e)
+        runCatching { errors.report(e, show = false) }
+    }
+    val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default + backgroundFailure)
+    val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate + backgroundFailure)
 
     val errors = dev.xvin.palimpsest.errors.ErrorCenter(app)
     val db = AppDatabase.create(app)
