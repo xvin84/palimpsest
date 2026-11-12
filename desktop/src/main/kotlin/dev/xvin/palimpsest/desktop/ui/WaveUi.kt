@@ -93,6 +93,7 @@ fun WaveTuningDialog(onDismiss: () -> Unit) {
                 dev.xvin.palimpsest.core.radio.Waves.YOUTUBE to "YouTube Music",
                 dev.xvin.palimpsest.core.radio.Waves.BANDCAMP to "Bandcamp",
                 dev.xvin.palimpsest.core.radio.Waves.MIX to t("Смешанная", "Mixed"),
+                dev.xvin.palimpsest.core.radio.Waves.LOCAL to t("Мои файлы", "My files"),
             )) { set(w.copy(source = it)) }
             Spacer(Modifier.height(6.dp))
             Text(
@@ -100,6 +101,7 @@ fun WaveTuningDialog(onDismiss: () -> Unit) {
                     dev.xvin.palimpsest.core.radio.Waves.YOUTUBE -> t("Бесконечный микс YouTube Music от нескольких твоих любимых песен. Из России нужен прокси (Настройки → Сеть).", "YouTube Music’s endless mix, started from a few of your favourite songs. From Russia it needs the proxy (Settings → Network).")
                     dev.xvin.palimpsest.core.radio.Waves.BANDCAMP -> t("Независимые артисты: по песне из лучших альбомов жанра на Bandcamp. Из России нужен прокси.", "Independent artists: a song from each of the genre’s top albums on Bandcamp. From Russia it needs the proxy.")
                     dev.xvin.palimpsest.core.radio.Waves.MIX -> t("Несколько волн в одной, в долях, которые выставишь.", "Several waves as one, in the shares you set.")
+                    dev.xvin.palimpsest.core.radio.Waves.LOCAL -> t("Только твои файлы, без интернета: учится на пропусках, не повторяет исполнителя подряд.", "Only your own files, no internet needed: it learns from skips and doesn't repeat an artist back to back.")
                     else -> t("Волна Яндекс Музыки, подстроенная под то, что ты там слушаешь и лайкаешь.", "Yandex Music’s own wave, tuned by what you like there.")
                 },
                 style = MaterialTheme.typography.bodySmall, color = LocalPal.current.muted,
@@ -113,6 +115,12 @@ fun WaveTuningDialog(onDismiss: () -> Unit) {
                 Group(t("Яндекс", "Yandex"), "${w.mixYandex}", zero) { set(w.copy(mixYandex = it.toInt())) }
                 Group("YouTube Music", "${w.mixYouTube}", zero) { set(w.copy(mixYouTube = it.toInt())) }
                 Group("Bandcamp", "${w.mixBandcamp}", zero) { set(w.copy(mixBandcamp = it.toInt())) }
+            }
+            if (w.source == dev.xvin.palimpsest.core.radio.Waves.LOCAL || (w.source == dev.xvin.palimpsest.core.radio.Waves.MIX && w.mixLocal > 0)) {
+                Group(
+                    t("Знакомое ↔ новое", "Familiar ↔ new"), "%.2f".format(java.util.Locale.ROOT, w.novelty),
+                    listOf("0.00" to t("Знакомое", "Familiar"), "0.25" to "·", "0.50" to t("Поровну", "Balanced"), "0.75" to "·", "1.00" to t("Новое", "New")),
+                ) { set(w.copy(novelty = it.toFloat())) }
             }
             if (w.source == dev.xvin.palimpsest.core.radio.StationSpec.YANDEX || w.source == dev.xvin.palimpsest.core.radio.Waves.MIX) {
             Group(t("Характер", "Character"), w.diversity, listOf("" to t("Любой", "Any"), "favorite" to t("Любимое", "Favourite"), "discover" to t("Незнакомое", "Unfamiliar"), "popular" to t("Популярное", "Popular"))) { set(w.copy(diversity = it)) }

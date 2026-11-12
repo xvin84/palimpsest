@@ -549,7 +549,7 @@ class Player(private val graph: Graph) {
         yandex = if (graph.yandex.isReady) { seeds -> YandexStation(graph.yandex, seeds) } else null,
         youtube = graph.youtube as? dev.xvin.palimpsest.core.youtube.YouTubeProvider,
         bandcamp = graph.bandcamp as? dev.xvin.palimpsest.core.model.BrowsableProvider,
-        local = { LocalStation() },
+        local = { seeds -> localWave(seeds) },
         http = graph.http,
     )
 
@@ -557,21 +557,28 @@ class Player(private val graph: Graph) {
     private fun trackFor(r: RemoteTrack): Track? = if (r.service == Service.LOCAL) graph.library.get(r.id) else graph.library.ensureRemote(r)
 
     /**
-     * The mixed wave's own-files part: songs from the library, liked ones more often, none heard in
-     * the last hours (the history knows).
+     * Songs from the library's own files — the mixed wave's share and the own-files wave: the same
+     * [dev.xvin.palimpsest.core.radio.LocalWave] as the phone's, fed by the history (plays, and
+     * short listens counted as skips).
      */
-    private inner class LocalStation : StationSource {
-        private fun pick(): List<RemoteTrack> {
-            val recent = graph.history.plays.value.filter { it.at > System.currentTimeMillis() - 6 * 3_600_000L }.mapTo(HashSet()) { it.trackId }
+    private fun localWave(seeds: List<String>) = dev.xvin.palimpsest.core.radio.LocalWave(
+        candidates = {
+            val plays = graph.history.plays.value
+            val stats = plays.filter { it.listenedMs >= 30_000 }.groupBy { it.trackId }
+            val skips = plays.filter { it.listenedMs < 30_000 }.groupBy { it.trackId }
             val liked = graph.library.liked.value
-            return graph.library.tracks.value.filter { it.isLocal && it.id !in recent }
-                .map { it to Math.pow(Math.random(), 1.0 / (if (it.id in liked) 3.0 else 1.0)) }
-                .sortedByDescending { it.second }.take(12)
-                .map { (t, _) -> RemoteTrack(Service.LOCAL, t.id, t.title, listOf(t.artist), durationMs = t.durationMs) }
-        }
-        override suspend fun open(avoid: List<String>) = pick()
-        override suspend fun more(avoid: List<String>) = pick()
-    }
+            graph.library.tracks.value.filter { it.isLocal }.map { t ->
+                dev.xvin.palimpsest.core.radio.WaveCandidate(
+                    id = t.id, title = t.title, artists = t.artists, durationMs = t.durationMs, liked = t.id in liked,
+                    plays = stats[t.id]?.size ?: 0, lastPlayedAt = stats[t.id]?.maxOf { it.at },
+                    skips = skips[t.id]?.size ?: 0, lastSkippedAt = skips[t.id]?.maxOf { it.at },
+                )
+            }
+        },
+        novelty = { graph.settings.value.wave.novelty },
+        mood = seeds.firstNotNullOfOrNull { s -> s.removePrefix("mood:").takeIf { s.startsWith("mood:") }?.let { runCatching { dev.xvin.palimpsest.core.radio.WaveMoodKind.valueOf(it) }.getOrNull() } }
+            ?: dev.xvin.palimpsest.core.radio.WaveMoodKind.ANY,
+    )
 
     private fun endRadio() {
         feed = null
@@ -592,7 +599,9 @@ class Player(private val graph: Graph) {
         }
     }
 
+    // Own files go to the station too (as LOCAL), or the own-files wave wouldn't hear of skips.
     private fun Track.asRemote() = remoteId?.let { RemoteTrack(service, it, title, listOf(artist), durationMs = durationMs) }
+        ?: if (isLocal) RemoteTrack(Service.LOCAL, id, title, artists, durationMs = durationMs) else null
 
     /** Brings the next batch; failures are retried a few times so the music doesn't just stop. */
     private fun topUpRadio(thenAdvance: Boolean = false) {

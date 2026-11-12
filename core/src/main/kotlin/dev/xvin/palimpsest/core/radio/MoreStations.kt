@@ -172,6 +172,7 @@ object Waves {
     fun spec(source: String, title: String, yandexTuning: List<String>, favourites: List<String>, bandcampTag: String, shares: Map<String, Int>): StationSpec = when (source) {
         YOUTUBE -> StationSpec(YOUTUBE, favourites.ifEmpty { listOf("q:lofi hip hop") }, title)
         BANDCAMP -> StationSpec(BANDCAMP, listOf("tag:" + bandcampTag.ifBlank { "ambient" }), title)
+        LOCAL -> StationSpec(LOCAL, emptyList(), title)
         MIX -> StationSpec(MIX, shares.filterValues { it > 0 }.map { (k, v) -> "w:$k=$v" } + yandexTuning + favourites + listOf("tag:" + bandcampTag.ifBlank { "ambient" }), title)
         else -> StationSpec(StationSpec.YANDEX, listOf(StationSpec.MY_WAVE) + yandexTuning, title)
     }

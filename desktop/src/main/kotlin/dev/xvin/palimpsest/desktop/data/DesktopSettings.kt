@@ -26,6 +26,8 @@ data class WavePrefs(
     val mixYandex: Int = 2,
     val mixYouTube: Int = 1,
     val mixBandcamp: Int = 0,
+    /** Own-files wave: 0 — the songs you know, 1 — the ones you hardly ever play. */
+    val novelty: Float = 0.5f,
 ) {
     val shares: Map<String, Int> get() = mapOf("local" to mixLocal, "yandex" to mixYandex, "youtube" to mixYouTube, "bandcamp" to mixBandcamp)
 
