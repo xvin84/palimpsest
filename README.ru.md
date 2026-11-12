@@ -195,6 +195,8 @@ desktop/  приложение для компьютера на Compose Multipla
 
 Kotlin · Jetpack Compose · Media3 (ExoPlayer, Transformer) · Room · jaudiotagger · NewPipe Extractor
 
+Шрифты: Literata, Manrope, Unbounded, Onest и JetBrains Mono, все под SIL Open Font License.
+
 ## Лицензия
 
 [GPL-3.0](LICENSE). Palimpsest — свободная программа: пользуйся, изучай, меняй и делись на тех же условиях.

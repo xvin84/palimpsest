@@ -713,8 +713,8 @@
     <string name="search_empty_title">Найди что угодно</string>
     <string name="search_empty_hint">Исполнители, альбомы, треки и плейлисты — в медиатеке, Яндекс Музыке или YouTube Music</string>
     <string name="playlist">Плейлист</string>
-    <string name="style_palimpsest">Palimpsest</string>
-    <string name="style_palimpsest_desc">Тёплые чернила и бумага, засечки, цвет обложки как акцент</string>
+    <string name="style_palimpsest">Тетрадь</string>
+    <string name="style_palimpsest_desc">Тёплые чернила и бумага, книжные засечки, спокойно и просторно; цвет обложки — акцент</string>
     <string name="style_lane">Lane</string>
     <string name="style_lane_desc">Обложка во главе: арт во весь экран, фон в её цвете, жирный гротеск и белые кнопки-таблетки</string>
     <string name="settings_cat_appearance_summary">Стиль, тема, цвета, язык, визуализатор</string>
@@ -773,12 +773,10 @@
     <string name="icon_neon">Неон</string>
     <string name="icon_cassette">Кассета</string>
     <string name="icon_lane">Lane</string>
-    <string name="style_glass">Glass</string>
-    <string name="style_glass_desc">Матовое стекло поверх размытой обложки; мягко и воздушно</string>
-    <string name="style_vinyl">Vinyl</string>
-    <string name="style_vinyl_desc">Крутящаяся пластинка с тонармом, эспрессо и сливки, конверт из семидесятых</string>
-    <string name="style_mono">Mono</string>
-    <string name="style_mono_desc">Чёрное и белое, моноширинный шрифт, прямые углы, ASCII-прогресс</string>
+    <string name="style_glass">Обложка</string>
+    <string name="style_glass_desc">Цвет играющей обложки на всех экранах, крупный жирный шрифт, стеклянные панели и белые кнопки</string>
+    <string name="style_console">Пульт</string>
+    <string name="style_console_desc">Тёмный приборный вид: волна трека, формат и битрейт, почему играет эта песня; моноширинные цифры и один яркий акцент</string>
     <string name="flac_title">FLAC-версии</string>
     <string name="flac_explain">Для каждого файла в сжатом формате (MP3, AAC…) Palimpsest ищет ту же запись в Яндекс Музыке — по ссылке в файле или по исполнителю, названию и длительности — и скачивает её во FLAC как версию рядом с твоим файлом. Ничего не заменяется, пока ты не послушаешь и не скажешь, что это та же песня.</string>
     <string name="flac_searching">Ищу: %1$d из %2$d · FLAC нашёлся для %3$d · только MP3/AAC: %4$d</string>
@@ -1036,4 +1034,5 @@
     <string name="eq_autoeq_model">Модель ваших наушников</string>
     <string name="eq_autoeq_measured">измерил %1$s</string>
     <string name="eq_autoeq_paste">Или вставьте ParametricEQ.txt</string>
+    <string name="console_why">Почему</string>
 </resources>

@@ -91,7 +91,7 @@ class VideoRenderer(private val context: Context, private val graph: AppGraph) {
         val spec = FrameSpec(
             aspect, if (lyrics == null) RenderMode.COVER else mode, s.visualizer.takeIf { it != dev.xvin.palimpsest.data.settings.VisualizerMode.OFF } ?: dev.xvin.palimpsest.data.settings.VisualizerMode.BARS,
             accent, cover, track.title, track.artist, lyrics, timeline, timeline.durationUs / 1000,
-            ResourcesCompat.getFont(context, R.font.playfair_display) ?: android.graphics.Typeface.SERIF,
+            ResourcesCompat.getFont(context, R.font.literata) ?: android.graphics.Typeface.SERIF,
             android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL),
             quality,
         )

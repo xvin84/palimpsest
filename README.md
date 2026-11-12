@@ -196,7 +196,7 @@ desktop/  the computer app on Compose Multiplatform: audio through ffmpeg, tray,
 
 Kotlin · Jetpack Compose · Media3 (ExoPlayer, Transformer) · Room · jaudiotagger · NewPipe Extractor
 
-Fonts: Playfair Display and Manrope, both under the SIL Open Font License.
+Fonts: Literata, Manrope, Unbounded, Onest and JetBrains Mono, all under the SIL Open Font License.
 
 ## License
 

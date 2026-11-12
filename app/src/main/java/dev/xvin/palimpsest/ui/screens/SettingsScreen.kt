@@ -360,16 +360,15 @@ private fun StylePreview(style: UiStyle, modifier: Modifier) {
         val h = size.height
         when (style) {
             UiStyle.PALIMPSEST -> {
-                drawRect(Color(0xFF0F0E0C))
-                val side = w * 0.7f
-                drawRoundRect(accent.copy(alpha = 0.85f), Offset((w - side) / 2, h * 0.12f), Size(side, side), CornerRadius(w * 0.05f))
-                drawRect(Color(0xFFEDE6DA), Offset(w * 0.15f, h * 0.62f), Size(w * 0.5f, h * 0.035f))
-                drawRect(Color(0xFF9C9488), Offset(w * 0.15f, h * 0.68f), Size(w * 0.35f, h * 0.025f))
-                for (i in 0 until 24) {
-                    val bh = h * 0.02f + h * 0.05f * kotlin.math.abs(kotlin.math.sin(i * 0.9f))
-                    drawRect(accent.copy(alpha = if (i < 9) 1f else 0.35f), Offset(w * 0.15f + i * w * 0.0292f, h * 0.78f - bh / 2), Size(w * 0.018f, bh))
-                }
-                drawCircle(accent, w * 0.08f, Offset(w / 2, h * 0.9f))
+                // «Тетрадь»: warm ink, a big cover with air around it, serif title, a quiet line, the accent only on play.
+                drawRect(Color(0xFF15120F))
+                val side = w * 0.76f
+                drawRoundRect(Brush.linearGradient(listOf(accent, lerp(accent, Color(0xFF15120F), 0.6f))), Offset((w - side) / 2, h * 0.1f), Size(side, side), CornerRadius(w * 0.06f))
+                drawRect(Color(0xFFEFE7DA), Offset(w * 0.12f, h * 0.66f), Size(w * 0.5f, h * 0.04f))
+                drawRect(Color(0xFFA99F90), Offset(w * 0.12f, h * 0.72f), Size(w * 0.32f, h * 0.022f))
+                drawRect(Color(0xFF2E2822), Offset(w * 0.12f, h * 0.79f), Size(w * 0.76f, h * 0.008f))
+                drawRect(Color(0xFFEFE7DA), Offset(w * 0.12f, h * 0.79f), Size(w * 0.28f, h * 0.008f))
+                drawCircle(accent, w * 0.08f, Offset(w / 2, h * 0.89f))
             }
             UiStyle.LANE -> {
                 drawRect(Brush.verticalGradient(listOf(lerp(Color(0xFF0B0B0D), tint, 0.5f), Color(0xFF0B0B0D))))
@@ -381,33 +380,36 @@ private fun StylePreview(style: UiStyle, modifier: Modifier) {
                 drawRoundRect(Color.White, Offset(w * 0.32f, h * 0.85f), Size(w * 0.36f, h * 0.075f), CornerRadius(w * 0.05f))
             }
             UiStyle.GLASS -> {
-                drawRect(Brush.linearGradient(listOf(lerp(Color.Black, tint, 0.7f), lerp(Color.Black, accent, 0.4f), Color(0xFF101014))))
-                val side = w * 0.62f
-                drawRoundRect(accent, Offset((w - side) / 2, h * 0.08f), Size(side, side), CornerRadius(w * 0.08f))
-                drawRoundRect(Color.White.copy(alpha = 0.14f), Offset(w * 0.08f, h * 0.56f), Size(w * 0.84f, h * 0.38f), CornerRadius(w * 0.1f))
-                drawRect(Color.White, Offset(w * 0.16f, h * 0.62f), Size(w * 0.5f, h * 0.035f))
-                drawRoundRect(Color.White.copy(alpha = 0.35f), Offset(w * 0.16f, h * 0.72f), Size(w * 0.68f, h * 0.018f), CornerRadius(4f))
-                drawCircle(Color.White.copy(alpha = 0.9f), w * 0.07f, Offset(w / 2, h * 0.84f))
+                // «Обложка»: the cover's colour over everything, a heavy title, white glass and a white button.
+                drawRect(Brush.radialGradient(listOf(lerp(tint, Color.White, 0.15f), tint, lerp(tint, Color(0xFF120A0E), 0.75f)), Offset(w * 0.3f, h * 0.2f), h * 0.9f))
+                val side = w * 0.7f
+                drawRoundRect(lerp(tint, Color.White, 0.3f), Offset((w - side) / 2, h * 0.08f), Size(side, side), CornerRadius(w * 0.09f))
+                drawRect(Color.White, Offset(w * 0.1f, h * 0.62f), Size(w * 0.62f, h * 0.06f))
+                drawRect(Color.White.copy(alpha = 0.75f), Offset(w * 0.1f, h * 0.7f), Size(w * 0.3f, h * 0.025f))
+                drawRoundRect(Color.White.copy(alpha = 0.25f), Offset(w * 0.1f, h * 0.77f), Size(w * 0.8f, h * 0.014f), CornerRadius(4f))
+                drawRoundRect(Color.White, Offset(w * 0.1f, h * 0.77f), Size(w * 0.32f, h * 0.014f), CornerRadius(4f))
+                drawCircle(Color.White, w * 0.09f, Offset(w / 2, h * 0.88f))
+                drawCircle(Color.White.copy(alpha = 0.2f), w * 0.055f, Offset(w * 0.18f, h * 0.88f))
+                drawCircle(Color.White.copy(alpha = 0.2f), w * 0.055f, Offset(w * 0.82f, h * 0.88f))
             }
-            UiStyle.VINYL -> {
-                drawRect(Color(0xFF1B130E))
-                val c = Offset(w * 0.45f, h * 0.32f)
-                drawCircle(Color(0xFF0A0807), w * 0.36f, c)
-                for (k in 1..3) drawCircle(Color(0xFF2C2723), w * (0.36f - k * 0.07f), c, style = androidx.compose.ui.graphics.drawscope.Stroke(1.5f))
-                drawCircle(accent, w * 0.12f, c)
-                drawLine(Color(0xFFBFA88A), Offset(w * 0.92f, h * 0.06f), Offset(w * 0.7f, h * 0.42f), strokeWidth = w * 0.025f)
-                drawRect(Color(0xFFF3E6CF), Offset(w * 0.12f, h * 0.66f), Size(w * 0.55f, h * 0.035f))
-                drawRect(Color(0xFFBFA88A), Offset(w * 0.12f, h * 0.72f), Size(w * 0.35f, h * 0.025f))
-                drawCircle(Color(0xFFE39B3A), w * 0.08f, Offset(w / 2, h * 0.87f))
-            }
-            UiStyle.MONO -> {
-                drawRect(Color.Black)
-                val side = w * 0.66f
-                drawRect(Color(0xFF8A8A8A), Offset((w - side) / 2, h * 0.08f), Size(side, side))
-                drawRect(Color.White, Offset((w - side) / 2, h * 0.08f), Size(side, side), style = androidx.compose.ui.graphics.drawscope.Stroke(2f))
-                drawRect(Color.White, Offset(w * 0.17f, h * 0.6f), Size(w * 0.6f, h * 0.035f))
-                for (k in 0 until 12) drawRect(if (k < 5) Color.White else Color(0xFF444444), Offset(w * 0.17f + k * w * 0.055f, h * 0.71f), Size(w * 0.045f, h * 0.03f))
-                drawRect(Color.White, Offset(w * 0.38f, h * 0.8f), Size(w * 0.24f, h * 0.09f), style = androidx.compose.ui.graphics.drawscope.Stroke(2f))
+            UiStyle.CONSOLE -> {
+                // «Пульт»: green-black, a small cover beside format chips, a lime waveform, square keys.
+                val lime = Color(0xFFC6F432)
+                drawRect(Color(0xFF0B0D0C))
+                drawRoundRect(tint, Offset(w * 0.08f, h * 0.08f), Size(w * 0.34f, w * 0.34f), CornerRadius(w * 0.03f))
+                drawRect(Color(0xFFE6ECE8), Offset(w * 0.48f, h * 0.1f), Size(w * 0.4f, h * 0.04f))
+                drawRect(Color(0xFF9AA59F), Offset(w * 0.48f, h * 0.17f), Size(w * 0.28f, h * 0.022f))
+                drawRoundRect(Color(0xFF59D6E6), Offset(w * 0.48f, h * 0.24f), Size(w * 0.14f, h * 0.035f), CornerRadius(3f), style = androidx.compose.ui.graphics.drawscope.Stroke(1.5f))
+                drawRoundRect(Color(0xFF3A423E), Offset(w * 0.65f, h * 0.24f), Size(w * 0.2f, h * 0.035f), CornerRadius(3f), style = androidx.compose.ui.graphics.drawscope.Stroke(1.5f))
+                drawRoundRect(Color(0xFF121810), Offset(w * 0.08f, h * 0.4f), Size(w * 0.84f, h * 0.12f), CornerRadius(w * 0.03f))
+                drawRoundRect(Color(0xFF2E3A1A), Offset(w * 0.08f, h * 0.4f), Size(w * 0.84f, h * 0.12f), CornerRadius(w * 0.03f), style = androidx.compose.ui.graphics.drawscope.Stroke(1.5f))
+                for (i in 0 until 28) {
+                    val bh = h * 0.02f + h * 0.08f * kotlin.math.abs(kotlin.math.sin(i * 0.53f) * 0.7f + kotlin.math.sin(i * 1.7f) * 0.3f)
+                    drawRect(if (i < 11) lime else Color(0xFF2A302D), Offset(w * 0.08f + i * w * 0.03f, h * 0.65f - bh / 2), Size(w * 0.02f, bh))
+                }
+                drawRoundRect(lime, Offset(w * 0.38f, h * 0.8f), Size(w * 0.24f, h * 0.1f), CornerRadius(w * 0.04f))
+                drawRoundRect(Color(0xFF232826), Offset(w * 0.14f, h * 0.81f), Size(w * 0.16f, h * 0.08f), CornerRadius(w * 0.03f), style = androidx.compose.ui.graphics.drawscope.Stroke(1.5f))
+                drawRoundRect(Color(0xFF232826), Offset(w * 0.7f, h * 0.81f), Size(w * 0.16f, h * 0.08f), CornerRadius(w * 0.03f), style = androidx.compose.ui.graphics.drawscope.Stroke(1.5f))
             }
         }
     }

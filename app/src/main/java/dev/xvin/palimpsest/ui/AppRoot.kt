@@ -458,8 +458,20 @@ private val tabRoutes = listOf(LibraryRoute::class, SearchRoute::class, SourcesR
 private fun androidx.compose.animation.AnimatedContentTransitionScope<androidx.navigation.NavBackStackEntry>.isTabSwitch() =
     tabRoutes.any { initialState.destination.hasRoute(it) } && tabRoutes.any { targetState.destination.hasRoute(it) }
 
-/** Opaque backdrop for a destination, so screens never show through each other mid-transition. */
+/**
+ * Opaque backdrop for a destination, so screens never show through each other mid-transition.
+ * «Обложка» paints it in the playing cover's colour, falling to dark further down.
+ */
 @Composable
 private fun Screen(content: @Composable () -> Unit) {
-    Box(Modifier.fillMaxSize().background(Ink.Paper)) { content() }
+    val cover = dev.xvin.palimpsest.ui.theme.LocalUiStyle.current == dev.xvin.palimpsest.data.settings.UiStyle.GLASS
+    val tint = dev.xvin.palimpsest.ui.theme.LocalCoverTint.current
+    val bg = if (!cover) Modifier.background(Ink.Paper) else Modifier.background(Ink.Paper).background(
+        androidx.compose.ui.graphics.Brush.verticalGradient(
+            0f to androidx.compose.ui.graphics.lerp(Ink.Paper, tint, if (Ink.isLight) 0.45f else 0.7f),
+            0.4f to androidx.compose.ui.graphics.lerp(Ink.Paper, tint, if (Ink.isLight) 0.18f else 0.3f),
+            0.85f to Ink.Paper,
+        ),
+    )
+    Box(Modifier.fillMaxSize().then(bg)) { content() }
 }

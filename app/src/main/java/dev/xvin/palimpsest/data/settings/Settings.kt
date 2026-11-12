@@ -65,11 +65,22 @@ enum class ThemeMode(@androidx.annotation.StringRes val labelRes: Int) {
  * and white pill buttons. More styles can join later.
  */
 enum class UiStyle(@androidx.annotation.StringRes val labelRes: Int, @androidx.annotation.StringRes val descRes: Int) {
+    /** «Тетрадь» (it kept the old name in storage). */
     PALIMPSEST(R.string.style_palimpsest, R.string.style_palimpsest_desc),
-    LANE(R.string.style_lane, R.string.style_lane_desc),
+    /** «Обложка»: grew out of the Glass style and kept its stored name. */
     GLASS(R.string.style_glass, R.string.style_glass_desc),
-    VINYL(R.string.style_vinyl, R.string.style_vinyl_desc),
-    MONO(R.string.style_mono, R.string.style_mono_desc),
+    CONSOLE(R.string.style_console, R.string.style_console_desc),
+    LANE(R.string.style_lane, R.string.style_lane_desc),
+    ;
+
+    companion object {
+        /** A stored name; Vinyl and Mono are gone (0.9) and become the closest of what's left. */
+        fun parse(name: String): UiStyle? = when (name) {
+            "VINYL" -> PALIMPSEST
+            "MONO" -> CONSOLE
+            else -> entries.firstOrNull { it.name == name }
+        }
+    }
 }
 
 /** Synced lyrics: the original, the original with a translation under each line, or only the translation. */
@@ -270,7 +281,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
             trashMaxMb = p[K.trashMaxMb] ?: 2048,
             budgetGb = p[K.budgetGb] ?: 0,
             budgetAuto = p[K.budgetAuto] ?: false,
-            uiStyle = p[K.uiStyle]?.let { runCatching { UiStyle.valueOf(it) }.getOrNull() } ?: UiStyle.PALIMPSEST,
+            uiStyle = p[K.uiStyle]?.let(UiStyle::parse) ?: UiStyle.PALIMPSEST,
             recentSearches = p[K.recentSearches]?.let { runCatching { json.decodeFromString<List<String>>(it) }.getOrNull() } ?: emptyList(),
             libraryView = LibraryView(p[K.libSort], p[K.libSource], p[K.libLiked] ?: false, p[K.libOffline] ?: false),
         )

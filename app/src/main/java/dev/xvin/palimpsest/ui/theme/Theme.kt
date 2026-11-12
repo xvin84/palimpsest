@@ -53,10 +53,10 @@ data class Palette(
     val isLight: Boolean = false,
 ) {
     companion object {
-        /** Warm ink-black, the original look. */
+        /** «Тетрадь»: warm ink, a touch browner and softer than the first Palimpsest. */
         val Dark = Palette(
-            Color(0xFF0F0E0C), Color(0xFF171513), Color(0xFF211E1B), Color(0xFF2A2622),
-            Color(0xFF2E2A26), Color(0xFFEDE6DA), Color(0xFF9C9488), Color(0xFF6A635A),
+            Color(0xFF15120F), Color(0xFF1C1814), Color(0xFF241F1A), Color(0xFF2D2721),
+            Color(0xFF2E2822), Color(0xFFEFE7DA), Color(0xFFA99F90), Color(0xFF7D7468),
         )
         /** True black for OLED screens: pixels off, battery saved. */
         val Amoled = Palette(
@@ -86,31 +86,25 @@ data class Palette(
             )
         }
 
-        /** Glass: deep, strongly tinted by the cover; panels are frosted layers above it. */
-        fun glass(tint: Color, light: Boolean): Palette = if (light) Palette(
-            lerp(Color(0xFFF2F2F6), tint, 0.14f), lerp(Color(0xFFFFFFFF), tint, 0.08f), lerp(Color(0xFFE8E8EE), tint, 0.12f), lerp(Color(0xFFDADAE2), tint, 0.14f),
-            Color(0x22000000), Color(0xFF111114), Color(0xFF5C5C66), Color(0xFF8C8C96), isLight = true,
+        /**
+         * «Обложка»: the playing cover's colour floods everything; the screens draw it as a gradient
+         * from this tint down to [paper] (see AppRoot), panels are white glass over it.
+         */
+        fun cover(tint: Color, light: Boolean): Palette = if (light) Palette(
+            lerp(Color(0xFFF4F1F3), tint, 0.16f), lerp(Color(0xFFFFFFFF), tint, 0.10f), lerp(Color(0xFFEAE5E8), tint, 0.16f), lerp(Color(0xFFDCD6DA), tint, 0.18f),
+            Color(0x22000000), Color(0xFF140C10), Color(0xFF5E5258), Color(0xFF8E8288), isLight = true,
         ) else Palette(
-            lerp(Color(0xFF07070A), tint, 0.24f), lerp(Color(0xFF121216), tint, 0.28f), lerp(Color(0xFF1C1C22), tint, 0.30f), lerp(Color(0xFF26262E), tint, 0.30f),
-            Color(0x33FFFFFF), Color(0xFFFFFFFF), Color(0xFFC2C2CC), Color(0xFF7E7E88),
+            lerp(Color(0xFF120A0E), tint, 0.22f), lerp(Color(0xFF1C1218), tint, 0.30f), lerp(Color(0xFF261A20), tint, 0.34f), lerp(Color(0xFF302228), tint, 0.36f),
+            Color(0x2EFFFFFF), Color(0xFFFFFFFF), Color(0xFFD7CDD2), Color(0xFF9A8E94),
         )
 
-        /** Vinyl: espresso and cream, like a record sleeve from the seventies. */
-        fun vinyl(light: Boolean): Palette = if (light) Palette(
-            Color(0xFFF3E6CF), Color(0xFFEAD9BC), Color(0xFFDFCBA9), Color(0xFFD3BD97),
-            Color(0xFFCDB792), Color(0xFF2B1D14), Color(0xFF6B5442), Color(0xFF9A8470), isLight = true,
+        /** «Пульт»: an instrument panel, green-black with a lime accent; light is a pale grey-green. */
+        fun console(light: Boolean): Palette = if (light) Palette(
+            Color(0xFFF3F5F1), Color(0xFFE9ECE6), Color(0xFFDDE2DA), Color(0xFFD0D6CC),
+            Color(0xFFC9CFC5), Color(0xFF0B0D0C), Color(0xFF4F5A54), Color(0xFF7E8A84), isLight = true,
         ) else Palette(
-            Color(0xFF1B130E), Color(0xFF251A13), Color(0xFF30231A), Color(0xFF3B2B20),
-            Color(0xFF3E2E22), Color(0xFFF3E6CF), Color(0xFFBFA88A), Color(0xFF7D6A55),
-        )
-
-        /** Mono: black and white, nothing else. */
-        fun mono(light: Boolean): Palette = if (light) Palette(
-            Color(0xFFFFFFFF), Color(0xFFF2F2F2), Color(0xFFE4E4E4), Color(0xFFD6D6D6),
-            Color(0xFF000000), Color(0xFF000000), Color(0xFF555555), Color(0xFF8A8A8A), isLight = true,
-        ) else Palette(
-            Color(0xFF000000), Color(0xFF0D0D0D), Color(0xFF1A1A1A), Color(0xFF262626),
-            Color(0xFFFFFFFF), Color(0xFFFFFFFF), Color(0xFF9A9A9A), Color(0xFF5E5E5E),
+            Color(0xFF0B0D0C), Color(0xFF121614), Color(0xFF181D1A), Color(0xFF1F2522),
+            Color(0xFF232826), Color(0xFFE6ECE8), Color(0xFF9AA59F), Color(0xFF5E6A64),
         )
 
         /** Old paper: warm off-white with brown-black ink. */
@@ -124,7 +118,7 @@ data class Palette(
 
 @OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
 private fun serif(weight: Int) = Font(
-    R.font.playfair_display,
+    R.font.literata,
     weight = FontWeight(weight),
     variationSettings = FontVariation.Settings(FontVariation.weight(weight)),
 )
@@ -140,6 +134,17 @@ private fun sans(weight: Int) = Font(
 
 /** Lane's display face: a tight geometric sans (Manrope, OFL). */
 val Sans = FontFamily(sans(400), sans(500), sans(600), sans(700), sans(800))
+
+// The faces of «Обложка» and «Пульт» (all OFL, variable, cut to Latin and Cyrillic).
+@OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
+private fun variable(res: Int, weight: Int) = Font(res, weight = FontWeight(weight), variationSettings = FontVariation.Settings(FontVariation.weight(weight)))
+
+/** «Обложка»'s headlines: a wide, round, heavy display face. */
+val Wide = FontFamily(variable(R.font.unbounded, 500), variable(R.font.unbounded, 600), variable(R.font.unbounded, 700), variable(R.font.unbounded, 800))
+/** «Пульт»'s text: a plain grotesque. */
+val Grotesk = FontFamily(listOf(400, 500, 600, 700, 800).map { variable(R.font.onest, it) })
+/** «Пульт»'s figures and labels: format, bitrate, times. */
+val Mono = FontFamily(listOf(400, 500, 600, 700).map { variable(R.font.jetbrains_mono, it) })
 
 /**
  * Everything that's read or tapped in Manrope, as on the computer (it used to be the system's
@@ -174,26 +179,28 @@ private val laneTypography = Typography().let { t ->
     ).inManrope()
 }
 
-private val glassTypography = Typography().let { t ->
+private val coverTypography = Typography().let { t ->
     t.copy(
-        displayLarge = t.displayLarge.copy(fontWeight = FontWeight.SemiBold, letterSpacing = (-0.5).sp),
-        displayMedium = t.displayMedium.copy(fontWeight = FontWeight.SemiBold, fontSize = 34.sp, letterSpacing = (-0.5).sp),
-        headlineLarge = t.headlineLarge.copy(fontWeight = FontWeight.SemiBold),
-        headlineMedium = t.headlineMedium.copy(fontWeight = FontWeight.SemiBold),
-        headlineSmall = t.headlineSmall.copy(fontWeight = FontWeight.SemiBold),
-        titleLarge = t.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-        titleMedium = t.titleMedium.copy(fontWeight = FontWeight.Medium),
-    )
+        displayLarge = TextStyle(fontFamily = Wide, fontWeight = FontWeight(800), fontSize = 38.sp, lineHeight = 42.sp, letterSpacing = (-0.8).sp),
+        displayMedium = TextStyle(fontFamily = Wide, fontWeight = FontWeight(800), fontSize = 30.sp, lineHeight = 34.sp, letterSpacing = (-0.6).sp),
+        headlineLarge = TextStyle(fontFamily = Wide, fontWeight = FontWeight(800), fontSize = 27.sp, lineHeight = 32.sp, letterSpacing = (-0.5).sp),
+        headlineMedium = TextStyle(fontFamily = Wide, fontWeight = FontWeight(700), fontSize = 23.sp, lineHeight = 28.sp, letterSpacing = (-0.4).sp),
+        headlineSmall = TextStyle(fontFamily = Wide, fontWeight = FontWeight(600), fontSize = 18.sp, lineHeight = 24.sp, letterSpacing = (-0.2).sp),
+    ).inManrope().let { it.copy(titleLarge = it.titleLarge.copy(fontWeight = FontWeight.ExtraBold), titleMedium = it.titleMedium.copy(fontWeight = FontWeight.Bold)) }
 }
 
-private val monoTypography = Typography().let { t ->
-    fun TextStyle.m(w: FontWeight = fontWeight ?: FontWeight.Normal) = copy(fontFamily = FontFamily.Monospace, fontWeight = w, letterSpacing = 0.sp)
+private val consoleTypography = Typography().let { t ->
+    fun TextStyle.g(w: Int) = copy(fontFamily = Grotesk, fontWeight = FontWeight(w), letterSpacing = 0.sp)
+    fun TextStyle.m(w: Int) = copy(fontFamily = Mono, fontWeight = FontWeight(w), letterSpacing = 0.sp)
     Typography(
-        displayLarge = t.displayLarge.m(FontWeight.Bold).copy(fontSize = 38.sp), displayMedium = t.displayMedium.m(FontWeight.Bold).copy(fontSize = 30.sp),
-        displaySmall = t.displaySmall.m(FontWeight.Bold), headlineLarge = t.headlineLarge.m(FontWeight.Bold), headlineMedium = t.headlineMedium.m(FontWeight.Bold),
-        headlineSmall = t.headlineSmall.m(FontWeight.Bold), titleLarge = t.titleLarge.m(FontWeight.Bold), titleMedium = t.titleMedium.m(FontWeight.Bold),
-        titleSmall = t.titleSmall.m(FontWeight.Bold), bodyLarge = t.bodyLarge.m(), bodyMedium = t.bodyMedium.m(), bodySmall = t.bodySmall.m(),
-        labelLarge = t.labelLarge.m(FontWeight.Bold), labelMedium = t.labelMedium.m(), labelSmall = t.labelSmall.m(),
+        displayLarge = t.displayLarge.g(700).copy(fontSize = 40.sp, lineHeight = 44.sp, letterSpacing = (-0.8).sp),
+        displayMedium = t.displayMedium.g(700).copy(fontSize = 32.sp, lineHeight = 36.sp, letterSpacing = (-0.6).sp),
+        displaySmall = t.displaySmall.g(700), headlineLarge = t.headlineLarge.g(700).copy(fontSize = 28.sp, letterSpacing = (-0.4).sp),
+        headlineMedium = t.headlineMedium.g(700).copy(fontSize = 25.sp, letterSpacing = (-0.3).sp), headlineSmall = t.headlineSmall.g(700),
+        titleLarge = t.titleLarge.g(700), titleMedium = t.titleMedium.g(600), titleSmall = t.titleSmall.g(600),
+        bodyLarge = t.bodyLarge.g(500), bodyMedium = t.bodyMedium.g(500), bodySmall = t.bodySmall.g(500),
+        // Labels are where the numbers are: durations, formats, counts.
+        labelLarge = t.labelLarge.g(600), labelMedium = t.labelMedium.m(500), labelSmall = t.labelSmall.m(600).copy(letterSpacing = 0.6.sp),
     )
 }
 
@@ -219,11 +226,12 @@ fun PalimpsestTheme(
     val lane = style == UiStyle.LANE
     val animatedTint by animateColorAsState(tint, tween(700), label = "tint")
     val wantLight = theme == ThemeMode.LIGHT || (theme == ThemeMode.SYSTEM && !systemDark)
+    // «Обложка» wants the cover's colour itself, vivid, not Lane's dark-safe version of it.
+    val vivid by animateColorAsState(lerp(readableAccent(accent, wantLight), tint, 0.25f), tween(700), label = "vivid")
     val palette = when (style) {
         UiStyle.LANE -> Palette.lane(animatedTint, theme, systemDark)
-        UiStyle.GLASS -> Palette.glass(animatedTint, wantLight)
-        UiStyle.VINYL -> Palette.vinyl(wantLight)
-        UiStyle.MONO -> Palette.mono(wantLight)
+        UiStyle.GLASS -> Palette.cover(vivid, wantLight)
+        UiStyle.CONSOLE -> if (theme == ThemeMode.AMOLED) Palette.console(false).copy(paper = Color.Black) else Palette.console(wantLight)
         UiStyle.PALIMPSEST -> when (theme) {
             ThemeMode.SYSTEM -> if (systemDark) Palette.Dark else Palette.Light
             ThemeMode.DARK -> Palette.Dark
@@ -235,14 +243,14 @@ fun PalimpsestTheme(
     if (Ink.palette != palette) Ink.palette = palette
     // Some styles have an accent of their own instead of the cover's.
     val styleAccent = when (style) {
-        UiStyle.VINYL -> if (palette.isLight) Color(0xFFB4561B) else Color(0xFFE39B3A)
-        UiStyle.MONO -> palette.text
+        // One lime, whatever the cover: an instrument's indicator, not a mood.
+        UiStyle.CONSOLE -> if (palette.isLight) Color(0xFF4F6B00) else Color(0xFFC6F432)
         else -> readableAccent(accent, palette.isLight)
     }
     val a by animateColorAsState(styleAccent, tween(600), label = "accent")
     val base = if (palette.isLight) lightColorScheme() else darkColorScheme()
     // Lane's buttons are plain white (black on light) pills; the cover colour lives in the backdrop.
-    val whitePrimary = lane || style == UiStyle.GLASS || style == UiStyle.MONO
+    val whitePrimary = lane || style == UiStyle.GLASS
     val primary = if (whitePrimary) palette.text else a
     val scheme = base.copy(
         primary = primary,
@@ -272,12 +280,12 @@ fun PalimpsestTheme(
         error = if (palette.isLight) Color(0xFFC62828) else Color(0xFFFF6B6B),
         scrim = Color.Black,
     )
-    CompositionLocalProvider(LocalAccent provides a, LocalUiStyle provides style, LocalCoverTint provides animatedTint) {
+    CompositionLocalProvider(LocalAccent provides a, LocalUiStyle provides style, LocalCoverTint provides if (style == UiStyle.GLASS) vivid else animatedTint) {
         val type = when (style) {
             UiStyle.LANE -> laneTypography
-            UiStyle.GLASS -> glassTypography
-            UiStyle.MONO -> monoTypography
-            UiStyle.VINYL, UiStyle.PALIMPSEST -> typography
+            UiStyle.GLASS -> coverTypography
+            UiStyle.CONSOLE -> consoleTypography
+            UiStyle.PALIMPSEST -> typography
         }
         MaterialTheme(colorScheme = scheme, typography = type) {
             // Text drawn outside a Surface/Scaffold must still be ivory, not the default black.

@@ -255,15 +255,16 @@ fun Pill(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifie
     // Lane: selected pills are plain white (the theme's primary); Palimpsest: the accent ink.
     val uiStyle = dev.xvin.palimpsest.ui.theme.LocalUiStyle.current
     val accent = if (uiStyle != dev.xvin.palimpsest.data.settings.UiStyle.PALIMPSEST) MaterialTheme.colorScheme.primary else LocalAccent.current
-    val mono = uiStyle == dev.xvin.palimpsest.data.settings.UiStyle.MONO
-    // Palimpsest and Vinyl: a quiet choice — the picked one outlined and bright, the rest muted;
-    // the accent is kept for what plays. The other styles keep their filled pills.
-    val quiet = uiStyle == dev.xvin.palimpsest.data.settings.UiStyle.PALIMPSEST || uiStyle == dev.xvin.palimpsest.data.settings.UiStyle.VINYL
+    // «Пульт» has keys, not pills: small square corners.
+    val keys = uiStyle == dev.xvin.palimpsest.data.settings.UiStyle.CONSOLE
+    // «Тетрадь»: a quiet choice — the picked one outlined and bright, the rest muted; the accent is
+    // kept for what plays. The other styles keep their filled pills.
+    val quiet = uiStyle == dev.xvin.palimpsest.data.settings.UiStyle.PALIMPSEST
     val bg by androidx.compose.animation.animateColorAsState(
         if (quiet) (if (selected) Ink.Paper3 else Ink.Paper3.copy(alpha = 0f)) else if (selected) accent else Ink.Paper3,
         androidx.compose.animation.core.tween(220), label = "pill",
     )
-    val shape = if (mono) RoundedCornerShape(0.dp) else RoundedCornerShape(50)
+    val shape = if (keys) RoundedCornerShape(8.dp) else RoundedCornerShape(50)
     Box(
         modifier
             .clip(shape)

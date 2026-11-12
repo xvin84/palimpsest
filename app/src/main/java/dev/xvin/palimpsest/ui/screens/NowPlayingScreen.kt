@@ -138,9 +138,8 @@ import dev.xvin.palimpsest.i18n.label
 fun NowPlayingScreen(onClose: () -> Unit) {
     when (dev.xvin.palimpsest.ui.theme.LocalUiStyle.current) {
         dev.xvin.palimpsest.data.settings.UiStyle.LANE -> { LaneNowPlaying(onClose); return }
-        dev.xvin.palimpsest.data.settings.UiStyle.GLASS -> { GlassNowPlaying(onClose); return }
-        dev.xvin.palimpsest.data.settings.UiStyle.VINYL -> { VinylNowPlaying(onClose); return }
-        dev.xvin.palimpsest.data.settings.UiStyle.MONO -> { MonoNowPlaying(onClose); return }
+        dev.xvin.palimpsest.data.settings.UiStyle.GLASS -> { CoverNowPlaying(onClose); return }
+        dev.xvin.palimpsest.data.settings.UiStyle.CONSOLE -> { ConsoleNowPlaying(onClose); return }
         dev.xvin.palimpsest.data.settings.UiStyle.PALIMPSEST -> Unit
     }
     val graph = LocalGraph.current
