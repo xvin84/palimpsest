@@ -319,7 +319,9 @@ private fun ApplicationScope.App(showRequests: kotlinx.coroutines.channels.Recei
             value = if (!settings.dynamicColor || current == null) Vermilion to Color(0xFF2A2A30)
             else withContext(Dispatchers.IO) { CoverColors.of(graph, current) } ?: (Vermilion to Color(0xFF2A2A30))
         }
-        PalimpsestDesktopTheme(settings.style, settings.theme, colors.first, colors.second) {
+        // While «Ностальгия» plays, the window takes the colour of those years (Holo blue for 2012…).
+        val era = remember(player.radio) { graph.player.nostalgiaYears()?.let(dev.xvin.palimpsest.core.radio.Era::of)?.let { Color(it.accent) } }
+        PalimpsestDesktopTheme(settings.style, settings.theme, era ?: colors.first, era ?: colors.second) {
             CompositionLocalProvider(LocalGraph provides graph, LocalNav provides nav, LocalTray provides tray) {
                 LaunchedEffect(Unit) {
                     graph.library.scan()

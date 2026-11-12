@@ -216,7 +216,7 @@ fun NowPlayingScreen(onClose: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onClose) { Icon(Icons.Rounded.KeyboardArrowDown, tr(R.string.collapse), Modifier.size(30.dp)) }
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(station?.title?.uppercase() ?: tr(R.string.now_playing_caps), style = MaterialTheme.typography.labelSmall, color = if (station != null) accent else Ink.Muted, maxLines = 1)
+                    Text(station?.title?.uppercase() ?: tr(R.string.now_playing_caps), style = MaterialTheme.typography.labelSmall, color = if (station != null) accent else Ink.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis, softWrap = false)
                     Text(
                         // On the own-files wave: why this song came up; elsewhere what it is.
                         station?.let { dev.xvin.palimpsest.ui.components.waveReason(graph, np.trackId) }?.let { tr(R.string.why_prefix, it) }

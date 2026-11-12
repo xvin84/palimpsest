@@ -174,7 +174,10 @@ fun AppRoot(graph: AppGraph, activity: MainActivity) {
     }
 
     val theme = settings?.theme ?: ThemeMode.DARK
-    PalimpsestTheme(accent, theme, settings?.uiStyle ?: dev.xvin.palimpsest.data.settings.UiStyle.PALIMPSEST, tint) {
+    // While «Ностальгия» plays, the app takes the colour of those years (Holo blue for 2012…).
+    val station by graph.radio.station.collectAsStateWithLifecycle()
+    val era = station?.years?.let(dev.xvin.palimpsest.core.radio.Era::of)?.let { Color(it.accent) }
+    PalimpsestTheme(era ?: accent, theme, settings?.uiStyle ?: dev.xvin.palimpsest.data.settings.UiStyle.PALIMPSEST, era ?: tint) {
         // Status/navigation bar icons must be dark on the light theme.
         val light = Ink.isLight
         LaunchedEffect(light) {

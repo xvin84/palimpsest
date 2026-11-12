@@ -35,7 +35,8 @@ class RadioController(
     /** Songs from this phone's own files: the offline wave, and the mixed wave's share (seeds: `mood:…`). */
     private val local: (List<String>) -> StationSource,
 ) {
-    data class Station(val seed: String, val title: String)
+    /** [years]: «Ностальгия»'s span, for the colour of its era. */
+    data class Station(val seed: String, val title: String, val years: IntRange? = null)
 
     private val _station = MutableStateFlow<Station?>(null)
     val station: StateFlow<Station?> = _station
@@ -110,7 +111,7 @@ class RadioController(
         lastIndex = -1
         lastMediaId = null
         playing = null
-        _station.value = Station(f.spec.seed, f.spec.title)
+        _station.value = Station(f.spec.seed, f.spec.title, dev.xvin.palimpsest.core.radio.NostalgiaStation.yearsOf(f.spec))
         if (player.state.value.repeatMode == Player.REPEAT_MODE_ALL) player.setRepeat(Player.REPEAT_MODE_OFF)
         persist()
     }

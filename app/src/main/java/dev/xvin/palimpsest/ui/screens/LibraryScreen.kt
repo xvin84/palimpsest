@@ -518,6 +518,10 @@ private fun OfflineWaveRow() {
     )
 }
 
+/** The era of those years in the app's language («Holo», «глянцевый iPod»…), null for recent ones. */
+private fun eraName(years: IntRange): String? =
+    dev.xvin.palimpsest.core.radio.Era.of(years)?.let { if (dev.xvin.palimpsest.i18n.Strings.app.resources.configuration.locales[0].language == "ru") it.ru else it.en }
+
 /**
  * «Ностальгия»: songs of a year and three either side — the services' hits of those years mixed with
  * your own files tagged with them. The year is picked once and remembered.
@@ -533,13 +537,13 @@ private fun NostalgiaRow() {
     fun start(y: Int) {
         val years = dev.xvin.palimpsest.core.radio.NostalgiaStation.around(y)
         graph.mainScope.launch {
-            graph.radio.start(dev.xvin.palimpsest.core.radio.NostalgiaStation.spec(years, tr(R.string.nostalgia_title, years.first, years.last)))
+            graph.radio.start(dev.xvin.palimpsest.core.radio.NostalgiaStation.spec(years, tr(R.string.nostalgia_title, years.first, years.last) + (eraName(years)?.let { " · $it" } ?: "")))
                 .onSuccess { nav.openPlayer() }.onFailure { nav.error(it, tr(R.string.nostalgia)) }
         }
         nav.toast(tr(R.string.nostalgia_starting, years.first, years.last))
     }
     StationTile(
-        title = tr(R.string.nostalgia), subtitle = "${span.first}–${span.last}",
+        title = tr(R.string.nostalgia), subtitle = "${span.first}–${span.last}" + (eraName(span)?.let { " · $it" } ?: ""),
         emblem = { Text(year.toString(), style = MaterialTheme.typography.titleLarge, color = Ink.Text) },
         action = { IconButton(onClick = { picking = true }, Modifier.size(32.dp)) { Icon(Icons.Rounded.Edit, tr(R.string.nostalgia_pick), Modifier.size(18.dp), tint = Ink.Muted) } },
         onClick = { start(year) },

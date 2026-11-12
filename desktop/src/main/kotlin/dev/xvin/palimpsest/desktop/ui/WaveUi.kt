@@ -142,12 +142,13 @@ fun WaveTuningDialog(onDismiss: () -> Unit) {
                 Text("$year", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 8.dp))
                 PIconButton(Icons.Rounded.Add, t("Позже", "Later"), { graph.settings.update { it.copy(nostalgiaYear = (year + 1).coerceAtMost(2030)) } })
                 Spacer(Modifier.padding(start = 12.dp))
-                Text(t("${year - 3}–${year + 3}: хиты тех лет и твои песни", "${year - 3}–${year + 3}: the hits and your songs of those years"), style = MaterialTheme.typography.bodySmall, color = LocalPal.current.muted, modifier = Modifier.weight(1f))
+                val era = dev.xvin.palimpsest.core.radio.Era.of(dev.xvin.palimpsest.core.radio.NostalgiaStation.around(year))?.let { if (ru) it.ru else it.en }
+                Text(t("${year - 3}–${year + 3}: хиты тех лет и твои песни", "${year - 3}–${year + 3}: the hits and your songs of those years") + (era?.let { t(" · эпоха: $it", " · the era of $it") } ?: ""), style = MaterialTheme.typography.bodySmall, color = LocalPal.current.muted, modifier = Modifier.weight(1f))
                 PButton(t("Слушать", "Play"), {
                     val years = dev.xvin.palimpsest.core.radio.NostalgiaStation.around(year)
                     nav.toast(t("Собираю хиты ${years.first}–${years.last}…", "Gathering the hits of ${years.first}–${years.last}…"))
                     graph.scope.launch {
-                        runCatching { graph.player.startRadio(dev.xvin.palimpsest.core.radio.NostalgiaStation.spec(years, t("Ностальгия · ${years.first}–${years.last}", "Nostalgia · ${years.first}–${years.last}"))) }
+                        runCatching { graph.player.startRadio(dev.xvin.palimpsest.core.radio.NostalgiaStation.spec(years, t("Ностальгия · ${years.first}–${years.last}", "Nostalgia · ${years.first}–${years.last}") + (dev.xvin.palimpsest.core.radio.Era.of(years)?.let { " · " + if (ru) it.ru else it.en } ?: ""))) }
                             .onFailure { e -> nav.toast(e.message ?: "") }
                     }
                     onDismiss()

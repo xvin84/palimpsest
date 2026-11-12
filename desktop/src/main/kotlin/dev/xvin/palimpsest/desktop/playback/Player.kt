@@ -588,6 +588,9 @@ class Player(private val graph: Graph) {
         }
     }
 
+    /** «Ностальгия»'s years while it plays (for the colour of its era), else null. */
+    fun nostalgiaYears(): IntRange? = feed?.spec?.let(dev.xvin.palimpsest.core.radio.NostalgiaStation::yearsOf)
+
     /** «Встряхнуть»: a new session that avoids everything heard, playing from its first track now. */
     suspend fun shakeRadio() {
         val f = feed ?: return
