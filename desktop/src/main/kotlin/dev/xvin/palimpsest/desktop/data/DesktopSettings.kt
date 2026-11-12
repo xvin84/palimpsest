@@ -86,6 +86,8 @@ data class DesktopSettings(
     /** Phone sync over the local network (off until turned on). */
     val lanSync: Boolean = false,
     val wave: WavePrefs = WavePrefs(),
+    /** The year «Ностальгия» was last tuned to (it plays that year and three either side). */
+    val nostalgiaYear: Int = 2012,
     /** The last «video from a track» choices: mode, aspect, quality, visualiser (enum names). */
     val renderChoice: List<String> = emptyList(),
     /** Keys the user set, by [HotAction] name (an empty list: no key); the rest keep their defaults. */

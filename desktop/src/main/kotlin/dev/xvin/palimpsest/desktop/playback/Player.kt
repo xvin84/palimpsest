@@ -545,7 +545,12 @@ class Player(private val graph: Graph) {
         }
     }
 
-    private fun sourceFor(spec: StationSpec): StationSource? = dev.xvin.palimpsest.core.radio.Waves.source(
+    private fun sourceFor(spec: StationSpec): StationSource? = if (spec.source == dev.xvin.palimpsest.core.radio.NostalgiaStation.SOURCE) {
+        // «Ностальгия»: the years' hits from Yandex (when signed in) and YouTube, with your own files of those years.
+        dev.xvin.palimpsest.core.radio.NostalgiaStation.yearsOf(spec)?.let { years ->
+            dev.xvin.palimpsest.core.radio.NostalgiaStation(years, localWave(spec.seeds), listOfNotNull(graph.yandex.takeIf { it.isReady }, graph.youtube))
+        }
+    } else dev.xvin.palimpsest.core.radio.Waves.source(
         spec,
         yandex = if (graph.yandex.isReady) { seeds -> YandexStation(graph.yandex, seeds) } else null,
         youtube = graph.youtube as? dev.xvin.palimpsest.core.youtube.YouTubeProvider,
@@ -568,7 +573,8 @@ class Player(private val graph: Graph) {
             val stats = plays.filter { it.listenedMs >= 30_000 }.groupBy { it.trackId }
             val skips = plays.filter { it.listenedMs < 30_000 }.groupBy { it.trackId }
             val liked = graph.library.liked.value
-            graph.library.tracks.value.filter { it.isLocal }.map { t ->
+            val years = dev.xvin.palimpsest.core.radio.NostalgiaStation.yearsOf(StationSpec("", seeds, ""))
+            graph.library.tracks.value.filter { it.isLocal && (years == null || (it.year != null && it.year in years)) }.map { t ->
                 dev.xvin.palimpsest.core.radio.WaveCandidate(
                     id = t.id, title = t.title, artists = t.artists, durationMs = t.durationMs, liked = t.id in liked,
                     plays = stats[t.id]?.size ?: 0, lastPlayedAt = stats[t.id]?.maxOf { it.at },

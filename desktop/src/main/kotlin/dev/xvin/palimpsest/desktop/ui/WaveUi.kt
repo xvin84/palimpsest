@@ -15,6 +15,10 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
@@ -126,6 +130,27 @@ fun WaveTuningDialog(onDismiss: () -> Unit) {
             Group(t("Характер", "Character"), w.diversity, listOf("" to t("Любой", "Any"), "favorite" to t("Любимое", "Favourite"), "discover" to t("Незнакомое", "Unfamiliar"), "popular" to t("Популярное", "Popular"))) { set(w.copy(diversity = it)) }
             Group(t("Настроение", "Mood"), w.mood, listOf("" to t("Любое", "Any"), "active" to t("Бодрое", "Upbeat"), "fun" to t("Весёлое", "Fun"), "calm" to t("Спокойное", "Calm"), "sad" to t("Грустное", "Sad"))) { set(w.copy(mood = it)) }
             Group(t("Язык", "Language"), w.language, listOf("" to t("Любой", "Any"), "russian" to t("Русский", "Russian"), "not-russian" to t("Иностранный", "Foreign"), "without-words" to t("Без слов", "Instrumental"))) { set(w.copy(language = it)) }
+            }
+            // «Ностальгия»: a year and three either side — the hits of those years and your songs of them.
+            Spacer(Modifier.height(20.dp))
+            Caption(t("Ностальгия", "Nostalgia"))
+            Spacer(Modifier.height(8.dp))
+            val year = settings.nostalgiaYear
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                PIconButton(Icons.Rounded.Remove, t("Раньше", "Earlier"), { graph.settings.update { it.copy(nostalgiaYear = (year - 1).coerceAtLeast(1960)) } })
+                Text("$year", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 8.dp))
+                PIconButton(Icons.Rounded.Add, t("Позже", "Later"), { graph.settings.update { it.copy(nostalgiaYear = (year + 1).coerceAtMost(2030)) } })
+                Spacer(Modifier.padding(start = 12.dp))
+                Text(t("${year - 3}–${year + 3}: хиты тех лет и твои песни", "${year - 3}–${year + 3}: the hits and your songs of those years"), style = MaterialTheme.typography.bodySmall, color = LocalPal.current.muted, modifier = Modifier.weight(1f))
+                PButton(t("Слушать", "Play"), {
+                    val years = dev.xvin.palimpsest.core.radio.NostalgiaStation.around(year)
+                    nav.toast(t("Собираю хиты ${years.first}–${years.last}…", "Gathering the hits of ${years.first}–${years.last}…"))
+                    graph.scope.launch {
+                        runCatching { graph.player.startRadio(dev.xvin.palimpsest.core.radio.NostalgiaStation.spec(years, t("Ностальгия · ${years.first}–${years.last}", "Nostalgia · ${years.first}–${years.last}"))) }
+                            .onFailure { e -> nav.toast(e.message ?: "") }
+                    }
+                    onDismiss()
+                }, icon = Icons.Rounded.PlayArrow)
             }
             val list = stations
             if (!list.isNullOrEmpty()) {
