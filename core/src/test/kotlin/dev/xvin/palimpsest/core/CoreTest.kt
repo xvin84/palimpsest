@@ -443,7 +443,9 @@ class LanSyncTest {
         )
         val m = dev.xvin.palimpsest.core.sync.LanSync.merge(base, phone, desktop)
         check(m.likes == setOf("b", "d", "f")) { m.likes.toString() }
-        check(m.playlists.map { it.name to it.keys } == listOf("Road" to listOf("a", "b", "e"), "New" to listOf("q"))) { m.playlists.toString() }
+        // «road» on the desktop is a rename of «Road» (the songs changed on the phone): both stand.
+        check(m.playlists.map { it.name to it.keys } == listOf("road" to listOf("a", "b", "e"), "New" to listOf("q"))) { m.playlists.toString() }
+        check(m.playlists.all { it.id != null })
         check(m.plays.map { it.identity } == listOf("a", "b", "z")) { m.plays.toString() }
         check(dev.xvin.palimpsest.core.sync.LanSync.identity("КИНО, Цой", "Перемен (feat. Цой)") == dev.xvin.palimpsest.core.sync.LanSync.identity("кино", "Перемен"))
     }
@@ -524,7 +526,7 @@ class SyncFingerprintTest {
         val f = dev.xvin.palimpsest.core.sync.LanSync::fingerprint
         val a = state(listOf("x|1", "y|2"), mapOf("Road" to listOf("x|1", "y|2")))
         // Order of likes, playlist name case and history don't make a change worth a sync.
-        assertEquals(f(a), f(state(listOf("y|2", "x|1"), mapOf("road" to listOf("x|1", "y|2")), plays = 5)))
+        assertEquals(f(a), f(state(listOf("y|2", "x|1"), mapOf("Road" to listOf("x|1", "y|2")), plays = 5)))
         // A song moved inside a playlist, or a new like, does.
         assertTrue(f(a) != f(state(listOf("x|1", "y|2"), mapOf("Road" to listOf("y|2", "x|1")))))
         assertTrue(f(a) != f(state(listOf("x|1", "y|2", "z|3"), mapOf("Road" to listOf("x|1", "y|2")))))
@@ -618,5 +620,57 @@ class SearchTextTest {
         assertTrue(m("noize", "Noize MC"))
         assertTrue(!m("vektor", "Eminem"))
         assertTrue(m("ёлка", "Елка"))
+    }
+}
+
+
+class PlaylistSyncTest {
+    private fun pl(id: String, name: String, keys: List<String>, nameAt: Long = 0, tracksAt: Long = 0, coverAt: Long = 0, cover: String? = null) =
+        dev.xvin.palimpsest.core.sync.SyncPlaylist(name, keys, id, nameAt, tracksAt, coverAt, cover)
+    private fun st(vararg p: dev.xvin.palimpsest.core.sync.SyncPlaylist) = dev.xvin.palimpsest.core.sync.SyncState(playlists = p.toList())
+    private fun merge(o: dev.xvin.palimpsest.core.sync.SyncState?, p: dev.xvin.palimpsest.core.sync.SyncState, d: dev.xvin.palimpsest.core.sync.SyncState) =
+        dev.xvin.palimpsest.core.sync.LanSync.merge(o, p, d).playlists
+
+    @Test fun renameOnOneSideSongsOnTheOther() {
+        val o = st(pl("1", "Плейлист 1", listOf("a", "b")))
+        val m = merge(o, st(pl("1", "Нечто тёплое", listOf("a", "b"), nameAt = 10)), st(pl("1", "Плейлист 1", listOf("a", "b", "c"), tracksAt = 20)))
+        assertEquals(listOf("Нечто тёплое" to listOf("a", "b", "c")), m.map { it.name to it.keys })
+    }
+
+    @Test fun bothChangedSongsKeepBothSidesEdits() {
+        val o = st(pl("1", "Road", listOf("a", "b", "c")))
+        // Phone (later): reordered and added d. Computer: removed b, added e.
+        val m = merge(o, st(pl("1", "Road", listOf("c", "a", "b", "d"), tracksAt = 30)), st(pl("1", "Road", listOf("a", "c", "e"), tracksAt = 20)))
+        assertEquals(listOf("c", "a", "d", "e"), m.single().keys)
+    }
+
+    @Test fun laterNameAndCoverWinWhenBothChanged() {
+        val o = st(pl("1", "Old", listOf("a")))
+        val m = merge(o, st(pl("1", "Phone name", listOf("a"), nameAt = 50, coverAt = 10, cover = "P")), st(pl("1", "PC name", listOf("a"), nameAt = 40, coverAt = 60, cover = "D")))
+        assertEquals("Phone name", m.single().name)
+        assertEquals("D", m.single().cover)
+    }
+
+    @Test fun anEditBeatsADelete() {
+        val o = st(pl("1", "Keep", listOf("a")), pl("2", "Gone", listOf("x")))
+        val m = merge(o, st(pl("1", "Keep", listOf("a", "b"), tracksAt = 5)), st(pl("2", "Gone", listOf("x"))))
+        // «Keep» was deleted on the computer but edited on the phone: kept. «Gone» was deleted on the phone and untouched: gone.
+        assertEquals(listOf("Keep"), m.map { it.name })
+    }
+
+    @Test fun firstSyncAfterIdsDoesNotDuplicate() {
+        // Both sides had «Плейлист 1» from before ids; each gave it an id of its own.
+        val o = dev.xvin.palimpsest.core.sync.SyncState(playlists = listOf(dev.xvin.palimpsest.core.sync.SyncPlaylist("Плейлист 1", listOf("a"))))
+        val m = merge(o, st(pl("P", "Плейлист 1", listOf("a", "b"), tracksAt = 9)), st(pl("D", "Плейлист 1", listOf("a"))))
+        assertEquals(listOf("P" to listOf("a", "b")), m.map { it.id to it.keys })
+        // …and the old common state counts: removed on the computer since, untouched on the phone — removed.
+        val m2 = merge(o, st(pl("P", "Плейлист 1", listOf("a"))), st(pl("D", "Плейлист 1", emptyList(), tracksAt = 5)))
+        assertEquals(listOf(emptyList<String>()), m2.map { it.keys })
+    }
+
+    @Test fun oldPlaylistsWithoutIdsGetOneAndMatchByName() {
+        val m = merge(null, dev.xvin.palimpsest.core.sync.SyncState(playlists = listOf(dev.xvin.palimpsest.core.sync.SyncPlaylist("Mix", listOf("a")))), st(pl("9", "mix", listOf("a"))))
+        assertEquals(1, m.size)
+        assertEquals("9", m.single().id)
     }
 }

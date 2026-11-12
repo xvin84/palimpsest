@@ -139,11 +139,15 @@ class LanSyncRepository(
         val all = db.tracks().all()
         val byId = all.associateBy { it.id }
         val liked = all.filter { it.liked }
-        val lists = db.playlists().own().map { pl -> pl to db.playlists().trackIds(pl.id).mapNotNull { byId[it] } }
+        // Every own playlist gets its shared id the first time it's synced.
+        val lists = db.playlists().own().map { pl ->
+            val sid = pl.syncId ?: java.util.UUID.randomUUID().toString().also { db.playlists().setSyncId(pl.id, it) }
+            pl.copy(syncId = sid) to db.playlists().trackIds(pl.id).mapNotNull { byId[it] }
+        }
         val plays = db.plays().all().map { SyncPlay(LanSync.identity(it.artist, it.title), it.title, it.artist, it.startedAt, it.listenedMs) }
         return SyncState(
             likes = liked.mapTo(LinkedHashSet(), ::identity),
-            playlists = lists.map { (pl, ts) -> SyncPlaylist(pl.name, ts.map(::identity)) },
+            playlists = lists.map { (pl, ts) -> SyncPlaylist(pl.name, ts.map(::identity), pl.syncId, pl.nameAt, pl.tracksAt, pl.coverAt, coverOf(pl)) },
             plays = plays,
             tracks = (liked + lists.flatMap { it.second }).distinctBy { it.id }.map(::syncTrack),
         )
@@ -169,15 +173,22 @@ class LanSyncRepository(
         var changed = 0
         val lists = db.playlists()
         val own = lists.own()
-        val wanted = merged.playlists.associateBy { it.name.lowercase() }
-        own.filter { it.name.lowercase() !in wanted }.forEach { lists.delete(it.id); changed++ }
+        // Matched by the shared id; a playlist from before ids, by its name.
+        // (A computer on an older version sends no ids at all: then by name too.)
+        // An id the merge didn't keep (the other side's id won for the same playlist): by name.
+        val mergedIds = merged.playlists.mapNotNullTo(HashSet()) { it.id }
+        fun matches(pl: PlaylistEntity, mp: SyncPlaylist) =
+            if (pl.syncId != null && mp.id != null && pl.syncId in mergedIds) pl.syncId == mp.id else pl.name.equals(mp.name, ignoreCase = true)
+        own.filter { pl -> merged.playlists.none { matches(pl, it) } }.forEach { lists.delete(it.id); lists.clear(it.id); changed++ }
         merged.playlists.forEach { mp ->
             val ids = mp.keys.mapNotNull { resolve(it)?.id }
-            val existing = own.firstOrNull { it.name.equals(mp.name, ignoreCase = true) }
-            when {
-                existing == null -> { lists.replace(lists.insert(PlaylistEntity(name = mp.name)), ids); changed++ }
-                lists.trackIds(existing.id) != ids -> { lists.replace(existing.id, ids); changed++ }
-            }
+            val existing = own.firstOrNull { matches(it, mp) }
+            val id = existing?.id ?: lists.insert(PlaylistEntity(name = mp.name, syncId = mp.id)).also { changed++ }
+            if (existing == null || lists.trackIds(id) != ids) { lists.replace(id, ids); if (existing != null) changed++ }
+            // The picture comes along only when the other side's is newer.
+            val cover = if (existing == null || mp.coverAt > existing.coverAt) mp.cover?.let { writeCover(id, it) } else existing.coverUrl
+            if (existing != null && (existing.name != mp.name || cover != existing.coverUrl)) changed++
+            lists.applySynced(id, mp.name, mp.id, mp.nameAt, mp.tracksAt, mp.coverAt, cover)
         }
 
         val have = db.plays().all().mapTo(HashSet()) { LanSync.identity(it.artist, it.title) + "@" + it.startedAt / 1000 }
@@ -189,4 +200,29 @@ class LanSyncRepository(
         val missing = (merged.likes + merged.playlists.flatMap { it.keys }).distinct().count { resolve(it) == null }
         return SyncReport(added, removed, changed, newPlays.size, notHere = missing)
     }
+
+    /** A playlist's own picture as a small JPEG for the computer (encoded once per change). */
+    private val coverCache = HashMap<String, String?>()
+    private fun coverOf(pl: PlaylistEntity): String? {
+        val url = pl.coverUrl?.takeIf { it.startsWith("file:") } ?: return null
+        return coverCache.getOrPut(url) {
+            runCatching {
+                val src = android.graphics.BitmapFactory.decodeFile(android.net.Uri.parse(url).path) ?: return@runCatching null
+                val side = 400
+                val scaled = if (src.width > side) android.graphics.Bitmap.createScaledBitmap(src, side, side * src.height / src.width, true) else src
+                val out = java.io.ByteArrayOutputStream()
+                scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 82, out)
+                android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+            }.getOrNull()
+        }
+    }
+
+    /** The other side's picture, kept the way covers chosen here are (a new name each time). */
+    private fun writeCover(id: Long, base64: String): String? = runCatching {
+        val dir = File(context.filesDir, "playlist_covers").apply { mkdirs() }
+        dir.listFiles { f -> f.name.startsWith("${id}_") }?.forEach { it.delete() }
+        val f = File(dir, "${id}_${System.currentTimeMillis()}.jpg")
+        f.writeBytes(android.util.Base64.decode(base64, android.util.Base64.DEFAULT))
+        android.net.Uri.fromFile(f).toString()
+    }.getOrNull()
 }

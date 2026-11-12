@@ -134,11 +134,15 @@ class LanSyncServer(private val graph: Graph) {
     fun state(): SyncState {
         val byId = graph.library.tracks.value.associateBy { it.id }
         val liked = graph.library.liked.value.mapNotNull { byId[it] }
-        val lists = graph.playlists.lists.value.map { p -> p to p.trackIds.mapNotNull { byId[it] } }
+        // Every playlist gets its shared id the first time it's synced.
+        val lists = graph.playlists.lists.value.map { p ->
+            val sid = p.syncId ?: java.util.UUID.randomUUID().toString().also { graph.playlists.setSyncId(p.id, it) }
+            p.copy(syncId = sid) to p.trackIds.mapNotNull { byId[it] }
+        }
         val plays = graph.history.plays.value.map { SyncPlay(LanSync.identity(it.artist, it.title), it.title, it.artist, it.at, it.listenedMs) }
         return SyncState(
             likes = liked.mapTo(LinkedHashSet(), ::identity),
-            playlists = lists.map { (p, ts) -> SyncPlaylist(p.name, ts.map(::identity)) },
+            playlists = lists.map { (p, ts) -> SyncPlaylist(p.name, ts.map(::identity), p.syncId, p.nameAt, p.tracksAt, p.coverAt, coverOf(p)) },
             plays = plays,
             tracks = (liked + lists.flatMap { it.second }).distinctBy { it.id }.map(::syncTrack),
         )
@@ -165,15 +169,21 @@ class LanSyncServer(private val graph: Graph) {
 
         var changed = 0
         val lists = graph.playlists
-        val wanted = merged.playlists.associateBy { it.name.lowercase() }
-        lists.lists.value.forEach { p -> if (p.name.lowercase() !in wanted) { lists.delete(p.id); changed++ } }
+        // Matched by the shared id; a playlist from before ids, by its name.
+        // (A phone on an older version sends no ids at all: then by name too.)
+        // An id the merge didn't keep (the phone's id won for the same playlist): by name.
+        val mergedIds = merged.playlists.mapNotNullTo(HashSet()) { it.id }
+        fun matches(p: Playlist, mp: SyncPlaylist) =
+            if (p.syncId != null && mp.id != null && p.syncId in mergedIds) p.syncId == mp.id else p.name.equals(mp.name, ignoreCase = true)
+        lists.lists.value.forEach { p -> if (merged.playlists.none { matches(p, it) }) { lists.delete(p.id); changed++ } }
         merged.playlists.forEach { mp ->
             val ids = mp.keys.mapNotNull { resolve(it)?.id }
-            val existing = lists.lists.value.firstOrNull { it.name.equals(mp.name, ignoreCase = true) }
-            when {
-                existing == null -> { lists.setTracks(lists.create(mp.name).id, ids); changed++ }
-                existing.trackIds != ids -> { lists.setTracks(existing.id, ids); changed++ }
-            }
+            val existing = lists.lists.value.firstOrNull { matches(it, mp) }
+            val p = existing ?: lists.create(mp.name, mp.id).also { changed++ }
+            // The picture comes along only when the other side's is newer.
+            val cover = if (existing == null || mp.coverAt > existing.coverAt) mp.cover?.let { writeCover(p.id, it) } else existing.cover
+            if (existing != null && (existing.trackIds != ids || existing.name != mp.name || cover != existing.cover)) changed++
+            lists.applySynced(p.id) { it.copy(name = mp.name, trackIds = ids, syncId = mp.id, nameAt = mp.nameAt, tracksAt = mp.tracksAt, coverAt = mp.coverAt, cover = cover) }
         }
 
         val have = graph.history.plays.value.mapTo(HashSet()) { LanSync.identity(it.artist, it.title) + "@" + it.at / 1000 }
@@ -185,4 +195,33 @@ class LanSyncServer(private val graph: Graph) {
         val missing = (merged.likes + merged.playlists.flatMap { it.keys }).distinct().count { resolve(it) == null }
         return SyncReport(added, removed, changed, newPlays.size, notHere = missing)
     }
+
+    /** A playlist's own picture as a small JPEG for the phone (encoded once per change). */
+    private val coverCache = HashMap<String, String?>()
+    private fun coverOf(p: Playlist): String? {
+        val path = p.cover ?: return null
+        return coverCache.getOrPut(path) {
+            runCatching {
+                val src = javax.imageio.ImageIO.read(java.io.File(path)) ?: return@runCatching null
+                val w = minOf(400, src.width); val h = src.height * w / src.width
+                val img = java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_RGB)
+                img.createGraphics().apply {
+                    setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR)
+                    drawImage(src, 0, 0, w, h, null); dispose()
+                }
+                val out = java.io.ByteArrayOutputStream()
+                javax.imageio.ImageIO.write(img, "jpg", out)
+                java.util.Base64.getEncoder().encodeToString(out.toByteArray())
+            }.getOrNull()
+        }
+    }
+
+    /** The phone's picture, kept where pictures chosen here go (a new name each time). */
+    private fun writeCover(id: Long, base64: String): String? = runCatching {
+        val dir = java.io.File(Paths.config, "playlist-covers").apply { mkdirs() }
+        dir.listFiles { f -> f.name.startsWith("${id}_") }?.forEach { it.delete() }
+        val f = java.io.File(dir, "${id}_${System.currentTimeMillis()}.jpg")
+        f.writeBytes(java.util.Base64.getMimeDecoder().decode(base64))
+        f.absolutePath
+    }.getOrNull()
 }

@@ -108,6 +108,12 @@ data class PlaylistEntity(
     val service: Service? = null,
     val remoteId: String? = null,
     val coverUrl: String? = null,
+    /** Shared with the paired computer, so a rename there or here stays the same playlist. */
+    @ColumnInfo(defaultValue = "NULL") val syncId: String? = null,
+    /** When the name, the songs and the cover were last changed (the later change wins a sync conflict). */
+    @ColumnInfo(defaultValue = "0") val nameAt: Long = 0,
+    @ColumnInfo(defaultValue = "0") val tracksAt: Long = 0,
+    @ColumnInfo(defaultValue = "0") val coverAt: Long = 0,
 )
 
 @Entity(tableName = "playlist_entries", primaryKeys = ["playlistId", "position"], indices = [Index("trackId")])

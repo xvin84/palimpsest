@@ -370,8 +370,18 @@ interface PlaylistDao {
     @Insert
     suspend fun insert(p: PlaylistEntity): Long
 
-    @Query("UPDATE playlists SET name = :name WHERE id = :id")
-    suspend fun rename(id: Long, name: String)
+    @Query("UPDATE playlists SET name = :name, nameAt = :at WHERE id = :id")
+    suspend fun rename(id: Long, name: String, at: Long = System.currentTimeMillis())
+
+    @Query("UPDATE playlists SET tracksAt = :at WHERE id = :id")
+    suspend fun touchTracks(id: Long, at: Long = System.currentTimeMillis())
+
+    @Query("UPDATE playlists SET syncId = :syncId WHERE id = :id")
+    suspend fun setSyncId(id: Long, syncId: String)
+
+    /** What a sync agreed on, times included (so the next sync doesn't take it for a fresh edit). */
+    @Query("UPDATE playlists SET name = :name, syncId = :syncId, nameAt = :nameAt, tracksAt = :tracksAt, coverAt = :coverAt, coverUrl = :coverUrl WHERE id = :id")
+    suspend fun applySynced(id: Long, name: String, syncId: String?, nameAt: Long, tracksAt: Long, coverAt: Long, coverUrl: String?)
 
     @Query("SELECT * FROM playlists WHERE id = :id")
     fun observe(id: Long): Flow<PlaylistEntity?>
@@ -380,8 +390,8 @@ interface PlaylistDao {
     @Query("SELECT COUNT(*) || ':' || COALESCE(SUM(trackId * (position + 1)), 0) FROM playlist_entries")
     fun observeEntriesStamp(): Flow<String>
 
-    @Query("UPDATE playlists SET coverUrl = :url WHERE id = :id")
-    suspend fun setCover(id: Long, url: String?)
+    @Query("UPDATE playlists SET coverUrl = :url, coverAt = :at WHERE id = :id")
+    suspend fun setCover(id: Long, url: String?, at: Long = System.currentTimeMillis())
 
     @Query("DELETE FROM playlists WHERE id = :id")
     suspend fun delete(id: Long)
@@ -402,12 +412,14 @@ interface PlaylistDao {
     suspend fun replace(id: Long, trackIds: List<Long>) {
         clear(id)
         insertEntries(trackIds.mapIndexed { i, t -> PlaylistEntryEntity(id, i, t) })
+        touchTracks(id)
     }
 
     @Transaction
     suspend fun append(id: Long, trackIds: List<Long>) {
         val start = size(id)
         insertEntries(trackIds.mapIndexed { i, t -> PlaylistEntryEntity(id, start + i, t) })
+        touchTracks(id)
     }
 }
 
