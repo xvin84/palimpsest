@@ -617,7 +617,10 @@ private fun settingItems(settings: AppSettings): List<SettingItem> {
 
     // --- Network & services ---
     add(SettingsCategory.NETWORK, tr(R.string.settings_proxy), tr(R.string.settings_proxy_hint), "proxy vpn youtube прокси") {
-        FieldRow(tr(R.string.settings_proxy), tr(R.string.settings_proxy_hint), settings.proxy.orEmpty(), "host:port") { launch { graph.settings.setProxy(it) } }
+        val nav = LocalNav.current
+        FieldRow(tr(R.string.settings_proxy), tr(R.string.settings_proxy_hint), settings.proxy.orEmpty(), "host:port") {
+            launch { graph.settings.setProxy(it); nav.toast(tr(if (it.isBlank()) R.string.proxy_cleared else R.string.proxy_saved)) }
+        }
     }
     add(SettingsCategory.NETWORK, "ListenBrainz", tr(R.string.settings_listenbrainz_hint), "scrobble last.fm скробблинг") {
         var lbToken by remember { mutableStateOf("") }

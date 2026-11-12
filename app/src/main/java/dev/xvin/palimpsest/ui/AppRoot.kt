@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.LibraryMusic
@@ -321,7 +322,7 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
                 containerColor = MaterialTheme.colorScheme.background,
                 // Screens draw edge-to-edge and pad for the status bar themselves.
                 contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
-                snackbarHost = { SnackbarHost(snackbar) },
+                snackbarHost = { if (!playerOpen) SnackbarHost(snackbar) },
                 bottomBar = {
                     Column {
                         AnimatedVisibility(
@@ -387,6 +388,9 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
             dev.xvin.palimpsest.ui.components.HandoffOverlay()
             dev.xvin.palimpsest.ui.components.HandoffSwipeHint()
             dev.xvin.palimpsest.ui.components.HandoffRefusal()
+            // Over the full-screen player the notes went under it, unseen («no lyrics found», a song
+            // that wouldn't load); there they show at the top, clear of the controls.
+            if (playerOpen) SnackbarHost(snackbar, Modifier.align(androidx.compose.ui.Alignment.TopCenter).statusBarsPadding().padding(top = 48.dp))
             actionsFor?.let { t -> TrackActionsSheet(t, onDismiss = { actionsFor = null }) }
             errorShown?.let { info -> dev.xvin.palimpsest.ui.components.ErrorSheet(info, onDismiss = { errorShown = null }) }
         }

@@ -177,7 +177,6 @@ class AppGraph(val app: Application) {
     val lanSync by lazy { dev.xvin.palimpsest.data.sync.LanSyncRepository(app, db, remote) }
 
     val player = PlayerConnection(app, mainScope, savedQueue = { settings.loadQueue() }, offlinePlayable = ::offlinePlayable, effects = effects).also { p ->
-        p.onError = { e -> errors.report(e, tr(R.string.ctx_playback)) }
     }
 
     /** True when there's a network that claims internet access. */

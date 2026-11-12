@@ -897,4 +897,11 @@
     <string name="glitch_quiet_text">A fade didn\'t come back up. The volume was put back.</string>
     <string name="glitch_eq_title">The equalizer broke on a damaged bit of audio</string>
     <string name="glitch_eq_text">It was reset so the song wouldn\'t go on in silence.</string>
+    <string name="proxy_hint_search">%1$s answers slowly or not at all — from some countries it only opens through a proxy.</string>
+    <string name="set_proxy">Set a proxy</string>
+    <string name="proxy_saved">Proxy saved</string>
+    <string name="proxy_cleared">Proxy removed — everything goes direct</string>
+    <string name="err_paid_title">Only for those who bought it</string>
+    <string name="err_paid_expl">The artist lets this track be heard only after buying it on Bandcamp.</string>
+    <string name="err_paid_hint">Other tracks of the album are often free to listen to.</string>
 </resources>

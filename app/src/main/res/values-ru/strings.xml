@@ -906,4 +906,11 @@
     <string name="glitch_quiet_text">Затухание не вернулось обратно. Громкость восстановлена.</string>
     <string name="glitch_eq_title">Эквалайзер сломался на битом куске звука</string>
     <string name="glitch_eq_text">Его сбросили, чтобы песня не играла дальше в тишине.</string>
+    <string name="proxy_hint_search">%1$s отвечает долго или молчит — из некоторых стран он открывается только через прокси.</string>
+    <string name="set_proxy">Указать прокси</string>
+    <string name="proxy_saved">Прокси сохранён</string>
+    <string name="proxy_cleared">Прокси убран — всё идёт напрямую</string>
+    <string name="err_paid_title">Только для купивших</string>
+    <string name="err_paid_expl">Исполнитель разрешает слушать этот трек только после покупки на Bandcamp.</string>
+    <string name="err_paid_hint">Другие треки альбома часто можно слушать бесплатно.</string>
 </resources>

@@ -323,6 +323,11 @@ class PlaybackService : MediaLibraryService() {
             // A cloud track that can't load (no network, region lock, expired link) shouldn't stop
             // the music: move on to the next item, which may well be a local file.
             val item = player.currentMediaItem ?: return
+            // Said here, not through the controller: the skip below replaces the error before a
+            // controller sees it, and the songs went by one after another without a word. The first
+            // of a run shows; the rest only go to the log.
+            val title = item.mediaMetadata.title?.toString()
+            graph.errors.report(error, listOfNotNull(dev.xvin.palimpsest.i18n.tr(R.string.ctx_playback), title).joinToString(" · "), show = skippedInARow == 0)
             val isRemote = item.localConfiguration?.uri?.scheme == StreamResolver.SCHEME
             if (isRemote && player.hasNextMediaItem() && skippedInARow < 5) {
                 skippedInARow++

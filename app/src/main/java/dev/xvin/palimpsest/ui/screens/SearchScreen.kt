@@ -196,21 +196,32 @@ fun SearchScreen() {
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var failure by remember { mutableStateOf<Throwable?>(null) }
+    var slow by remember { mutableStateOf(false) }
+    var askProxy by remember { mutableStateOf(false) }
+    var retry by remember { mutableIntStateOf(0) }
     val settings by graph.settings.state.collectAsStateWithLifecycle()
     val playing by graph.player.state.collectAsStateWithLifecycle()
 
     fun saveQuery(q: String = query) { if (q.isNotBlank()) scope.launch { graph.settings.addRecentSearch(q.trim()) } }
 
-    LaunchedEffect(query, source, kind) {
+    LaunchedEffect(query, source, kind, retry) {
         error = null
         page = 0
         if (query.isBlank()) { local = LocalResults(); remote = SearchResults(); loading = false; return@LaunchedEffect }
         delay(if (source == null) 150 else 450) // debounce
         loading = true
+        slow = false
+        // From some networks YouTube doesn't refuse, it just never answers: after a few seconds say
+        // so (and offer a proxy), and give up at half a minute instead of spinning for good.
+        val slowJob = launch { delay(6_000); slow = true }
         try {
             if (source == null) local = searchLibrary(graph, query.trim())
             else {
-                remote = graph.remote.searchAll(source!!, query.trim(), kind.type)
+                remote = try {
+                    kotlinx.coroutines.withTimeout(30_000) { graph.remote.searchAll(source!!, query.trim(), kind.type) }
+                } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                    throw java.net.SocketTimeoutException("${source!!.displayName}: no answer in 30 s")
+                }
                 hasMore = kind != Kind.ALL && remote.size(kind) >= 10
             }
         } catch (e: kotlinx.coroutines.CancellationException) {
@@ -223,6 +234,9 @@ fun SearchScreen() {
                 else -> tr(R.string.tab_search) + " · " + source!!.displayName
             }, show = false)?.title
             remote = SearchResults()
+        } finally {
+            slowJob.cancel()
+            slow = false
         }
         loading = false
     }
@@ -330,6 +344,15 @@ fun SearchScreen() {
             EmptyState(tr(R.string.yandex_not_connected), tr(R.string.yandex_not_connected_hint))
             return@Column
         }
+        // YouTube and Bandcamp are the ones that need a proxy from some countries (Settings → Network).
+        val proxied = source == Service.YOUTUBE || source == Service.BANDCAMP
+        if (proxied && settings?.proxy.isNullOrBlank() && ((loading && slow) || error != null)) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(tr(R.string.proxy_hint_search, source!!.displayName), style = MaterialTheme.typography.bodySmall, color = Ink.Muted, modifier = Modifier.weight(1f))
+                TextButton(onClick = { askProxy = true }) { Text(tr(R.string.set_proxy)) }
+            }
+        }
+        if (askProxy) ProxyDialog(onDismiss = { askProxy = false }) { askProxy = false; retry++ }
         error?.let { msg ->
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(msg, color = MaterialTheme.colorScheme.error, modifier = Modifier.weight(1f))
@@ -700,4 +723,35 @@ private fun RecentSearches(recent: List<String>, onPick: (String) -> Unit, onCle
             Text(q, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
+}
+
+/** Asks for the proxy right where it's missing; saved to the same setting as Settings → Network. */
+@Composable
+fun ProxyDialog(onDismiss: () -> Unit, onSaved: () -> Unit) {
+    val graph = LocalGraph.current
+    val nav = LocalNav.current
+    val scope = rememberCoroutineScope()
+    var text by remember { mutableStateOf(graph.settings.state.value?.proxy.orEmpty()) }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(tr(R.string.settings_proxy)) },
+        text = {
+            Column {
+                Text(tr(R.string.settings_proxy_hint), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(text, { text = it }, singleLine = true, label = { Text("host:port") })
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                scope.launch {
+                    graph.settings.setProxy(text)
+                    nav.toast(tr(R.string.proxy_saved))
+                    onSaved()
+                }
+            }) { Text(tr(R.string.save)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr(R.string.cancel)) } },
+        containerColor = Ink.Paper2,
+    )
 }

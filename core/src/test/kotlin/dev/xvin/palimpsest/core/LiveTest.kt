@@ -72,7 +72,12 @@ class LiveTest {
     }
 
     @Test fun bandcamp() = runBlocking {
-        val bc = dev.xvin.palimpsest.core.newpipe.NewPipeProvider.bandcamp(okhttp3.OkHttpClient())
+        // Bandcamp's CDN needs the proxy from some networks; the JVM ignores HTTPS_PROXY by itself.
+        val proxy = System.getenv("HTTPS_PROXY")?.let { java.net.URI(it) }
+        val http = okhttp3.OkHttpClient.Builder().apply {
+            if (proxy != null) proxy(java.net.Proxy(java.net.Proxy.Type.HTTP, java.net.InetSocketAddress(proxy.host, proxy.port)))
+        }.build()
+        val bc = dev.xvin.palimpsest.core.newpipe.NewPipeProvider.bandcamp(http)
         val r = bc.searchAll("Big Thief", dev.xvin.palimpsest.core.model.SearchType.ALL)
         println("BC best: ${r.best}")
         println("BC tracks: " + r.tracks.take(3).joinToString { "${it.artistLine} — ${it.title} [${it.id}] ${it.durationMs / 1000}s" })

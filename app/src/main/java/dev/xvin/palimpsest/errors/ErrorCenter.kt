@@ -51,6 +51,8 @@ object ErrorExplainer {
             !online && networkish ->
                 info(tr(R.string.err_offline_title), tr(R.string.err_offline_expl),
                     tr(R.string.err_offline_hint_1), tr(R.string.err_offline_hint_2))
+            "after buying" in lower ->
+                info(tr(R.string.err_paid_title), tr(R.string.err_paid_expl), tr(R.string.err_paid_hint))
             chain.any { it is AuthRequiredException } || "401" in lower ->
                 info(tr(R.string.err_auth_title), tr(R.string.err_auth_expl),
                     tr(R.string.err_auth_hint))
