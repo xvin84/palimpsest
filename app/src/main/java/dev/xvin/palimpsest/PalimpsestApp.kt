@@ -192,7 +192,7 @@ class AppGraph(val app: Application) {
 
     val remote = RemoteRepository(db, settings, yandexAuth, yandex, providers, artistIndex) { e, ctx -> errors.report(e, ctx) }
     val lyrics = LyricsRepository(db, yandex, LrcLibClient(http), dev.xvin.palimpsest.core.lyrics.NetEaseLyrics(http), dev.xvin.palimpsest.core.lyrics.GeniusLyrics(http), dev.xvin.palimpsest.core.translate.Translator(http), File(app.filesDir, "translations"),
-        appScope, embedEnabled = { settings.state.value?.embedLyrics != false }, rescan = { scanner.rescanFile(it) })
+        appScope, embedEnabled = { settings.state.value?.embedLyrics != false }, playingTrackId = { player.state.value.nowPlaying?.trackId }, rescan = { scanner.rescanFile(it) })
     val spotify = dev.xvin.palimpsest.core.spotify.SpotifyImporter(http)
     val releases = dev.xvin.palimpsest.data.remote.ReleaseWatcher(app, db, yandex)
     val meta = dev.xvin.palimpsest.data.library.MetaLookup(yandex, dev.xvin.palimpsest.core.covers.OpenCatalogs(http))

@@ -39,6 +39,8 @@ class LyricsRepository(
     private val scope: kotlinx.coroutines.CoroutineScope,
     /** Whether found or chosen lyrics go into the file's tag right away (a setting, on by default). */
     private val embedEnabled: () -> Boolean,
+    /** The track playing now: its file isn't written to until it's done (the player reads it as it goes). */
+    private val playingTrackId: () -> Long?,
     /** Re-reads a file into the library after its tags changed. */
     private val rescan: suspend (String) -> Unit,
 ) {
@@ -84,6 +86,9 @@ class LyricsRepository(
         val text = (lyrics.synced?.let(dev.xvin.palimpsest.core.lyrics.Lrc::stripWords) ?: lyrics.plain)?.takeIf { it.isNotBlank() } ?: return
         if (!embedEnabled()) return
         scope.launch(Dispatchers.IO) {
+            // Rewriting the tag rewrites the file under the decoder: the song would cut off or
+            // jump. Lyrics are usually found right as a song starts, so they wait for it to end.
+            while (playingTrackId() == track.id) kotlinx.coroutines.delay(5_000)
             writeLock.withLock {
                 val file = File(path)
                 if (!file.isFile || !TagIO.canEdit(file)) return@withLock

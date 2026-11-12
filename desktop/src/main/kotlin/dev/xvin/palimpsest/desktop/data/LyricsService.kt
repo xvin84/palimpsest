@@ -1,5 +1,6 @@
 package dev.xvin.palimpsest.desktop.data
 
+import kotlinx.coroutines.launch
 import dev.xvin.palimpsest.core.lyrics.Lrc
 import dev.xvin.palimpsest.core.lyrics.cleaned
 import dev.xvin.palimpsest.core.model.Lyrics
@@ -81,7 +82,16 @@ class LyricsService(private val graph: Graph) {
         cache[t.id] = text
         cache[SOURCE + t.id] = l.source
         cacheFile.save(cache)
-        if (graph.settings.value.embedLyrics) t.path?.let { p -> Tags.writeLyrics(File(p), text) }
+        if (!graph.settings.value.embedLyrics) return
+        val path = t.path ?: return
+        // Word timings stay in the app: other players would show «<00:12.34>» tags as text.
+        val tagText = l.synced?.let(dev.xvin.palimpsest.core.lyrics.Lrc::stripWords) ?: text
+        // Rewriting the tag rewrites the file under ffmpeg, which then hits a cut and the next song
+        // starts mid-way through this one. Lyrics are usually found as a song starts: wait for it to end.
+        graph.scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            while (graph.player.state.value.current?.path == path) kotlinx.coroutines.delay(5_000)
+            Tags.writeLyrics(File(path), tagText)
+        }
     }
 
     companion object {
