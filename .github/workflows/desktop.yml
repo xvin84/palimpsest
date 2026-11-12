@@ -151,7 +151,13 @@ jobs:
           ref: ${{ env.TAG }}
       - name: Set the version
         if: env.AUR_SSH_KEY != ''
-        run: sed -i -e "s/^pkgver=.*/pkgver=${TAG#v}/" -e "s/^pkgrel=.*/pkgrel=1/" packaging/aur/PKGBUILD
+        # The checksum is computed here rather than by the action's updpkgsums: that downloads the 200 MB
+        # tarball into the AUR checkout, and the action then commits it along with the PKGBUILD.
+        run: |
+          sum=$(curl -fsSL "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/Palimpsest-linux-x64.tar.gz" | sha256sum | cut -d' ' -f1)
+          desktop=$(sha256sum packaging/aur/palimpsest.desktop | cut -d' ' -f1)
+          sed -i -e "s/^pkgver=.*/pkgver=${TAG#v}/" -e "s/^pkgrel=.*/pkgrel=1/" packaging/aur/PKGBUILD
+          sed -i -z -e "s/sha256sums=('[0-9a-f]*'\n *'[0-9a-f]*')/sha256sums=('$sum'\n            '$desktop')/" packaging/aur/PKGBUILD
       - name: Publish to the AUR
         if: env.AUR_SSH_KEY != ''
         uses: KSXGitHub/github-actions-deploy-aur@v4.2.0
@@ -159,7 +165,7 @@ jobs:
           pkgname: palimpsest-bin
           pkgbuild: packaging/aur/PKGBUILD
           assets: packaging/aur/palimpsest.desktop
-          updpkgsums: true
+          updpkgsums: false
           commit_username: xvin84
           commit_email: ivansonofden@gmail.com
           ssh_private_key: ${{ secrets.AUR_SSH_KEY }}
