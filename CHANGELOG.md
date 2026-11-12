@@ -2,6 +2,18 @@
 
 **English** | [Русский](CHANGELOG.ru.md)
 
+## 0.8.3 — 2026-11-12
+
+### Fixed
+- **Songs cut off and the next one started** (most often on the computer, with songs just downloaded): lyrics found
+  for a playing song were written into its file while it played. They now go in once the song has finished.
+
+### New on the computer
+- **«Not this»** beside the wave in the player bar: the song (or, from the note, its artist) is out of every wave for
+  good; the wave's settings list them to bring back.
+- **The queue in parts**, as on the phone: played (folded), now, next — drag rows by the handle — with a line on what
+  comes after the end, and a menu to stop after this song, save the queue as a playlist or clear what's next.
+
 ## 0.8.2 — 2026-11-12
 
 ### New
