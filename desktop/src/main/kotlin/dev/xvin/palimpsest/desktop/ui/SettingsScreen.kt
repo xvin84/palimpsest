@@ -266,12 +266,14 @@ private fun StylePicker(current: DesktopStyle, onPick: (DesktopStyle) -> Unit) {
             ) {
                 StylePreview(style, Modifier.fillMaxWidth().aspectRatio(1.4f))
                 Spacer(Modifier.height(8.dp))
-                Text(if (style == DesktopStyle.LANE) "Lane" else "Palimpsest", style = Type.rowTitle)
-                Text(
-                    if (style == DesktopStyle.LANE) t("Фон в цвете обложки, жирный гротеск, белые кнопки", "Backgrounds in the cover’s colour, a bold sans, white buttons")
-                    else t("Чернила и бумага, засечки, акцент из обложки", "Ink and paper, a serif, the accent from the cover"),
-                    color = pal.muted, style = Type.rowSub.copy(fontSize = 12.sp),
-                )
+                val (name, desc) = when (style) {
+                    DesktopStyle.PALIMPSEST -> t("Тетрадь", "Notebook") to t("Тёплые чернила и бумага, книжные засечки, спокойно; акцент из обложки", "Warm ink and paper, bookish serif titles, calm; the accent from the cover")
+                    DesktopStyle.COVER -> t("Обложка", "Cover") to t("Цвет играющей обложки на всём окне, крупный жирный шрифт, белые кнопки", "The playing cover’s colour over the whole window, big bold type, white buttons")
+                    DesktopStyle.CONSOLE -> t("Пульт", "Console") to t("Приборная панель: формат и битрейт на виду, моноширинные цифры, один яркий акцент", "An instrument panel: format and bitrate in sight, monospaced figures, one bright accent")
+                    DesktopStyle.LANE -> "Lane" to t("Фон в цвете обложки, жирный гротеск, белые кнопки", "Backgrounds in the cover’s colour, a bold sans, white buttons")
+                }
+                Text(name, style = Type.rowTitle)
+                Text(desc, color = pal.muted, style = Type.rowSub.copy(fontSize = 12.sp))
             }
         }
     }
@@ -324,8 +326,8 @@ private fun StylePreview(style: DesktopStyle, modifier: Modifier) {
         val h = size.height
         when (style) {
             DesktopStyle.PALIMPSEST -> {
-                drawRect(Color(0xFF0F0E0C))
-                drawRect(Color(0xFF171513), size = Size(w * 0.22f, h))
+                drawRect(Color(0xFF15120F))
+                drawRect(Color(0xFF1C1814), size = Size(w * 0.22f, h))
                 for (i in 0 until 4) drawRect(Color(0xFF6A635A), Offset(w * 0.04f, h * (0.12f + i * 0.1f)), Size(w * 0.13f, h * 0.03f))
                 val side = h * 0.46f
                 drawRoundRect(accent.copy(alpha = 0.85f), Offset(w * 0.3f, h * 0.1f), Size(side, side), CornerRadius(w * 0.02f))
@@ -334,6 +336,36 @@ private fun StylePreview(style: DesktopStyle, modifier: Modifier) {
                 for (k in 0 until 3) drawRect(Color(0xFF2E2A26), Offset(w * 0.3f, h * (0.64f + k * 0.07f)), Size(w * 0.62f, h * 0.035f))
                 drawRect(Color(0xFF171513), Offset(0f, h * 0.86f), Size(w, h * 0.14f))
                 drawCircle(accent, h * 0.05f, Offset(w / 2, h * 0.93f))
+            }
+            DesktopStyle.COVER -> {
+                val dark = Color(0xFF120A0E)
+                drawRect(Brush.verticalGradient(listOf(lerp(dark, accent, 0.75f), lerp(dark, accent, 0.25f), dark)))
+                drawRect(Color.Black.copy(alpha = 0.16f), size = Size(w * 0.22f, h))
+                for (i in 0 until 4) drawRect(Color.White.copy(alpha = 0.5f), Offset(w * 0.04f, h * (0.12f + i * 0.1f)), Size(w * 0.13f, h * 0.03f))
+                val side = h * 0.46f
+                drawRoundRect(lerp(accent, Color.White, 0.3f), Offset(w * 0.3f, h * 0.1f), Size(side, side), CornerRadius(w * 0.03f))
+                drawRect(Color.White, Offset(w * 0.3f + side + w * 0.04f, h * 0.16f), Size(w * 0.34f, h * 0.1f))
+                drawRect(Color.White.copy(alpha = 0.7f), Offset(w * 0.3f + side + w * 0.04f, h * 0.31f), Size(w * 0.2f, h * 0.04f))
+                for (k in 0 until 3) drawRect(Color.White.copy(alpha = 0.14f), Offset(w * 0.3f, h * (0.64f + k * 0.07f)), Size(w * 0.62f, h * 0.035f))
+                drawRect(lerp(dark, accent, 0.3f), Offset(0f, h * 0.86f), Size(w, h * 0.14f))
+                drawCircle(Color.White, h * 0.05f, Offset(w / 2, h * 0.93f))
+            }
+            DesktopStyle.CONSOLE -> {
+                val lime = Color(0xFFC6F432)
+                drawRect(Color(0xFF0B0D0C))
+                drawRect(Color(0xFF121614), size = Size(w * 0.22f, h))
+                for (i in 0 until 4) drawRect(Color(0xFF5E6A64), Offset(w * 0.04f, h * (0.12f + i * 0.1f)), Size(w * 0.13f, h * 0.03f))
+                val side = h * 0.3f
+                drawRoundRect(tint, Offset(w * 0.3f, h * 0.1f), Size(side, side), CornerRadius(w * 0.01f))
+                drawRect(Color(0xFFE6ECE8), Offset(w * 0.3f + side + w * 0.04f, h * 0.12f), Size(w * 0.28f, h * 0.06f))
+                drawRoundRect(Color(0xFF59D6E6), Offset(w * 0.3f + side + w * 0.04f, h * 0.24f), Size(w * 0.08f, h * 0.06f), CornerRadius(2f), style = androidx.compose.ui.graphics.drawscope.Stroke(1.5f))
+                for (i in 0 until 30) {
+                    val bh = h * 0.03f + h * 0.12f * kotlin.math.abs(kotlin.math.sin(i * 0.53f) * 0.7f + kotlin.math.sin(i * 1.7f) * 0.3f)
+                    drawRect(if (i < 12) lime else Color(0xFF2A302D), Offset(w * 0.3f + i * w * 0.021f, h * 0.6f - bh / 2), Size(w * 0.012f, bh))
+                }
+                for (k in 0 until 2) drawRect(Color(0xFF1B201E), Offset(w * 0.3f, h * (0.72f + k * 0.06f)), Size(w * 0.62f, h * 0.03f))
+                drawRect(Color(0xFF121614), Offset(0f, h * 0.86f), Size(w, h * 0.14f))
+                drawRoundRect(lime, Offset(w * 0.46f, h * 0.885f), Size(w * 0.08f, h * 0.085f), CornerRadius(3f))
             }
             DesktopStyle.LANE -> {
                 drawRect(Brush.verticalGradient(listOf(lerp(Color(0xFF0B0B0D), tint, 0.55f), Color(0xFF0B0B0D))))

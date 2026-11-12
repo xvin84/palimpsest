@@ -8,6 +8,7 @@ import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -583,7 +584,8 @@ fun NowPlayingView() {
     val st by graph.player.state.collectAsState()
     val t = st.current ?: return
     val model by produceState<Any?>(t.coverUrl, t.id) { value = graph.covers.model(t) }
-    val lane = LocalStyle.current == DesktopStyle.LANE
+    val style = LocalStyle.current
+    val lane = style == DesktopStyle.LANE
     val tint = LocalTint.current
     val deep = androidx.compose.ui.graphics.lerp(Color.Black, tint, 0.5f)
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize().background(pal.paper)) {
@@ -595,6 +597,16 @@ fun NowPlayingView() {
         // Backdrop.
         if (lane) {
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(deep, pal.paper))))
+        } else if (style == DesktopStyle.COVER) {
+            // «Обложка»: a glow of the cover's colour from the upper left, falling to the page.
+            Box(Modifier.fillMaxSize().background(Brush.radialGradient(
+                // Darkened a little: white titles and lyrics have to read over a pale cover too.
+                0f to (if (pal.light) androidx.compose.ui.graphics.lerp(tint, Color.White, 0.55f) else androidx.compose.ui.graphics.lerp(tint, Color.Black, 0.22f)),
+                0.45f to androidx.compose.ui.graphics.lerp(tint, pal.paper, 0.55f), 1f to pal.paper,
+                center = androidx.compose.ui.geometry.Offset(w.value * 0.3f * 1.5f, h.value * 0.25f * 1.5f), radius = maxOf(w.value, h.value) * 1.6f,
+            )))
+        } else if (style == DesktopStyle.CONSOLE) {
+            // «Пульт»: the plain panel; the cover is an exhibit, not a backdrop.
         } else {
             if (model != null) AsyncImage(model, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().blur(64.dp).graphicsLayer { alpha = 0.5f })
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(pal.paper.copy(alpha = 0.4f), pal.paper))))
@@ -603,10 +615,22 @@ fun NowPlayingView() {
         fun Titles(color: Color = pal.text) {
             Text(t.title, style = titleStyle, color = color, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(
-                listOfNotNull(t.artist, t.album?.takeIf { it != t.title }).joinToString(" · "), color = color.copy(alpha = 0.7f),
+                listOfNotNull(t.artist, t.album?.takeIf { it != t.title }, t.year?.toString().takeIf { style == DesktopStyle.CONSOLE }).joinToString(" · "), color = color.copy(alpha = 0.7f),
                 style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp),
             )
+            // «Пульт»: the facts of the file under the title, lossless in cyan.
+            if (style == DesktopStyle.CONSOLE) {
+                val cyan = if (pal.light) Color(0xFF00788A) else Color(0xFF59D6E6)
+                val lossless = t.codec?.lowercase()?.let { c -> listOf("flac", "alac", "wav", "aiff", "ape", "wv").any { c.contains(it) } } == true
+                val chips = listOfNotNull(t.codec?.uppercase()?.let { it to lossless }, t.bitrateKbps?.let { t("$it кбит/с", "$it kbps") to false }, (if (t.path == null) t.service.name.lowercase().replaceFirstChar { it.uppercase() } else null)?.let { it to false })
+                if (chips.isNotEmpty()) Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    chips.forEach { (text, hi) ->
+                        Text(text, Modifier.border(1.dp, if (hi) cyan.copy(alpha = 0.5f) else pal.line, RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 3.dp), style = MaterialTheme.typography.labelMedium, color = if (hi) cyan else pal.muted)
+                    }
+                }
+            }
         }
+        val spectrumColor = if (style == DesktopStyle.CONSOLE) LocalAccent.current.copy(alpha = 0.6f) else pal.text.copy(alpha = 0.32f)
         // Lyrics on and off cross-fade, and the cover flies between its two places (see CoverFlight).
         androidx.compose.animation.AnimatedContent(
             nav.bigLyrics,
@@ -627,7 +651,7 @@ fun NowPlayingView() {
                 CoverWithInfo(Modifier.weight(1f).fillMaxHeight(), w, centered = false, cover = { androidx.compose.animation.Crossfade(t.id to model, Modifier.coverSpot(big = true, corner = 18.dp, lyrics = lyrics), animationSpec = androidx.compose.animation.core.tween(450)) { (_, m) -> Artwork(m, t.album ?: t.title, Modifier.fillMaxSize(), 18.dp, artist = t.albumArtist ?: t.artist) } }) {
                     Titles()
                     Spacer(Modifier.height(16.dp))
-                    Spectrum(Modifier.fillMaxWidth().height(44.dp), pal.text.copy(alpha = 0.32f))
+                    Spectrum(Modifier.fillMaxWidth().height(44.dp), spectrumColor)
                 }
                 LyricsView(Modifier.weight(1.2f).fillMaxHeight(), big = true, scale = scale)
             }
@@ -638,7 +662,7 @@ fun NowPlayingView() {
                     Spacer(Modifier.width(18.dp))
                     Column(Modifier.weight(1f, fill = false)) {
                         Titles()
-                        if (!lane) { Spacer(Modifier.height(10.dp)); Spectrum(Modifier.widthIn(max = 360.dp).fillMaxWidth().height(28.dp), pal.text.copy(alpha = 0.32f)) }
+                        if (!lane) { Spacer(Modifier.height(10.dp)); Spectrum(Modifier.widthIn(max = 360.dp).fillMaxWidth().height(28.dp), spectrumColor) }
                     }
                 }
                 Spacer(Modifier.height(16.dp))
@@ -647,7 +671,7 @@ fun NowPlayingView() {
             // Lyrics off: the cover as big as the window allows.
             else -> CoverWithInfo(Modifier.fillMaxSize().padding(32.dp), minOf(w * 0.8f, h * 0.68f), centered = true, cover = { androidx.compose.animation.Crossfade(t.id to model, Modifier.coverSpot(big = true, corner = if (lane) 6.dp else 18.dp, lyrics = lyrics), animationSpec = androidx.compose.animation.core.tween(450)) { (_, m) -> Artwork(m, t.album ?: t.title, Modifier.fillMaxSize(), if (lane) 6.dp else 18.dp, artist = t.albumArtist ?: t.artist) } }) {
                 Titles()
-                if (!lane) { Spacer(Modifier.height(12.dp)); Spectrum(Modifier.fillMaxWidth().height(40.dp), pal.text.copy(alpha = 0.32f)) }
+                if (!lane) { Spacer(Modifier.height(12.dp)); Spectrum(Modifier.fillMaxWidth().height(40.dp), spectrumColor) }
             }
         }
         }

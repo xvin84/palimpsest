@@ -324,7 +324,9 @@ fun TrackTable(tracks: List<Track>, liked: Set<String>, numbered: Boolean = fals
         }
         stickyHeader {
             Row(
-                Modifier.fillMaxWidth().background(pal.paper).drawBehind { drawLine(pal.line, Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx()) }
+                // Sticky, so it can't be see-through; in «Обложка» it takes the gradient's colour at the top.
+                Modifier.fillMaxWidth().background(if (LocalStyle.current == dev.xvin.palimpsest.desktop.data.DesktopStyle.COVER) androidx.compose.ui.graphics.lerp(pal.paper, LocalTint.current, if (pal.light) 0.3f else 0.48f) else pal.paper)
+                    .drawBehind { drawLine(pal.line, Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx()) }
                     .padding(horizontal = Cols.pad).padding(top = 6.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

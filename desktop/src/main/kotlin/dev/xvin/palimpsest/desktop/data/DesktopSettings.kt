@@ -6,7 +6,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.serialization.Serializable
 
-enum class DesktopStyle { PALIMPSEST, LANE }
+/** PALIMPSEST is «Тетрадь» (the stored name stayed); COVER — «Обложка»; CONSOLE — «Пульт». */
+enum class DesktopStyle { PALIMPSEST, COVER, CONSOLE, LANE }
 enum class DesktopTheme { DARK, AMOLED, LIGHT }
 enum class Rg { OFF, TRACK, ALBUM }
 /** How the tray icon looks: the letter with a dot, live bars, a spinning record, or one plain colour. */

@@ -356,7 +356,7 @@ internal fun Shell() {
     val graph = LocalGraph.current
     val spots = remember { CoverSpots() }
     CompositionLocalProvider(LocalCoverSpots provides spots) {
-    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize().background(pal.paper)) {
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize().coverBackdrop()) {
         // Narrow windows (half a screen, a tiling WM): icons-only sidebar, the side panel floats over the content.
         val compact = maxWidth < 1000.dp
         val panelInline = maxWidth >= 1250.dp
@@ -459,7 +459,9 @@ private fun Sidebar(compact: Boolean) {
     val pal = LocalPal.current
     val playlists by graph.playlists.lists.collectAsState()
     val scan by graph.library.progress.collectAsState()
-    Column(Modifier.width(if (compact) 64.dp else 232.dp).fillMaxHeight().background(pal.paper2).padding(horizontal = if (compact) 8.dp else 12.dp, vertical = 12.dp)) {
+    // «Обложка»: the sidebar is glass over the cover's colour, not a solid panel.
+    val glass = LocalStyle.current == dev.xvin.palimpsest.desktop.data.DesktopStyle.COVER
+    Column(Modifier.width(if (compact) 64.dp else 232.dp).fillMaxHeight().background(if (glass) Color.Black.copy(alpha = if (pal.light) 0.04f else 0.16f) else pal.paper2).padding(horizontal = if (compact) 8.dp else 12.dp, vertical = 12.dp)) {
         // The mark: a P written over a fainter one, the way a palimpsest is.
         Row(Modifier.padding(start = if (compact) 12.dp else 8.dp, top = 2.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Art("logo", Modifier.size(26.dp), LocalAccent.current)
@@ -557,7 +559,9 @@ private fun PlayerBar(compact: Boolean) {
     val liked by graph.library.liked.collectAsState()
     val settings by graph.settings.state.collectAsState()
     val t = st.current
-    val lane = LocalStyle.current == dev.xvin.palimpsest.desktop.data.DesktopStyle.LANE
+    // The player bar takes the cover's colour in Lane and «Обложка»; «Пульт» has a square key to play.
+    val lane = LocalStyle.current.let { it == dev.xvin.palimpsest.desktop.data.DesktopStyle.LANE || it == dev.xvin.palimpsest.desktop.data.DesktopStyle.COVER }
+    val keys = LocalStyle.current == dev.xvin.palimpsest.desktop.data.DesktopStyle.CONSOLE
     val tint = LocalTint.current
     Row(
         Modifier.fillMaxWidth().height(76.dp)
@@ -602,7 +606,7 @@ private fun PlayerBar(compact: Boolean) {
                 PIconButton(Icons.Rounded.Shuffle, t("Вперемешку", "Shuffle"), { graph.player.setShuffle(!st.shuffle) }, iconSize = 18.dp, active = st.shuffle)
                 PIconButton(Icons.Rounded.SkipPrevious, t("Назад", "Previous"), graph.player::previous, size = 36.dp, iconSize = 26.dp, tint = pal.text)
                 Box(
-                    Modifier.size(40.dp).clip(if (lane) RoundedCornerShape(Radius.lg) else CircleShape).background(MaterialTheme.colorScheme.primary).clickable { graph.player.toggle() },
+                    Modifier.size(40.dp).clip(if (lane && LocalStyle.current == dev.xvin.palimpsest.desktop.data.DesktopStyle.LANE) RoundedCornerShape(Radius.lg) else if (keys) RoundedCornerShape(Radius.md) else CircleShape).background(MaterialTheme.colorScheme.primary).clickable { graph.player.toggle() },
                     contentAlignment = Alignment.Center,
                 ) {
                     if (st.loading != null) Text("${(st.loading!! * 100).toInt()}%", color = MaterialTheme.colorScheme.onPrimary, style = Type.meta)
