@@ -49,6 +49,8 @@ data class PlayerState(
     val radio: String? = null,
     /** What an internet radio station plays right now («Artist - Song»), from the stream. */
     val onAir: String? = null,
+    /** «Остановиться после этой песни»: the music stops when the current song ends. */
+    val stopAfter: Boolean = false,
 ) {
     val current: Track? get() = queue.getOrNull(index)
 }
@@ -303,6 +305,26 @@ class Player(private val graph: Graph) {
         order = order.filter { it != i }.map { if (it > i) it - 1 else it }
     }
 
+    /** A queue row dragged from [from] to [to]; what plays keeps playing, and the play order follows. */
+    fun move(from: Int, to: Int) {
+        val st = _state.value
+        if (from == to || from !in st.queue.indices || to !in st.queue.indices) return
+        val positions = st.queue.indices.toMutableList().apply { add(to, removeAt(from)) }
+        val newIndexOf = IntArray(positions.size).also { m -> positions.forEachIndexed { at, old -> m[old] = at } }
+        _state.value = st.copy(queue = positions.map { st.queue[it] }, index = if (st.index in st.queue.indices) newIndexOf[st.index] else st.index)
+        order = if (st.shuffle) order.map { newIndexOf[it] } else positions.indices.toList()
+    }
+
+    /** Everything after the current song goes; what played and what plays stay. */
+    fun clearUpcoming() {
+        val st = _state.value
+        if (st.index < 0 || st.index >= st.queue.lastIndex) return
+        _state.value = st.copy(queue = st.queue.take(st.index + 1))
+        order = order.filter { it <= st.index }
+    }
+
+    fun setStopAfter(on: Boolean) { _state.value = _state.value.copy(stopAfter = on) }
+
     fun skipTo(i: Int) {
         if (i !in _state.value.queue.indices) return
         _state.value = _state.value.copy(index = i)
@@ -389,6 +411,11 @@ class Player(private val graph: Graph) {
         failedInARow = 0
         // A station that dropped the connection: join it again rather than move on.
         if (stations.containsKey(_state.value.current?.id)) { graph.scope.launch { delay(2_000); if (stations.containsKey(_state.value.current?.id)) startCurrent(0) }; return }
+        if (_state.value.stopAfter) {
+            _state.value = _state.value.copy(stopAfter = false)
+            engine.stop()
+            return
+        }
         if (_state.value.repeat == Repeat.ONE) startCurrent(0) else advance(+1, user = false)
     }
 

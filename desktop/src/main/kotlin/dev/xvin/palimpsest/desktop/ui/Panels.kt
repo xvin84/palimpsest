@@ -40,6 +40,13 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Stop
+import androidx.compose.material.icons.rounded.ClearAll
+import androidx.compose.material.icons.rounded.DragHandle
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
+import androidx.compose.foundation.lazy.items
+import dev.xvin.palimpsest.desktop.playback.Repeat
+import sh.calvin.reorderable.ReorderableItem
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material3.CircularProgressIndicator
@@ -103,38 +110,138 @@ fun RightPanel(panel: String, modifier: Modifier) {
     }
 }
 
+/**
+ * The queue in parts, as on the phone: what played (folded), what plays now, what's next — rows
+ * dragged by the handle, the player told once on drop — and a line on what comes after the end.
+ */
 @Composable
 private fun QueueList() {
     val graph = LocalGraph.current
+    val nav = LocalNav.current
     val pal = LocalPal.current
     val accent = LocalAccent.current
     val st by graph.player.state.collectAsState()
+    val settings by graph.settings.state.collectAsState()
+    var showPlayed by remember { mutableStateOf(false) }
+    var menu by remember { mutableStateOf(false) }
+    // Rows carry keys of their own (the same song can be queued twice), kept across queue changes.
+    val uids = remember { intArrayOf(0) }
+    val rows = remember { androidx.compose.runtime.mutableStateListOf<Pair<Int, Track>>() }
+    var dragFrom by remember { mutableStateOf(-1) }
+    LaunchedEffect(st.queue) {
+        if (dragFrom >= 0) return@LaunchedEffect
+        val kept = rows.groupBy { it.second.id }.mapValues { it.value.toMutableList() }
+        val fresh = st.queue.map { t -> kept[t.id]?.removeFirstOrNull()?.let { it.first to t } ?: (uids[0]++ to t) }
+        rows.clear(); rows.addAll(fresh)
+    }
     val list = rememberLazyListState()
-    LaunchedEffect(st.index) { if (st.index > 2) list.animateScrollToItem(st.index - 2) }
+    val reorder = sh.calvin.reorderable.rememberReorderableLazyListState(list) { from, to ->
+        val a = rows.indexOfFirst { "u${it.first}" == from.key }
+        val b = rows.indexOfFirst { "u${it.first}" == to.key }
+        if (a >= 0 && b >= 0) rows.add(b, rows.removeAt(a))
+    }
+    val played = st.index.coerceIn(0, rows.size)
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(if (st.queue.isEmpty()) "" else "${st.index + 1} / ${st.queue.size}", style = Type.meta, color = pal.faint, modifier = Modifier.weight(1f))
+        Box {
+            PIconButton(Icons.Rounded.MoreHoriz, t("Ещё", "More"), { menu = true }, iconSize = 18.dp)
+            androidx.compose.material3.DropdownMenu(menu, { menu = false }) {
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text(t("Остановиться после этой песни", "Stop after this song")) },
+                    leadingIcon = { Icon(if (st.stopAfter) Icons.Rounded.Check else Icons.Rounded.Stop, null) },
+                    onClick = { menu = false; graph.player.setStopAfter(!st.stopAfter) },
+                )
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text(t("Сохранить как плейлист", "Save as a playlist")) },
+                    leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, null) },
+                    enabled = st.queue.isNotEmpty(),
+                    onClick = {
+                        menu = false
+                        val p = graph.playlists.create(st.radio ?: t("Очередь", "Queue"))
+                        graph.playlists.setTracks(p.id, st.queue.map { it.id })
+                        nav.toast(t("Сохранил как «${p.name}»", "Saved as «${p.name}»"), t("Открыть", "Open")) { nav.go(Screen.Playlist(p.id)) }
+                    },
+                )
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text(t("Очистить «Дальше»", "Clear «Next»")) },
+                    leadingIcon = { Icon(Icons.Rounded.ClearAll, null) },
+                    enabled = st.index < st.queue.lastIndex,
+                    onClick = { menu = false; graph.player.clearUpcoming() },
+                )
+            }
+        }
+    }
+    @Composable
+    fun Section(text: String, modifier: Modifier = Modifier) =
+        Caption(text, modifier.fillMaxWidth().padding(start = 6.dp, top = 12.dp, bottom = 4.dp))
+
     LazyColumn(state = list) {
-        itemsIndexed(st.queue, key = { i, t -> "$i:${t.id}" }) { i, t ->
-            val now = i == st.index
+        if (played > 0) item(key = "h-played") {
+            Section(
+                if (showPlayed) t("Сыграно", "Played") else t("Сыграно · $played", "Played · $played"),
+                Modifier.clip(RoundedCornerShape(Radius.xs)).clickable { showPlayed = !showPlayed },
+            )
+        }
+        fun androidx.compose.foundation.lazy.LazyListScope.rowsOf(part: List<Pair<Int, Track>>) = items(part, key = { "u${it.first}" }) { (uid, tr) ->
+            val i = rows.indexOfFirst { it.first == uid }
+            val now = i == st.index && dragFrom < 0
             val hover = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
             val hovered by hover.collectIsHoveredAsState()
-            Row(
-                Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(Radius.md))
-                    .background(if (hovered) pal.text.copy(alpha = 0.05f) else Color.Transparent)
-                    .hoverable(hover).clickable { graph.player.skipTo(i) }.padding(horizontal = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box {
-                    TrackArt(t, Modifier.size(36.dp), Radius.xs)
-                    if (now) Box(Modifier.size(36.dp).clip(RoundedCornerShape(Radius.xs)).background(Color.Black.copy(alpha = 0.45f)), contentAlignment = Alignment.Center) {
-                        PlayingBars(st.playing, color = Color.White)
+            ReorderableItem(reorder, key = "u$uid") { dragging ->
+                Row(
+                    Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(Radius.md))
+                        .background(if (dragging) pal.paper3 else if (hovered) pal.text.copy(alpha = 0.05f) else Color.Transparent)
+                        .hoverable(hover).clickable { graph.player.skipTo(i) }.padding(start = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box {
+                        TrackArt(tr, Modifier.size(36.dp), Radius.xs)
+                        if (now) Box(Modifier.size(36.dp).clip(RoundedCornerShape(Radius.xs)).background(Color.Black.copy(alpha = 0.45f)), contentAlignment = Alignment.Center) {
+                            PlayingBars(st.playing, color = Color.White)
+                        }
                     }
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(tr.title, style = Type.rowTitle.copy(fontSize = 13.sp), maxLines = 1, overflow = TextOverflow.Ellipsis, color = if (now) accent else if (i < st.index) pal.muted else pal.text)
+                        Text(tr.artist, style = Type.rowSub.copy(fontSize = 12.sp), maxLines = 1, overflow = TextOverflow.Ellipsis, color = pal.muted)
+                    }
+                    if (!now && hovered) PIconButton(Icons.Rounded.Close, t("Убрать из очереди", "Remove from the queue"), { graph.player.removeAt(i) }, size = 26.dp, iconSize = 15.dp)
+                    Icon(
+                        Icons.Rounded.DragHandle, t("Перетащить", "Drag to move"),
+                        Modifier.draggableHandle(
+                            onDragStarted = { dragFrom = rows.indexOfFirst { it.first == uid } },
+                            onDragStopped = {
+                                val to = rows.indexOfFirst { it.first == uid }
+                                if (dragFrom >= 0 && to >= 0 && to != dragFrom) graph.player.move(dragFrom, to)
+                                dragFrom = -1
+                            },
+                        ).padding(horizontal = 6.dp).size(18.dp),
+                        tint = if (hovered || dragging) pal.muted else pal.faint.copy(alpha = 0.5f),
+                    )
                 }
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(t.title, style = Type.rowTitle.copy(fontSize = 13.sp), maxLines = 1, overflow = TextOverflow.Ellipsis, color = if (now) accent else if (i < st.index) pal.muted else pal.text)
-                    Text(t.artist, style = Type.rowSub.copy(fontSize = 12.sp), maxLines = 1, overflow = TextOverflow.Ellipsis, color = pal.muted)
-                }
-                if (!now && hovered) PIconButton(Icons.Rounded.Close, t("Убрать из очереди", "Remove from the queue"), { graph.player.removeAt(i) }, size = 26.dp, iconSize = 15.dp)
             }
+        }
+        if (showPlayed) rowsOf(rows.take(played))
+        if (rows.isNotEmpty()) {
+            item(key = "h-now") { Section(t("Сейчас", "Now playing")) }
+            rowsOf(rows.drop(played).take(1))
+        }
+        if (rows.size > played + 1) {
+            item(key = "h-next") { Section(if (st.shuffle) t("Дальше · вперемешку", "Next · shuffled") else t("Дальше", "Next")) }
+            rowsOf(rows.drop(played + 1))
+        }
+        if (rows.isNotEmpty()) item(key = "h-after") {
+            Text(
+                when {
+                    st.stopAfter -> t("После этой песни музыка остановится.", "The music stops after this song.")
+                    st.radio != null -> t("Потом — дальше «${st.radio}», она не кончается.", "Then more of «${st.radio}» — it doesn’t end.")
+                    st.repeat == Repeat.ALL -> t("Потом — всё сначала.", "Then it all starts over.")
+                    settings.continueSimilar -> t("Потом — похожие песни.", "Then songs like these.")
+                    else -> t("Потом — тишина.", "Then silence.")
+                },
+                Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 16.dp), style = Type.meta, color = pal.faint,
+            )
         }
     }
 }
