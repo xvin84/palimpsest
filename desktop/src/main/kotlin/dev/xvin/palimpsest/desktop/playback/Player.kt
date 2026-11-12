@@ -139,7 +139,7 @@ class Player(private val graph: Graph) {
 
     private fun applyEffects(t: Track?) {
         val s = graph.settings.value
-        engine.equalizer.setProfile(EqProfile.PRESETS.firstOrNull { it.name == s.eqProfile } ?: EqProfile.FLAT)
+        engine.equalizer.setProfile((EqProfile.PRESETS + s.customEq).firstOrNull { it.name == s.eqProfile } ?: EqProfile.FLAT)
         engine.equalizer.enabled = s.eqEnabled
         val rg = when (s.replayGain) {
             Rg.OFF -> null

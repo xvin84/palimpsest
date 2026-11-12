@@ -107,7 +107,7 @@ class VideoRenders(private val graph: Graph) {
         val s = graph.settings.value
         val rg = when (s.replayGain) { Rg.OFF -> null; Rg.TRACK -> t.rgTrackDb ?: t.rgAlbumDb; Rg.ALBUM -> t.rgAlbumDb ?: t.rgTrackDb }
         val eq = Equalizer().apply {
-            setProfile(EqProfile.PRESETS.firstOrNull { it.name == s.eqProfile } ?: EqProfile.FLAT)
+            setProfile((EqProfile.PRESETS + s.customEq).firstOrNull { it.name == s.eqProfile } ?: EqProfile.FLAT)
             enabled = s.eqEnabled
             setGainDb(if (rg == null) 0.0 else (rg + s.preampDb).toDouble())
         }

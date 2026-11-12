@@ -55,6 +55,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -424,7 +425,10 @@ private fun settingItems(s: DesktopSettings): List<Item> {
     add(Category.SOUND, eqTitle, eqHint, "eq equalizer эквалайзер басы bass") {
         Toggle(eqTitle, eqHint, s.eqEnabled) { v -> graph.settings.update { it.copy(eqEnabled = v) } }
         if (s.eqEnabled) FlowRow(Modifier.padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            EqProfile.PRESETS.forEach { p -> Pill(p.name, s.eqProfile == p.name, { graph.settings.update { it.copy(eqProfile = p.name) } }) }
+            (EqProfile.PRESETS + s.customEq).forEach { p -> Pill(p.name, s.eqProfile == p.name, { graph.settings.update { it.copy(eqProfile = p.name) } }) }
+            var autoEq by remember { mutableStateOf(false) }
+            PButton("AutoEQ…", { autoEq = true }, kind = Kind.GHOST)
+            if (autoEq) AutoEqDialog { autoEq = false }
         }
     }
 
@@ -646,5 +650,54 @@ internal fun rescan(graph: dev.xvin.palimpsest.desktop.data.Graph, nav: Nav, for
                 else -> t("Медиатека обновлена: файлов ${p.files}, прочитано заново ${p.total}, убрано ${p.removed}", "Library refreshed: ${p.files} files, ${p.total} read again, ${p.removed} removed")
             },
         )
+    }
+}
+
+/** Your headphones by model, from AutoEQ's ~9 000 measured ones: pick one and its correction is on. */
+@Composable
+private fun AutoEqDialog(onDismiss: () -> Unit) {
+    val graph = LocalGraph.current
+    val nav = LocalNav.current
+    val pal = LocalPal.current
+    val scope = rememberCoroutineScope()
+    var model by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    val found by androidx.compose.runtime.produceState<List<dev.xvin.palimpsest.core.dsp.AutoEqCatalog.Entry>?>(emptyList(), model) {
+        if (model.isBlank()) { value = emptyList(); return@produceState }
+        kotlinx.coroutines.delay(350)
+        value = null
+        value = runCatching { graph.autoEq.search(model) }.getOrDefault(emptyList())
+    }
+    PDialog(
+        t("AutoEQ для наушников", "AutoEQ for headphones"), onDismiss,
+        subtitle = t("Коррекция по измерениям oratory1990, crinacle и других", "Corrections from measurements by oratory1990, crinacle and others"),
+        buttons = { PButton(t("Закрыть", "Close"), onDismiss, kind = Kind.GHOST) },
+    ) {
+        PInput(model, { model = it }, t("Модель наушников", "Headphones' model"), Modifier.fillMaxWidth())
+        Spacer(Modifier.height(8.dp))
+        when {
+            found == null || busy -> Text(t("Ищу…", "Searching…"), color = pal.muted)
+            found!!.isEmpty() && model.isNotBlank() -> Text(t("Ничего не нашлось", "Nothing found"), color = pal.muted)
+            else -> Column(Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState())) {
+                found!!.forEach { e ->
+                    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.sm)).clickable(enabled = !busy) {
+                        busy = true
+                        scope.launch {
+                            runCatching { graph.autoEq.profile(e) }
+                                .onSuccess { p ->
+                                    graph.settings.update { st -> st.copy(customEq = st.customEq.filter { it.name != p.name } + p, eqProfile = p.name, eqEnabled = true) }
+                                    nav.toast(t("Включено: ${p.name}", "On: ${p.name}"))
+                                    onDismiss()
+                                }
+                                .onFailure { nav.toast(it.message ?: "") }
+                            busy = false
+                        }
+                    }.padding(horizontal = 8.dp, vertical = 6.dp)) {
+                        Text(e.name, style = MaterialTheme.typography.bodyMedium)
+                        Text(t("измерил ${e.source}", "measured by ${e.source}"), style = Type.meta, color = pal.muted)
+                    }
+                }
+            }
+        }
     }
 }

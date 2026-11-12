@@ -73,6 +73,7 @@ class Graph {
     }
 
     val lrclib = LrcLibClient(http)
+    val autoEq = dev.xvin.palimpsest.core.dsp.AutoEqCatalog(http)
     val netEase = NetEaseLyrics(http)
     val genius = GeniusLyrics(http)
     val translator = Translator(http)

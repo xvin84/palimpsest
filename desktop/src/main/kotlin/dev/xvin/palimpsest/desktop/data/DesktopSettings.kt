@@ -57,6 +57,8 @@ data class DesktopSettings(
     val dynamicColor: Boolean = true,
     val eqEnabled: Boolean = false,
     val eqProfile: String = "Flat",
+    /** Profiles added from AutoEQ (by headphone model); picked by name like the presets. */
+    val customEq: List<dev.xvin.palimpsest.core.dsp.EqProfile> = emptyList(),
     val replayGain: Rg = Rg.TRACK,
     val preampDb: Float = 0f,
     val volume: Float = 0.9f,
