@@ -2,6 +2,29 @@
 
 **English** | [Русский](CHANGELOG.ru.md)
 
+## 0.8.0 — 2026-11-12
+
+### New
+- **The wave from your own files learns as it plays.** A song skipped in its first half minute makes its artist rarer
+  for the rest of the session and itself rarer for weeks; **«Not this»** (👎 in the player while a wave plays) leaves a
+  song — or its whole artist — out of every wave, and My Wave's settings list them to bring back; the same artist
+  doesn't come back within a few songs; a **«familiar ↔ new»** slider; **«why this one»** under the song (a favourite,
+  an artist you play a lot, not heard in a while…). The offline wave is now a real station: saved with the queue,
+  «shake up», and it never runs dry in a small library. On the computer it's «My files» among the wave's sources.
+- **«Nostalgia»**: pick a year, and it plays that year and three either side — the hits of those years from Yandex Music
+  and YouTube, mixed with your own songs tagged with them. In the library on the phone, in My Wave on the computer.
+- **The queue grew up.** Sections — what played (folded away), now, next — and what comes after the end. ⋯ — stop after
+  this song, save the queue as a playlist, clear what's next. Whole artists (your songs of theirs, or their popular
+  ones), albums and playlists go into the queue, next or at the end.
+- **When the queue runs out, music goes on** with songs like the last one — Yandex's radio by it, or the wave from your
+  files — added after what played (Settings → Playback; on by default).
+- **Shuffle sounds shuffled**: no artist twice in a row, each artist's songs spread across the list.
+- **Search in either alphabet**: «vektor» finds «Вектор А», «эминем» finds «Eminem».
+
+### Fixed
+- Play after the queue has played out does something again — the last song starts over.
+- An artist's play button says «Listen» (it said «Downloaded»).
+
 ## 0.7.0 — 2026-11-12
 
 ### New

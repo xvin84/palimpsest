@@ -80,6 +80,10 @@ download lands in your music folder as a properly tagged file.
 - The proxy setting applies only to YouTube, Spotify, Bandcamp, the cover databases and the radio catalog; everything else goes direct.
 - Offline wave: a mix of your downloads when there's no network — with moods (calm, energetic, focus, sad) from an
   analysis of the tracks themselves (tempo, key, energy) and smooth transitions.
+  It learns as it plays: skips make an artist rarer, «Not this» leaves a song or an artist out, «familiar ↔ new».
+- «Nostalgia»: a year and three either side — the hits of those years mixed with your own songs from them.
+- A queue in sections (played / now / next / what comes after), whole artists and albums into it, and when it runs out
+  the music goes on with similar songs.
 - Yandex Music, YouTube and Bandcamp links open right in the app; Spotify, Apple Music, Deezer, SoundCloud and Tidal
   links open the same song on a service that plays here.
 
