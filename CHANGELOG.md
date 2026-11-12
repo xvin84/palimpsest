@@ -4,7 +4,14 @@
 
 ## 0.8.1 — 2026-11-12
 
+### Fixed
+- **The app crashed after a like** on big libraries — and so the like never reached the computer. Background work that
+  fails now goes to the error log instead of closing the app.
+
 ### Changed
+- **Phone ↔ computer sync knows a playlist by a shared id**: renaming it on either side keeps it the same playlist,
+  and its name and picture travel too (they didn't). When both sides changed it while apart, the later name and
+  picture win, and the songs keep what each side added and removed, in the order of the side changed later.
 - **The library breathes again**: My Wave, the offline wave, Nostalgia and internet radio are one row of small tiles
   instead of four big cards, so the songs start on the first screen. The wave's tuning, the offline wave's moods (⋮)
   and Nostalgia's year (✎) sit in the tiles' corners.
