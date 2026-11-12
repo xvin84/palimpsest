@@ -308,7 +308,7 @@ fun GlassNowPlaying(onClose: () -> Unit) {
                         Modifier.size(72.dp).clip(CircleShape).background(fg.copy(alpha = 0.18f)).border(1.dp, fg.copy(alpha = 0.3f), CircleShape).clickable { graph.player.toggle() },
                         contentAlignment = Alignment.Center,
                     ) { Icon(if (bits.isPlaying()) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, tr(R.string.play_pause), Modifier.size(40.dp), tint = fg) }
-                    IconButton(onClick = { graph.player.next() }, Modifier.size(56.dp)) { Icon(Icons.Rounded.SkipNext, null, Modifier.size(38.dp), tint = fg) }
+                    IconButton(onClick = { graph.player.next() }, enabled = np.mediaId.startsWith(dev.xvin.palimpsest.playback.InternetRadioItems.PREFIX).not(), modifier = Modifier.size(56.dp)) { Icon(Icons.Rounded.SkipNext, null, Modifier.size(38.dp), tint = fg) }
                     IconButton(onClick = { showLyrics = !showLyrics }) { Icon(Icons.Rounded.Lyrics, null, tint = if (showLyrics) fg else fg.copy(alpha = 0.45f)) }
                 }
             }
@@ -399,7 +399,7 @@ fun VinylNowPlaying(onClose: () -> Unit) {
                     Modifier.size(74.dp).shadow(10.dp, CircleShape).clip(CircleShape).background(Brush.verticalGradient(listOf(accent, lerp(accent, Color.Black, 0.3f)))).clickable { graph.player.toggle() },
                     contentAlignment = Alignment.Center,
                 ) { Icon(if (bits.isPlaying()) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, tr(R.string.play_pause), Modifier.size(40.dp), tint = Ink.Paper) }
-                IconButton(onClick = { graph.player.next() }, Modifier.size(56.dp)) { Icon(Icons.Rounded.SkipNext, null, Modifier.size(36.dp), tint = fg) }
+                IconButton(onClick = { graph.player.next() }, enabled = np.mediaId.startsWith(dev.xvin.palimpsest.playback.InternetRadioItems.PREFIX).not(), modifier = Modifier.size(56.dp)) { Icon(Icons.Rounded.SkipNext, null, Modifier.size(36.dp), tint = fg) }
                 IconButton(onClick = { showLyrics = !showLyrics }) { Icon(Icons.Rounded.Lyrics, null, tint = if (showLyrics) accent else Ink.Muted) }
             }
         }

@@ -214,7 +214,8 @@ fun NowPlayingScreen(onClose: () -> Unit) {
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(station?.title?.uppercase() ?: tr(R.string.now_playing_caps), style = MaterialTheme.typography.labelSmall, color = if (station != null) accent else Ink.Muted, maxLines = 1)
                     Text(
-                        track?.let { techLine(it) } ?: tr(R.string.external_file),
+                        track?.let { techLine(it) }
+                            ?: tr(if (np.mediaId.startsWith(dev.xvin.palimpsest.playback.InternetRadioItems.PREFIX)) R.string.iradio_title else R.string.external_file),
                         style = MaterialTheme.typography.labelSmall, color = Ink.Faint, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                 }
@@ -358,7 +359,7 @@ fun NowPlayingScreen(onClose: () -> Unit) {
                         }
                     }
                 }
-                IconButton(onClick = { graph.player.next() }, Modifier.size(56.dp)) { Icon(Icons.Rounded.SkipNext, tr(R.string.next), Modifier.size(36.dp)) }
+                IconButton(onClick = { graph.player.next() }, enabled = np.mediaId.startsWith(dev.xvin.palimpsest.playback.InternetRadioItems.PREFIX).not(), modifier = Modifier.size(56.dp)) { Icon(Icons.Rounded.SkipNext, tr(R.string.next), Modifier.size(36.dp)) }
                 IconButton(onClick = { graph.player.cycleRepeat() }) {
                     Icon(
                         if (state.repeatMode == Player.REPEAT_MODE_ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
@@ -912,7 +913,7 @@ fun MiniPlayer(onOpen: () -> Unit) {
                     Icon(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, tr(R.string.play_pause), Modifier.size(30.dp))
                 }
             }
-            IconButton(onClick = { graph.player.next() }) { Icon(Icons.Rounded.SkipNext, tr(R.string.next_track), tint = Ink.Muted) }
+            IconButton(enabled = np.mediaId.startsWith(dev.xvin.palimpsest.playback.InternetRadioItems.PREFIX).not(), onClick = { graph.player.next() }) { Icon(Icons.Rounded.SkipNext, tr(R.string.next_track), tint = Ink.Muted) }
         }
         if (lane) Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp).height(2.dp).clip(CircleShape).background(Ink.Text.copy(alpha = 0.2f))) {
             Box(Modifier.fillMaxWidth(frac).height(2.dp).background(Ink.Text))

@@ -352,7 +352,7 @@ fun LaneNowPlaying(onClose: () -> Unit) {
                         }
                     }
                 }
-                IconButton(onClick = { graph.player.next() }, Modifier.size(56.dp)) { Icon(Icons.Rounded.SkipNext, tr(R.string.next), Modifier.size(38.dp), tint = fg) }
+                IconButton(onClick = { graph.player.next() }, enabled = np.mediaId.startsWith(dev.xvin.palimpsest.playback.InternetRadioItems.PREFIX).not(), modifier = Modifier.size(56.dp)) { Icon(Icons.Rounded.SkipNext, tr(R.string.next), Modifier.size(38.dp), tint = fg) }
                 IconButton(onClick = { graph.player.cycleRepeat() }) {
                     Icon(
                         if (state.repeatMode == Player.REPEAT_MODE_ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
