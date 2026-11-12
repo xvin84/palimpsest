@@ -2,6 +2,18 @@
 
 **English** | [Русский](CHANGELOG.ru.md)
 
+## 0.9.0 — 2026-11-12
+
+### New look
+Three styles from the 0.9 sketches, on the phone and the computer alike (Settings → Style):
+- **Notebook** — the Palimpsest look grown up: warm ink and paper, bookish Literata titles, calmer.
+- **Cover** — every screen takes the playing cover's colour and changes with the song; big Unbounded headlines,
+  glass panels, a big white play button. It replaces Glass.
+- **Console** — an instrument panel for those who care what plays: format, bit depth, bitrate and ReplayGain chips,
+  the track's waveform, a live spectrum, why this song came up and what's next; monospaced figures and one lime light.
+
+Lane stays. Vinyl and Mono are gone: if you had one of them, you now have Notebook or Console.
+
 ## 0.8.3 — 2026-11-12
 
 ### Fixed

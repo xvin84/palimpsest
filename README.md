@@ -120,7 +120,7 @@ download lands in your music folder as a properly tagged file.
 - History, most played, Wrapped-style yearly stories, a «now listening» share card (or the file itself), ListenBrainz scrobbling.
 - Errors explained in plain words with what to try next, and a journal with copyable details.
 - Backups of the library, history, playlists, versions and settings (never sign-in tokens); weekly and one-tap restore.
-- Styles **Palimpsest**, **Lane** (full-bleed cover, backgrounds in its colour), **Glass**, **Vinyl** and **Mono**, switched with one tap; six app icons to choose from.
+- Styles **Notebook** (warm ink and paper), **Cover** (every screen in the playing cover’s colour), **Console** (an instrument panel: format, bitrate, waveform, why this song) and **Lane** (full-bleed cover), switched with one tap on the phone and the computer alike; six app icons to choose from.
 - Themes: dark, AMOLED black, light, or follow the system. English and Russian.
 - Settings by category, with search and an explanation for each option.
 - Updates itself from GitHub Releases.
