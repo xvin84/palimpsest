@@ -176,7 +176,7 @@ class AppGraph(val app: Application) {
     val analyzer = dev.xvin.palimpsest.data.library.AudioAnalyzer(app, db)
     val lanSync by lazy { dev.xvin.palimpsest.data.sync.LanSyncRepository(app, db, remote) }
 
-    val player = PlayerConnection(app, mainScope, savedQueue = { settings.loadQueue() }, offlinePlayable = ::offlinePlayable, effects = effects).also { p ->
+    val player = PlayerConnection(app, mainScope, savedQueue = { settings.loadQueue() }, saveQueue = { settings.saveQueue(it) }, offlinePlayable = ::offlinePlayable, effects = effects).also { p ->
     }
 
     /** True when there's a network that claims internet access. */

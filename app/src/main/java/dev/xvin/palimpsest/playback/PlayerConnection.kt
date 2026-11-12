@@ -63,6 +63,8 @@ class PlayerConnection(
     private val scope: CoroutineScope,
     /** Last session's queue, put back (paused) when the app starts with an idle player. */
     private val savedQueue: suspend () -> SavedQueue?,
+    /** Writes the queue down right now (before the app restarts itself). */
+    private val saveQueue: suspend (SavedQueue) -> Unit = {},
     /** Whether a track can play with no network (a local file or a fully cached stream). */
     private val offlinePlayable: (TrackEntity) -> Boolean = { true },
     /** The audio chain's effects: handoff fades glide there, sample by sample. */
@@ -106,9 +108,22 @@ class PlayerConnection(
                 savedQueue()?.takeIf { it.trackIds.isNotEmpty() }?.let { q ->
                     c.setMediaItems(q.trackIds.map { bare(it.toString()) }, q.index.coerceIn(0, q.trackIds.lastIndex), q.positionMs)
                     c.prepare()
+                    if (q.playing) c.play()
                 }
             }
         }
+    }
+
+    /**
+     * The app is about to restart itself (the language changed): the queue, the second and whether
+     * it played are written down first, so the music picks up again instead of stopping.
+     */
+    suspend fun saveForRestart() {
+        val c = ctrl()
+        val ids = (0 until c.mediaItemCount).mapNotNull { MediaItems.trackId(c.getMediaItemAt(it)) }
+        if (ids.isEmpty() || ids.size != c.mediaItemCount) return
+        saveQueue(SavedQueue(ids, c.currentMediaItemIndex, c.currentPosition, playing = c.isPlaying))
+        c.pause()
     }
 
     private suspend fun ctrl(): MediaController {

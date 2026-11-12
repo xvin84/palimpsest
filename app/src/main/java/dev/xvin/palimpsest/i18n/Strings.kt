@@ -76,12 +76,18 @@ object Language {
      * Strings resolved once (tab names, enum labels, notification channels) would otherwise stay
      * in the old language, so a language change restarts the app the next time it's in front.
      */
-    fun restartIfChanged(activity: Activity): Boolean {
+    fun changed(activity: Activity): Boolean {
         val now = activity.resources.configuration.locales
         val first = started ?: now.also { started = it }
-        if (first == now) return false
-        activity.startActivity(Intent(activity, activity.javaClass).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+        return first != now
+    }
+
+    fun restart(activity: Activity) {
+        // Back to Settings, where the language was just picked, rather than the library.
+        activity.startActivity(
+            Intent(activity, activity.javaClass).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                .putExtra(dev.xvin.palimpsest.MainActivity.EXTRA_OPEN_SETTINGS, true),
+        )
         Runtime.getRuntime().exit(0)
-        return true
     }
 }

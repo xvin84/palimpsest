@@ -79,7 +79,8 @@ enum class VisualizerMode(private val labelRes: Int) { BARS(R.string.viz_bars), 
 data class LibraryView(val sort: String? = null, val source: String? = null, val onlyLiked: Boolean = false, val onlyOffline: Boolean = false)
 
 @Serializable
-data class SavedQueue(val trackIds: List<Long> = emptyList(), val index: Int = 0, val positionMs: Long = 0)
+/** [playing]: it was playing when the app restarted itself (a language change) — carry on, don't wait. */
+data class SavedQueue(val trackIds: List<Long> = emptyList(), val index: Int = 0, val positionMs: Long = 0, val playing: Boolean = false)
 
 data class AppSettings(
     val musicRoots: List<String>,

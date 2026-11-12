@@ -51,10 +51,21 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent)
     }
 
+    private var restarting = false
+
     override fun onResume() {
         super.onResume()
         // The language changed while we were running: start over so no screen keeps old strings.
-        if (dev.xvin.palimpsest.i18n.Language.restartIfChanged(this)) return
+        // The music is written down first and carries on after the restart.
+        if (dev.xvin.palimpsest.i18n.Language.changed(this)) {
+            if (restarting) return
+            restarting = true
+            lifecycleScope.launch {
+                runCatching { kotlinx.coroutines.withTimeout(3_000) { graph.player.saveForRestart() } }
+                dev.xvin.palimpsest.i18n.Language.restart(this@MainActivity)
+            }
+            return
+        }
         // Back in front: is the paired computer there? (Greys the handover button out, or lights it up.)
         graph.lanServer.helloNow()
         // Coming back from the "All files access" settings page.
