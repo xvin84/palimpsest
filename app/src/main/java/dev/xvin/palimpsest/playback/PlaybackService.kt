@@ -70,6 +70,24 @@ class PlaybackService : MediaLibraryService() {
                     .setEnableFloatOutput(enableFloatOutput)
                     .setEnableAudioOutputPlaybackParameters(enableAudioTrackPlaybackParams)
                     .build()
+
+            /**
+             * The audio decoder without Android 15+'s loudness controller: on some phones (realme,
+             * Android 16) the system forgets a decoder Media3 registered with it, and releasing that
+             * decoder at a song change throws — «Unexpected runtime error», the song stops. The
+             * controller only evens out loudness of broadcast-style AAC; ReplayGain does that here.
+             */
+            override fun buildAudioRenderers(
+                context: Context, extensionRendererMode: Int, mediaCodecSelector: androidx.media3.exoplayer.mediacodec.MediaCodecSelector,
+                enableDecoderFallback: Boolean, audioSink: AudioSink, eventHandler: android.os.Handler,
+                eventListener: androidx.media3.exoplayer.audio.AudioRendererEventListener, out: ArrayList<androidx.media3.exoplayer.Renderer>,
+            ) {
+                super.buildAudioRenderers(context, extensionRendererMode, mediaCodecSelector, enableDecoderFallback, audioSink, eventHandler, eventListener, out)
+                val i = out.indexOfFirst { it is androidx.media3.exoplayer.audio.MediaCodecAudioRenderer }
+                if (i >= 0) out[i] = androidx.media3.exoplayer.audio.MediaCodecAudioRenderer(
+                    context, codecAdapterFactory, mediaCodecSelector, enableDecoderFallback, eventHandler, eventListener, audioSink, null,
+                )
+            }
         }.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
 
         val local = DefaultDataSource.Factory(this, OkHttpDataSource.Factory(graph.http))

@@ -22,6 +22,9 @@
 - **Search in either alphabet**: «vektor» finds «Вектор А», «эминем» finds «Eminem».
 
 ### Fixed
+- **Android 15–16 (realme and others): «Unexpected runtime error» at a song change**, the music stopping — and, played
+  again, carrying on from where it broke off rather than from the start. Android's new loudness control lost track of
+  the decoder; Palimpsest no longer uses it (ReplayGain evens loudness out here anyway).
 - Play after the queue has played out does something again — the last song starts over.
 - An artist's play button says «Listen» (it said «Downloaded»).
 
