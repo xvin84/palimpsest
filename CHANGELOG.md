@@ -2,6 +2,42 @@
 
 **English** | [Русский](CHANGELOG.ru.md)
 
+## 0.7.0 — 2026-11-12
+
+### New
+- **Playlists, properly.** A cover of their own — your picture, or four album covers from it; **Listen through** —
+  a few seconds of each song from about a third in, one after another, to hear what a playlist is; **share the whole
+  playlist** as a picture, as a list with links, or as an `.m3u8` file other players open; songs **drag into order**
+  by the handle and swipe away (with Undo); several songs added at once; Duplicate; Save as `.m3u8`. Deleting asks
+  first and can be undone. Phone and computer.
+- **Music links from anywhere.** Spotify, Apple Music, Deezer, SoundCloud and Tidal links open the same song on Yandex
+  Music or YouTube (found through song.link); a link pasted into search opens it. Phone: Services has a button to let
+  Android open music links here — since Android 12 it sends them to the browser until allowed. Computer: Ctrl+V a link
+  anywhere outside a field.
+- **The queue reorders** on the phone: drag a song by its handle.
+- **«Add to library» / «Remove from library»** for songs from services.
+- Downloads can **wait for Wi-Fi**; music and download folders are **picked in the system's folder picker**.
+
+### Fixed
+- **The offline wave said «no downloaded tracks»** on any library whose audio wasn't analysed yet — it played nothing.
+- **A song playing in silence** (the bar moving, no sound, and it seeming to start half a minute in): a watchdog now
+  notices it, brings the sound back from where it went quiet and writes what it saw into the error log (Settings →
+  About → Errors) — send it over if it happens.
+- **Bandcamp didn't play** (Bandcamp changed its pages); a song that won't load says so instead of the queue silently
+  running out, and a Bandcamp track sold only to buyers says that.
+- **Songs only played from search or a wave piled up in the library** with no way to remove them.
+- **Sync between the phone and the computer** kept up only every three hours: a like or a playlist edit now reaches the
+  other side within seconds, opening the app catches up, the computer pulls Yandex likes by itself, and the sync says
+  how many songs one side has no file or link for.
+- **Changing the language stopped the music**; it now plays on from the same second, and Settings open again.
+- YouTube or Bandcamp that don't answer **offer a proxy right in search** and give up after half a minute instead of
+  spinning for good; saving the proxy is confirmed.
+- Notes and errors **showed under the full-screen player**, unseen («no lyrics found», a song that wouldn't load).
+- Swiping one song out of a list no longer takes the next ones with it.
+- **EQ bands jumped to the finger** when the page was scrolled over them; now only the knob moves them (double-tap: 0).
+- Ending an A/B comparison goes back to the current file; internet radio says «Internet radio», not «External file»,
+  and Next is greyed out on a station; the lyrics mode buttons stay longer; computer playlists are numbered by place.
+
 ## 0.6.2 — 2026-10-29
 
 ### Fixed

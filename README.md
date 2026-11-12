@@ -32,6 +32,8 @@ download lands in your music folder as a properly tagged file.
 **Library, offline first**
 - Scans `Music/` (and any folders you add) incrementally: about half a second per hundred new FLACs, milliseconds on rescans.
 - Tracks, albums, individual artists (features are split out), folders, playlists, favourites; filters by source, sorting.
+- Playlists with their own cover (or a collage), «listen through» a few seconds of each song, drag-to-reorder, and
+  sharing the whole list as a picture, as text with links or as an `.m3u8`.
 - Understands Murglar's layout (`Murglar/Яндекс/Artist - Title.flac`), album folders, yt-dlp files with `[videoId]`;
   a `URL` tag links a file to its Yandex track. Picks up `.m3u/.m3u8` playlists, even ones written on a PC.
 - «Open with» from any file manager or messenger.
@@ -78,7 +80,8 @@ download lands in your music folder as a properly tagged file.
 - The proxy setting applies only to YouTube, Spotify, Bandcamp, the cover databases and the radio catalog; everything else goes direct.
 - Offline wave: a mix of your downloads when there's no network — with moods (calm, energetic, focus, sad) from an
   analysis of the tracks themselves (tempo, key, energy) and smooth transitions.
-- Yandex Music, YouTube and Bandcamp links open right in the app.
+- Yandex Music, YouTube and Bandcamp links open right in the app; Spotify, Apple Music, Deezer, SoundCloud and Tidal
+  links open the same song on a service that plays here.
 
 **Make a video from a track**
 - The whole track rendered to MP4: the audio straight from the file through your EQ (no microphone, no noise),
