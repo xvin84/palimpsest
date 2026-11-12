@@ -145,10 +145,8 @@ private suspend fun searchLibrary(graph: AppGraph, query: String): LocalResults 
     val q = norm(query)
     val words = q.split(' ').filter { it.isNotBlank() }
     if (words.isEmpty()) return LocalResults()
-    fun matches(vararg fields: String?): Boolean {
-        val hay = fields.joinToString(" ") { norm(it) }
-        return words.all { it in hay }
-    }
+    // Either alphabet: «vektor» finds «Вектор А» (see SearchText).
+    fun matches(vararg fields: String?): Boolean = dev.xvin.palimpsest.core.library.SearchText.matches(q, *fields)
     fun rank(title: String, other: String?): Int {
         val t = norm(title)
         val o = norm(other)

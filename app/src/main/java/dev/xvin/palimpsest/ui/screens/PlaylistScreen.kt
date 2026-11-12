@@ -445,8 +445,7 @@ private fun AddSongsDialog(already: Set<Long>, onDismiss: () -> Unit, onAdd: (Li
     var query by remember { mutableStateOf("") }
     val picked = remember { mutableStateListOf<Long>() }
     val shown = remember(all, query) {
-        val q = query.trim().lowercase()
-        if (q.isEmpty()) all else all.filter { q in it.title.lowercase() || q in it.artist.lowercase() || q in it.album.orEmpty().lowercase() }
+        if (query.isBlank()) all else all.filter { dev.xvin.palimpsest.core.library.SearchText.matches(query, it.title, it.artist, it.album) }
     }
     AlertDialog(
         onDismissRequest = onDismiss,

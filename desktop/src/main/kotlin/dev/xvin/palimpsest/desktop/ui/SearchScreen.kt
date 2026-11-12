@@ -163,9 +163,10 @@ private fun LibraryResults(all: List<Track>, liked: Set<String>, query: String, 
     val nav = LocalNav.current
     val q = norm(query)
     val words = q.split(' ').filter { it.isNotBlank() }
-    val tracks = remember(all, q) { all.filter { t -> norm("${t.title} ${t.artist} ${t.album}").let { h -> words.all { it in h } } }.sortedBy { if (norm(it.title).startsWith(q)) 0 else 1 } }
-    val artists = remember(all, q) { all.flatMap { it.artists }.distinctBy(::norm).filter { a -> words.all { it in norm(a) } }.sortedBy { if (norm(it) == q) 0 else 1 } }
-    val albums = remember(all, q) { all.filter { it.isLocal && !it.album.isNullOrBlank() }.groupBy { it.albumKey }.values.filter { g -> words.all { it in norm(g.first().album + " " + g.first().artist) } } }
+    // Either alphabet: «vektor» finds «Вектор А» (see SearchText).
+    val tracks = remember(all, q) { all.filter { t -> dev.xvin.palimpsest.core.library.SearchText.matches(q, t.title, t.artist, t.album) }.sortedBy { if (norm(it.title).startsWith(q)) 0 else 1 } }
+    val artists = remember(all, q) { all.flatMap { it.artists }.distinctBy(::norm).filter { a -> dev.xvin.palimpsest.core.library.SearchText.matches(q, a) }.sortedBy { if (norm(it) == q) 0 else 1 } }
+    val albums = remember(all, q) { all.filter { it.isLocal && !it.album.isNullOrBlank() }.groupBy { it.albumKey }.values.filter { g -> dev.xvin.palimpsest.core.library.SearchText.matches(q, g.first().album, g.first().artist) } }
     LazyColumn {
         if (kind == SearchType.ALL) {
             artists.firstOrNull { norm(it) == q }?.let { a ->

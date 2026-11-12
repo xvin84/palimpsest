@@ -606,3 +606,17 @@ class SmartShuffleTest {
         }
     }
 }
+
+class SearchTextTest {
+    private fun m(q: String, vararg f: String) = dev.xvin.palimpsest.core.library.SearchText.matches(q, *f)
+
+    @Test fun eitherAlphabetFindsIt() {
+        assertTrue(m("vektor", "Вектор А - Зима"))
+        assertTrue(m("эминем", "Eminem"))
+        assertTrue(m("zemfira", "Земфира"))
+        assertTrue(m("kino tsoi", "Кино", "Виктор Цой"))
+        assertTrue(m("noize", "Noize MC"))
+        assertTrue(!m("vektor", "Eminem"))
+        assertTrue(m("ёлка", "Елка"))
+    }
+}
