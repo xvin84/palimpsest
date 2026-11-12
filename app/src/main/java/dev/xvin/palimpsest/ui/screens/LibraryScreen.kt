@@ -48,6 +48,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.runtime.produceState
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.runtime.getValue
@@ -204,6 +206,7 @@ private fun TracksTab() {
                 InternetRadioRow()
             }
         }
+        item(key = "dup-hint") { DuplicatesHint() }
         item {
             Row(
                 Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
@@ -590,5 +593,28 @@ private fun StationTile(
         Spacer(Modifier.weight(1f))
         Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(end = 8.dp))
         Text(subtitle, style = MaterialTheme.typography.labelSmall, color = Ink.Text.copy(alpha = 0.65f), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(end = 8.dp))
+    }
+}
+
+/**
+ * «N duplicates — merge?» right in the library (the finder was deep in Settings). Closing it hides it
+ * until the number of duplicates changes.
+ */
+@Composable
+private fun DuplicatesHint() {
+    val graph = LocalGraph.current
+    val nav = LocalNav.current
+    val settings by graph.settings.state.collectAsStateWithLifecycle()
+    val count by graph.db.tracks().observeCount().collectAsStateWithLifecycle(0)
+    val dups by produceState(0, count) { value = runCatching { graph.duplicates.find().sumOf { it.others.size } }.getOrDefault(0) }
+    if (dups == 0 || settings?.dupHintClosedAt == dups) return
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).clip(RoundedCornerShape(12.dp)).background(Ink.Paper2)
+            .clickable { nav.openDuplicates() }.padding(start = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(plural(R.plurals.dup_hint, dups), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        TextButton(onClick = { nav.openDuplicates() }) { Text(tr(R.string.dup_hint_merge)) }
+        IconButton(onClick = { graph.appScope.launch { graph.settings.closeDupHint(dups) } }) { Icon(Icons.Rounded.Close, tr(R.string.close), tint = Ink.Faint) }
     }
 }

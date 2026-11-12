@@ -117,6 +117,8 @@ data class AppSettings(
     val continueSimilar: Boolean = true,
     /** The year «Ностальгия» was last tuned to (it plays that year and three either side). */
     val nostalgiaYear: Int = 2012,
+    /** How many duplicates there were when the library's hint about them was closed (it comes back when that changes). */
+    val dupHintClosedAt: Int = -1,
     /** Output device key → EQ profile name. */
     val deviceEq: Map<String, String>,
     val listenBrainzToken: String?,
@@ -186,6 +188,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
         val wifiOnlyDownloads = booleanPreferencesKey("wifi_only_downloads")
         val continueSimilar = booleanPreferencesKey("continue_similar")
         val nostalgiaYear = androidx.datastore.preferences.core.intPreferencesKey("nostalgia_year")
+        val dupHintClosedAt = androidx.datastore.preferences.core.intPreferencesKey("dup_hint_closed_at")
         val deviceEq = stringPreferencesKey("device_eq")
         val lbToken = stringPreferencesKey("listenbrainz_token")
         val lbUser = stringPreferencesKey("listenbrainz_user")
@@ -247,6 +250,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
             wifiOnlyDownloads = p[K.wifiOnlyDownloads] ?: false,
             continueSimilar = p[K.continueSimilar] ?: true,
             nostalgiaYear = p[K.nostalgiaYear] ?: 2012,
+            dupHintClosedAt = p[K.dupHintClosedAt] ?: -1,
             deviceEq = p[K.deviceEq]?.let { runCatching { json.decodeFromString<Map<String, String>>(it) }.getOrNull() } ?: emptyMap(),
             listenBrainzToken = p[K.lbToken],
             listenBrainzUser = p[K.lbUser],
@@ -299,6 +303,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
     suspend fun setWifiOnlyDownloads(on: Boolean) = edit { it[K.wifiOnlyDownloads] = on }
     suspend fun setContinueSimilar(on: Boolean) = edit { it[K.continueSimilar] = on }
     suspend fun setNostalgiaYear(y: Int) = edit { it[K.nostalgiaYear] = y }
+    suspend fun closeDupHint(count: Int) = edit { it[K.dupHintClosedAt] = count }
     suspend fun setDeviceEq(map: Map<String, String>) = edit { it[K.deviceEq] = json.encodeToString(map) }
     suspend fun setFadeSec(sec: Int) = edit { it[K.fadeSec] = sec }
     suspend fun setStreamCacheMb(mb: Int) = edit { it[K.streamCacheMb] = mb }

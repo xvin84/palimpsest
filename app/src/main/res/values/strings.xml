@@ -1011,4 +1011,9 @@
     <string name="wave_mood_pick">Mood</string>
     <string name="soundcloud_hint">No sign-in needed: independent artists, mixes and remixes — search, play, download. From some countries they need the proxy (Settings → Network).</string>
     <string name="artist_albums_yours">Your albums</string>
+    <plurals name="dup_hint">
+        <item quantity="one">%d song is here twice</item>
+        <item quantity="other">%d songs are here twice</item>
+    </plurals>
+    <string name="dup_hint_merge">Merge</string>
 </resources>
