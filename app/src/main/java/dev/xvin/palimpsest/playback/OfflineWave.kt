@@ -17,8 +17,9 @@ typealias WaveMood = WaveMoodKind
  */
 class OfflineWave(private val db: AppDatabase) {
 
-    suspend fun candidates(): List<WaveCandidate> = withContext(Dispatchers.IO) {
-        val tracks = db.tracks().all().filter { it.path != null && File(it.path).isFile }
+    /** [years]: only songs tagged with those years (the nostalgia station). */
+    suspend fun candidates(years: IntRange? = null): List<WaveCandidate> = withContext(Dispatchers.IO) {
+        val tracks = db.tracks().all().filter { it.path != null && File(it.path).isFile && (years == null || (it.year != null && it.year in years)) }
         if (tracks.isEmpty()) return@withContext emptyList()
         val stats = db.plays().trackStats().associateBy { it.trackId }
         val skips = db.wave().skipStats(System.currentTimeMillis() - 90L * 86_400_000).associateBy { it.trackId }
@@ -38,7 +39,7 @@ class OfflineWave(private val db: AppDatabase) {
 
     /** A station over the library; [seeds] may carry `mood:CALM` and the like. */
     fun station(seeds: List<String>, novelty: () -> Float): LocalWave = LocalWave(
-        candidates = ::candidates,
+        candidates = { candidates(dev.xvin.palimpsest.core.radio.NostalgiaStation.yearsOf(dev.xvin.palimpsest.core.radio.StationSpec("", seeds, ""))) },
         banned = { db.wave().banKeys().toSet() },
         novelty = novelty,
         mood = seeds.firstNotNullOfOrNull { s -> s.removePrefix("mood:").takeIf { s.startsWith("mood:") }?.let { runCatching { WaveMoodKind.valueOf(it) }.getOrNull() } } ?: WaveMoodKind.ANY,

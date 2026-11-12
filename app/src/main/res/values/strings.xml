@@ -999,4 +999,9 @@
     </plurals>
     <string name="queue_all_next">All of it — next</string>
     <string name="queue_all_end">All of it — to the end of the queue</string>
+    <string name="nostalgia">Nostalgia</string>
+    <string name="nostalgia_subtitle">Hits of %1$d–%2$d and your songs of those years</string>
+    <string name="nostalgia_title">Nostalgia · %1$d–%2$d</string>
+    <string name="nostalgia_pick">Which year?</string>
+    <string name="nostalgia_starting">Gathering the hits of %1$d–%2$d…</string>
 </resources>

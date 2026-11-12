@@ -91,6 +91,17 @@ class LiveTest {
         check(album.tracks.isNotEmpty())
     }
 
+    @Test fun nostalgia() = runBlocking {
+        val proxy = System.getenv("HTTPS_PROXY")?.let { java.net.URI(it) }
+        val http = okhttp3.OkHttpClient.Builder().apply {
+            if (proxy != null) proxy(java.net.Proxy(java.net.Proxy.Type.HTTP, java.net.InetSocketAddress(proxy.host, proxy.port)))
+        }.build()
+        val st = dev.xvin.palimpsest.core.radio.NostalgiaStation(dev.xvin.palimpsest.core.radio.NostalgiaStation.around(2012), null, listOf(dev.xvin.palimpsest.core.youtube.YouTubeProvider(http)))
+        val first = st.open(emptyList())
+        println("nostalgia: " + first.joinToString { "${it.artists.firstOrNull()} — ${it.title} (${it.year})" })
+        check(first.isNotEmpty())
+    }
+
     @Test fun songLink() = runBlocking {
         val l = dev.xvin.palimpsest.core.links.SongLink.resolve(okhttp3.OkHttpClient(), "https://open.spotify.com/track/3AJwUDP919kvQ9QcozQPxg")
         println("song.link: $l")

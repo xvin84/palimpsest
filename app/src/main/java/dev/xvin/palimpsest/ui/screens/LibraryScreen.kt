@@ -50,6 +50,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -191,6 +192,7 @@ private fun TracksTab() {
     LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 16.dp)) {
         if (hasWave) item(key = "wave") { MyWaveCard(s.wave) }
         item(key = "offline-wave") { OfflineWaveRow() }
+        item(key = "nostalgia") { NostalgiaRow() }
         item(key = "internet-radio") { InternetRadioRow() }
         item {
             Row(
@@ -535,5 +537,63 @@ private fun OfflineWaveRow() {
                 }
             }
         }
+    }
+}
+
+/**
+ * «Ностальгия»: songs of a year and three either side — the services' hits of those years mixed with
+ * your own files tagged with them. The year is picked once and remembered.
+ */
+@Composable
+private fun NostalgiaRow() {
+    val graph = LocalGraph.current
+    val nav = LocalNav.current
+    val settings by graph.settings.state.collectAsStateWithLifecycle()
+    var picking by remember { mutableStateOf(false) }
+    val year = settings?.nostalgiaYear ?: 2012
+    val span = dev.xvin.palimpsest.core.radio.NostalgiaStation.around(year)
+    fun start(y: Int) {
+        val years = dev.xvin.palimpsest.core.radio.NostalgiaStation.around(y)
+        graph.mainScope.launch {
+            graph.radio.start(dev.xvin.palimpsest.core.radio.NostalgiaStation.spec(years, tr(R.string.nostalgia_title, years.first, years.last)))
+                .onSuccess { nav.openPlayer() }.onFailure { nav.error(it, tr(R.string.nostalgia)) }
+        }
+        nav.toast(tr(R.string.nostalgia_starting, years.first, years.last))
+    }
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp).clip(RoundedCornerShape(14.dp)).background(Ink.Paper2)
+            .clickable { start(year) }.padding(horizontal = 18.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("⌛", style = MaterialTheme.typography.titleLarge, color = Ink.Muted)
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(tr(R.string.nostalgia), style = MaterialTheme.typography.titleMedium)
+            Text(tr(R.string.nostalgia_subtitle, span.first, span.last), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
+        }
+        TextButton(onClick = { picking = true }) { Text(year.toString()) }
+    }
+    if (picking) {
+        var y by remember { mutableIntStateOf(year) }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { picking = false },
+            containerColor = Ink.Paper2,
+            title = { Text(tr(R.string.nostalgia_pick)) },
+            text = {
+                Column {
+                    Text(y.toString(), style = MaterialTheme.typography.displaySmall)
+                    Text(tr(R.string.nostalgia_subtitle, y - 3, y + 3), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
+                    androidx.compose.material3.Slider(y.toFloat(), { y = it.toInt() }, valueRange = 1970f..2025f, steps = 2025 - 1970 - 1)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    picking = false
+                    graph.appScope.launch { graph.settings.setNostalgiaYear(y) }
+                    start(y)
+                }) { Text(tr(R.string.listen)) }
+            },
+            dismissButton = { TextButton(onClick = { picking = false }) { Text(tr(R.string.cancel)) } },
+        )
     }
 }

@@ -120,7 +120,7 @@ class RadioController(
         scope.launch { settings.saveStation(saved) }
     }
 
-    private fun source(spec: StationSpec): StationSource? = dev.xvin.palimpsest.core.radio.Waves.source(
+    private fun source(spec: StationSpec): StationSource? = if (spec.source == dev.xvin.palimpsest.core.radio.NostalgiaStation.SOURCE) nostalgia(spec) else dev.xvin.palimpsest.core.radio.Waves.source(
         spec,
         yandex = if (remote.yandex.isReady) { seeds -> GuardedStation(YandexStation(remote.yandex, seeds)) { call -> remote.withYandex { call() } } } else null,
         youtube = remote.providers[dev.xvin.palimpsest.core.model.Service.YOUTUBE] as? dev.xvin.palimpsest.core.youtube.YouTubeProvider,
@@ -128,6 +128,16 @@ class RadioController(
         local = local,
         http = http,
     )
+
+    /** «Ностальгия»: the years' hits from Yandex (when signed in) and YouTube, with your own files of those years. */
+    private fun nostalgia(spec: StationSpec): StationSource? {
+        val years = dev.xvin.palimpsest.core.radio.NostalgiaStation.yearsOf(spec) ?: return null
+        val providers = listOfNotNull(
+            remote.yandex.takeIf { it.isReady },
+            remote.providers[dev.xvin.palimpsest.core.model.Service.YOUTUBE],
+        )
+        return dev.xvin.palimpsest.core.radio.NostalgiaStation(years, local(spec.seeds), providers)
+    }
 
     /** The library row for a station's song: this phone's own file for the mixed wave's local part, else the service track. */
     private suspend fun row(t: RemoteTrack): dev.xvin.palimpsest.data.db.TrackEntity =
