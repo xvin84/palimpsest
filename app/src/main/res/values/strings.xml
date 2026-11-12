@@ -1010,4 +1010,5 @@
     <string name="iradio_subtitle_short">The world\'s stations</string>
     <string name="wave_mood_pick">Mood</string>
     <string name="soundcloud_hint">No sign-in needed: independent artists, mixes and remixes — search, play, download. From some countries they need the proxy (Settings → Network).</string>
+    <string name="artist_albums_yours">Your albums</string>
 </resources>

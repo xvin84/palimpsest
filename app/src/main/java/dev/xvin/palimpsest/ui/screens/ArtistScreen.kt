@@ -199,6 +199,24 @@ fun ArtistScreen(name: String, remoteId: String?, service: Service = Service.YAN
             }
             if (local.size > 5 && !showAllLocal) item { TextButton(onClick = { showAllLocal = true }, Modifier.padding(horizontal = 8.dp)) { Text(tr(R.string.show_all_n, local.size)) } }
         }
+        // The albums you have of theirs — the page had only songs without a service to ask.
+        val localAlbums = local.filter { !it.album.isNullOrBlank() }.groupBy { it.albumKey }.values.sortedByDescending { g -> g.maxOf { it.year ?: 0 } }
+        if (localAlbums.size > 1 || (localAlbums.size == 1 && localAlbums[0].size > 1)) {
+            item { SectionHeader(tr(R.string.artist_albums_yours)) }
+            item {
+                LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    items(localAlbums, key = { "la" + it.first().albumKey }) { g ->
+                        val t = g.first()
+                        Column(Modifier.width(120.dp).clickable { nav.openList(TrackListKind.ALBUM, t.album!!, t.albumArtist ?: t.artist) }) {
+                            dev.xvin.palimpsest.ui.components.TrackArtwork(t, Modifier.size(120.dp), corner = 10.dp)
+                            Spacer(Modifier.height(6.dp))
+                            Text(t.album!!, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Text(listOfNotNull(g.mapNotNull { it.year }.maxOrNull()?.toString(), plural(R.plurals.tracks, g.size)).joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
+                        }
+                    }
+                }
+            }
+        }
         artist?.let { a ->
             if (a.popular.isNotEmpty()) {
                 item { SectionHeader(tr(R.string.artist_popular)) { TextButton(onClick = { actions.download(a.popular) }) { Icon(Icons.Rounded.Download, null); Text(tr(R.string.download)) } } }

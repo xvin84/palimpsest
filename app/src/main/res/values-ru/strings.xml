@@ -1025,4 +1025,5 @@
     <string name="iradio_subtitle_short">Станции мира</string>
     <string name="wave_mood_pick">Настроение</string>
     <string name="soundcloud_hint">Без входа: независимые артисты, миксы и ремиксы — искать, слушать, скачивать. Из некоторых стран нужен прокси (Настройки → Сеть).</string>
+    <string name="artist_albums_yours">Ваши альбомы</string>
 </resources>
