@@ -68,6 +68,7 @@ fun SourcesScreen() {
 
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { Text(tr(R.string.tab_services), style = MaterialTheme.typography.displayMedium, modifier = Modifier.padding(start = 16.dp, top = 12.dp)) }
+        item { OpenLinksCard() }
         // One status line for sync, update checks and imports.
         if (status.running || status.message != null || status.error != null) item {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
@@ -262,4 +263,42 @@ private fun YandexLoginDialog(onDismiss: () -> Unit) {
         confirmButton = { TextButton(onClick = onDismiss) { Text(tr(R.string.cancel)) } },
         dismissButton = { TextButton(onClick = { manual = !manual }) { Text(if (manual) tr(R.string.login_by_code) else tr(R.string.login_enter_token)) } },
     )
+}
+
+/**
+ * Android 12+ opens links to other companies' sites in the browser (or their own app) unless the
+ * user allows an app in its «Open by default» page — so music links never reached Palimpsest and it
+ * looked as if it couldn't open them. Shown until they're allowed; the button goes straight there.
+ */
+@Composable
+private fun OpenLinksCard() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var allowed by remember { mutableStateOf(true) }
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
+        allowed = runCatching {
+            val dvm = context.getSystemService(android.content.pm.verify.domain.DomainVerificationManager::class.java)
+            val st = dvm.getDomainVerificationUserState(context.packageName)
+            st?.hostToStateMap?.filterKeys { it.startsWith("music.yandex") }?.values
+                ?.any { it != android.content.pm.verify.domain.DomainVerificationUserState.DOMAIN_STATE_NONE } ?: true
+        }.getOrDefault(true)
+        onPauseOrDispose { }
+    }
+    if (allowed) return
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
+            .background(dev.xvin.palimpsest.ui.theme.LocalAccent.current.copy(alpha = 0.12f)).padding(16.dp),
+    ) {
+        Text(tr(R.string.links_card_title), style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(4.dp))
+        Text(tr(R.string.links_card_text), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
+        Spacer(Modifier.height(8.dp))
+        androidx.compose.material3.Button(onClick = {
+            runCatching {
+                context.startActivity(
+                    android.content.Intent(android.provider.Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS, android.net.Uri.parse("package:${context.packageName}"))
+                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+            }
+        }) { Text(tr(R.string.links_card_action)) }
+    }
 }

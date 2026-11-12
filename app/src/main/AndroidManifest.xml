@@ -84,6 +84,18 @@
                 <data android:host="m.youtube.com" />
                 <data android:host="music.youtube.com" />
                 <data android:host="*.bandcamp.com" />
+                <!-- Services that don't play here: the same song is found on one that does (song.link). -->
+                <data android:host="open.spotify.com" />
+                <data android:host="music.apple.com" />
+                <data android:host="www.deezer.com" />
+                <data android:host="deezer.com" />
+                <data android:host="link.deezer.com" />
+                <data android:host="soundcloud.com" />
+                <data android:host="on.soundcloud.com" />
+                <data android:host="tidal.com" />
+                <data android:host="listen.tidal.com" />
+                <data android:host="song.link" />
+                <data android:host="album.link" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />

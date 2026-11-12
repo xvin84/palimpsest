@@ -863,7 +863,7 @@
     <string name="budget_auto">Следить самому</string>
     <string name="budget_auto_hint">Раз в неделю, на зарядке</string>
     <string name="budget_now">Уложиться сейчас (%1$d)</string>
-    <string name="link_unknown">Здесь нет ссылки на Яндекс Музыку, YouTube или Bandcamp</string>
+    <string name="link_unknown">Тут нет ссылки на музыку</string>
     <string name="link_opening">Открываю ссылку…</string>
     <string name="link_failed">Не получилось открыть на %1$s</string>
     <string name="link_playlist">Плейлист</string>
@@ -953,4 +953,12 @@
     </plurals>
     <string name="lan_not_here">песен нет на этом телефоне (ни файла, ни ссылки на сервис): %1$d</string>
     <string name="lan_not_there">нет на компьютере: %1$d</string>
+    <string name="link_looking_up">Ищу эту песню в сервисах, которые здесь играют…</string>
+    <string name="link_not_elsewhere">Не нашёл эту песню ни в Яндекс Музыке, ни на YouTube</string>
+    <string name="link_in_search">Открыть ссылку</string>
+    <string name="link_in_search_hint">Песня, альбом, исполнитель или плейлист — из Яндекса, YouTube, Bandcamp, а также Spotify, Apple Music, Deezer и других (найдётся в сервисе, который здесь играет)</string>
+    <string name="links_card_title">Открывать музыкальные ссылки в Palimpsest</string>
+    <string name="links_card_text">Android открывает ссылки на Яндекс Музыку, YouTube и Bandcamp в браузере, пока вы не разрешите Palimpsest: «Открывать поддерживаемые ссылки» → добавить ссылки.</string>
+    <string name="links_card_action">Разрешить</string>
+    <string name="links_card_on">Ссылки открываются здесь</string>
 </resources>

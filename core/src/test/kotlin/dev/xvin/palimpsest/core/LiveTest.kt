@@ -91,6 +91,12 @@ class LiveTest {
         check(album.tracks.isNotEmpty())
     }
 
+    @Test fun songLink() = runBlocking {
+        val l = dev.xvin.palimpsest.core.links.SongLink.resolve(okhttp3.OkHttpClient(), "https://open.spotify.com/track/3AJwUDP919kvQ9QcozQPxg")
+        println("song.link: $l")
+        check(l?.link != null && l.title == "Yellow")
+    }
+
     @Test fun lrclib() = runBlocking {
         val l = LrcLibClient().find("Coldplay", "Yellow", "Parachutes", 269)
         println("LRCLIB: synced=${l?.synced != null} " + (l?.synced ?: l?.plain)?.lines()?.take(3))

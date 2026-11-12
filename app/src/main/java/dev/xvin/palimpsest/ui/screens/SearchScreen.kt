@@ -344,6 +344,22 @@ fun SearchScreen() {
             EmptyState(tr(R.string.yandex_not_connected), tr(R.string.yandex_not_connected_hint))
             return@Column
         }
+        // A link pasted into search: open it rather than search for its text.
+        val isLink = remember(query) { dev.xvin.palimpsest.core.links.MusicLink.find(query) != null || dev.xvin.palimpsest.core.links.SongLink.find(query) != null }
+        if (isLink) {
+            val activity = androidx.compose.ui.platform.LocalContext.current as? dev.xvin.palimpsest.MainActivity
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).clip(RoundedCornerShape(14.dp)).background(Ink.Paper2).padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(tr(R.string.link_in_search), style = MaterialTheme.typography.titleMedium)
+                    Text(tr(R.string.link_in_search_hint), style = MaterialTheme.typography.bodySmall, color = Ink.Muted)
+                }
+                Spacer(Modifier.width(10.dp))
+                Button(onClick = { focus.clearFocus(); activity?.openLink(query) }) { Text(tr(R.string.open)) }
+            }
+        }
         // YouTube and Bandcamp are the ones that need a proxy from some countries (Settings → Network).
         val proxied = source == Service.YOUTUBE || source == Service.BANDCAMP
         if (proxied && settings?.proxy.isNullOrBlank() && ((loading && slow) || error != null)) {

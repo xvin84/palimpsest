@@ -135,9 +135,7 @@ class MainActivity : ComponentActivity() {
             else -> null
         }
         if (linkText != null) {
-            val link = dev.xvin.palimpsest.core.links.MusicLink.find(linkText)
-            if (link != null) openLinkRequest.value = link
-            else android.widget.Toast.makeText(this, dev.xvin.palimpsest.i18n.tr(R.string.link_unknown), android.widget.Toast.LENGTH_LONG).show()
+            openLink(linkText)
             setIntent(Intent(this, MainActivity::class.java))
             return
         }
@@ -154,6 +152,37 @@ class MainActivity : ComponentActivity() {
         }
         // Don't replay the same file on rotation.
         setIntent(Intent(this, MainActivity::class.java))
+    }
+
+    /**
+     * Opens a music link from anywhere (shared, opened, pasted into search). Yandex, YouTube and
+     * Bandcamp open directly; Spotify, Apple Music, Deezer, SoundCloud… are looked up on song.link
+     * and the same song opens on a service that plays here.
+     */
+    fun openLink(text: String) {
+        val link = dev.xvin.palimpsest.core.links.MusicLink.find(text)
+        if (link != null) { openLinkRequest.value = link; return }
+        val foreign = dev.xvin.palimpsest.core.links.SongLink.find(text)
+        if (foreign == null) {
+            android.widget.Toast.makeText(this, dev.xvin.palimpsest.i18n.tr(R.string.link_unknown), android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
+        android.widget.Toast.makeText(this, dev.xvin.palimpsest.i18n.tr(R.string.link_looking_up), android.widget.Toast.LENGTH_SHORT).show()
+        lifecycleScope.launch {
+            val found = runCatching { dev.xvin.palimpsest.core.links.SongLink.resolve(graph.http, foreign, yandexFirst = graph.yandex.isReady) }.getOrNull()
+            // Without a Yandex sign-in its link won't play: the same song by name on YouTube instead
+            // (song.link gives no YouTube links to some countries).
+            val link = found?.link?.takeIf { it.service != dev.xvin.palimpsest.core.model.Service.YANDEX || graph.yandex.isReady }
+                ?: found?.title?.let { title ->
+                    runCatching {
+                        graph.remote.searchAll(dev.xvin.palimpsest.core.model.Service.YOUTUBE, "${found.artist.orEmpty()} $title".trim(), dev.xvin.palimpsest.core.model.SearchType.TRACKS)
+                            .tracks.firstOrNull()?.let { dev.xvin.palimpsest.core.links.MusicLink(dev.xvin.palimpsest.core.model.Service.YOUTUBE, dev.xvin.palimpsest.core.links.MusicLink.Kind.TRACK, it.id) }
+                    }.getOrNull()
+                }
+                ?: found?.link
+            if (link != null) openLinkRequest.value = link
+            else android.widget.Toast.makeText(this@MainActivity, dev.xvin.palimpsest.i18n.tr(R.string.link_not_elsewhere), android.widget.Toast.LENGTH_LONG).show()
+        }
     }
 
     /** Best-effort mapping of a content:// URI back to a file path, to find it in the library. */

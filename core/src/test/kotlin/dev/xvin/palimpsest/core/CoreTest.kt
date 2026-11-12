@@ -530,3 +530,28 @@ class SyncFingerprintTest {
         assertTrue(f(a) != f(state(listOf("x|1", "y|2", "z|3"), mapOf("Road" to listOf("x|1", "y|2")))))
     }
 }
+
+class SongLinkTest {
+    @Test fun findsForeignLinksOnly() {
+        assertEquals("https://open.spotify.com/track/3AJwUDP919kvQ9QcozQPxg", dev.xvin.palimpsest.core.links.SongLink.find("Слушай: https://open.spotify.com/track/3AJwUDP919kvQ9QcozQPxg."))
+        assertEquals("https://www.deezer.com/track/3135556", dev.xvin.palimpsest.core.links.SongLink.find("https://www.deezer.com/track/3135556"))
+        assertNull(dev.xvin.palimpsest.core.links.SongLink.find("https://music.yandex.ru/track/1"))
+        assertNull(dev.xvin.palimpsest.core.links.SongLink.find("https://example.com/open.spotify.com"))
+    }
+
+    @Test fun picksYandexThenYouTube() {
+        val page = """{"youtubeMusic":{"url":"https://music.youtube.com/watch?v=yKNxeF4KMsY"},"yandex":{"uniqueId":"yandex|song|34174112","url":"https://music.yandex.ru/track/34174112"}}"""
+        assertEquals(dev.xvin.palimpsest.core.links.MusicLink(Service.YANDEX, dev.xvin.palimpsest.core.links.MusicLink.Kind.TRACK, "34174112"), dev.xvin.palimpsest.core.links.SongLink.pick(page))
+        val noYandex = """{"youtube":{"uniqueId":"youtube|song|yKNxeF4KMsY"}}"""
+        assertEquals(dev.xvin.palimpsest.core.links.MusicLink(Service.YOUTUBE, dev.xvin.palimpsest.core.links.MusicLink.Kind.TRACK, "yKNxeF4KMsY"), dev.xvin.palimpsest.core.links.SongLink.pick(noYandex))
+        assertNull(dev.xvin.palimpsest.core.links.SongLink.pick("<html>nothing</html>"))
+    }
+}
+
+class SongLinkPreferenceTest {
+    @Test fun youtubeFirstWithoutYandex() {
+        val page = """"url":"https://music.youtube.com/watch?v=yKNxeF4KMsY" "url":"https://music.yandex.ru/track/34174112""""
+        assertEquals(Service.YOUTUBE, dev.xvin.palimpsest.core.links.SongLink.pick(page, yandexFirst = false)?.service)
+        assertEquals(Service.YANDEX, dev.xvin.palimpsest.core.links.SongLink.pick("""https://music.yandex.ru/track/1""", yandexFirst = false)?.service)
+    }
+}

@@ -854,7 +854,7 @@
     <string name="budget_auto">Keep to it by itself</string>
     <string name="budget_auto_hint">Once a week while charging</string>
     <string name="budget_now">Fit now (%1$d tracks)</string>
-    <string name="link_unknown">No Yandex Music, YouTube or Bandcamp link in that</string>
+    <string name="link_unknown">No music link in that</string>
     <string name="link_opening">Opening the link…</string>
     <string name="link_failed">Couldn\'t open it on %1$s</string>
     <string name="link_playlist">Playlist</string>
@@ -942,4 +942,12 @@
     </plurals>
     <string name="lan_not_here">%1$d songs aren\'t on this phone (no file, no service link)</string>
     <string name="lan_not_there">%1$d aren\'t on the computer</string>
+    <string name="link_looking_up">Looking for this song on the services that play here…</string>
+    <string name="link_not_elsewhere">Couldn\'t find this song on Yandex Music or YouTube</string>
+    <string name="link_in_search">Open this link</string>
+    <string name="link_in_search_hint">A song, album, artist or playlist — from Yandex, YouTube, Bandcamp, or Spotify, Apple Music, Deezer and others (found on a service that plays here)</string>
+    <string name="links_card_title">Open music links in Palimpsest</string>
+    <string name="links_card_text">Android opens links to Yandex Music, YouTube and Bandcamp in the browser until you allow Palimpsest to: «Open supported links» → add the links.</string>
+    <string name="links_card_action">Allow</string>
+    <string name="links_card_on">Links open here</string>
 </resources>
