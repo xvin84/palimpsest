@@ -394,6 +394,11 @@ private fun settingItems(s: DesktopSettings): List<Item> {
     // --- Sound ---
     val rgTitle = t("Выравнивание громкости (ReplayGain)", "Volume levelling (ReplayGain)")
     val rgHint = t("Тихие и громкие треки звучат одинаково — по меткам ReplayGain в файлах", "Quiet and loud tracks play at the same level, from the ReplayGain tags in files")
+    toggle(
+        Category.SOUND, t("Продолжать похожим", "Go on with similar songs"),
+        t("Когда очередь закончилась, музыка продолжается похожими песнями (радио Яндекса по последней или волна из твоих файлов)", "When the queue runs out, music goes on with songs like the last one (Yandex's radio by it, or the wave from your files)"),
+        s.continueSimilar, "autoplay continue similar продолжать похожее автовоспроизведение",
+    ) { v -> graph.settings.update { it.copy(continueSimilar = v) } }
     add(Category.SOUND, rgTitle, rgHint, "replaygain volume loudness громкость") {
         Setting(rgTitle, rgHint) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

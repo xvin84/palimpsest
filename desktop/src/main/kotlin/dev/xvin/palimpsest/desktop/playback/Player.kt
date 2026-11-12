@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import dev.xvin.palimpsest.desktop.ui.t
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -356,6 +357,8 @@ class Player(private val graph: Graph) {
         val i = nextIndex(step) ?: run {
             // The radio ran dry before the next batch came: wait for it, then carry on.
             if (step > 0 && feed != null) { topUpRadio(thenAdvance = true); return }
+            // The queue ran out with no wave on it: go on with similar songs (Settings → Playback).
+            if (step > 0 && !user && graph.settings.value.continueSimilar) { continueSimilar(_state.value.current); return }
             if (!user) engine.stop()
             return
         }
@@ -526,6 +529,34 @@ class Player(private val graph: Graph) {
         feed = f
         play(tracks, 0, radio = title)
         saveQueue()
+    }
+
+    /**
+     * Songs like [last] after the queue — Yandex's radio by it when it's a Yandex track and Yandex is
+     * signed in, otherwise the wave from your own files — added to the queue, so its history stays.
+     */
+    private fun continueSimilar(last: Track?) {
+        graph.scope.launch {
+            val title = last?.let { t("Похожее на «${it.title}»", "Like «${it.title}»") } ?: t("Мои файлы", "My files")
+            val yandexSeed = last?.takeIf { it.service == Service.YANDEX && it.remoteId != null && graph.yandex.isReady }?.remoteId
+            val specs = listOfNotNull(
+                yandexSeed?.let { StationSpec(StationSpec.YANDEX, listOf("track:$it"), title) },
+                StationSpec(dev.xvin.palimpsest.core.radio.Waves.LOCAL, emptyList(), title),
+            )
+            for (spec in specs) {
+                val f = RadioFeed(spec, sourceFor(spec) ?: continue, emptyList())
+                val tracks = runCatching { f.start() }.getOrDefault(emptyList()).mapNotNull(::trackFor)
+                if (tracks.isEmpty()) continue
+                val st = _state.value
+                feed = f
+                _state.value = st.copy(queue = st.queue + tracks, radio = title)
+                order = order + (st.queue.size until st.queue.size + tracks.size)
+                advance(+1, user = false)
+                saveQueue()
+                return@launch
+            }
+            engine.stop()
+        }
     }
 
     /** «Встряхнуть»: a new session that avoids everything heard, playing from its first track now. */

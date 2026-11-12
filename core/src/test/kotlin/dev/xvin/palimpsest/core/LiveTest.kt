@@ -67,6 +67,10 @@ class LiveTest {
                 val info = runCatching { org.schabi.newpipe.extractor.stream.StreamInfo.getInfo(svc, first.url) }
                     .onFailure { println("${svc.serviceInfo.name} ${first.name}: ${it.javaClass.simpleName} ${it.message} cause=${it.cause}") }.getOrNull() ?: continue
                 println("${svc.serviceInfo.name} streams for ${first.name}: " + info.audioStreams.joinToString { "${it.format?.suffix}/${it.deliveryMethod}/${it.averageBitrate}/${it.content.take(60)}" })
+                info.audioStreams.firstOrNull { it.deliveryMethod == org.schabi.newpipe.extractor.stream.DeliveryMethod.HLS }?.let { st ->
+                    val body = http.newCall(okhttp3.Request.Builder().url(st.content).build()).execute().use { it.body?.string().orEmpty() }
+                    println("HLS head: " + body.lines().filter { it.startsWith("#EXT-X-KEY") || it.startsWith("#EXT-X-MAP") }.take(2) + " lines=" + body.lines().size)
+                }
             }
         }
     }

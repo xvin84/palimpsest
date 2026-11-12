@@ -88,6 +88,8 @@ data class DesktopSettings(
     val wave: WavePrefs = WavePrefs(),
     /** The year «Ностальгия» was last tuned to (it plays that year and three either side). */
     val nostalgiaYear: Int = 2012,
+    /** When the queue runs out, music goes on with songs like the last one (a station appended). */
+    val continueSimilar: Boolean = true,
     /** The last «video from a track» choices: mode, aspect, quality, visualiser (enum names). */
     val renderChoice: List<String> = emptyList(),
     /** Keys the user set, by [HotAction] name (an empty list: no key); the rest keep their defaults. */
