@@ -18,6 +18,8 @@ import okhttp3.OkHttpClient
 import java.io.IOException
 import java.net.InetSocketAddress
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.drop
 import java.net.Proxy
 import java.net.ProxySelector
 import java.net.SocketAddress
@@ -85,6 +87,22 @@ class Graph {
     init {
         library.onFilled = { t -> player.replaced(mapOf(t.id to t)) }
         fillInServiceTracks()
+        // Likes from the Yandex account at start and every three hours, like the phone does — they
+        // used to come only with the «Sync likes» button, so a like made on the phone never showed here.
+        scope.launch {
+            while (true) {
+                if (yandex.isReady) runCatching { library.syncLikes(Service.YANDEX, yandex.likedTracks()) }
+                kotlinx.coroutines.delay(3 * 3_600_000L)
+            }
+        }
+        // A like or a playlist edit here: the phone is asked to sync a few seconds later.
+        scope.launch {
+            @OptIn(kotlinx.coroutines.FlowPreview::class)
+            kotlinx.coroutines.flow.combine(library.liked, playlists.lists) { _, _ -> Unit }
+                .drop(1)
+                .debounce(4_000)
+                .collect { lanSync.nudgePhone() }
+        }
     }
 
     /**

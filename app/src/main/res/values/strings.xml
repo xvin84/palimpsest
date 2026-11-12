@@ -940,4 +940,6 @@
         <item quantity="one">%d song added</item>
         <item quantity="other">%d songs added</item>
     </plurals>
+    <string name="lan_not_here">%1$d songs aren\'t on this phone (no file, no service link)</string>
+    <string name="lan_not_there">%1$d aren\'t on the computer</string>
 </resources>

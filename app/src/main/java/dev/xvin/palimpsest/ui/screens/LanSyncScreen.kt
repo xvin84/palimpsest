@@ -58,7 +58,9 @@ fun LanSyncScreen() {
     var pairWith by remember { mutableStateOf<LanPeer?>(null) }
     var manualHost by remember { mutableStateOf("") }
 
-    fun report(r: SyncReport) = tr(R.string.lan_report, r.likesAdded, r.likesRemoved, r.playlistsChanged, r.playsAdded)
+    fun report(r: SyncReport) = tr(R.string.lan_report, r.likesAdded, r.likesRemoved, r.playlistsChanged, r.playsAdded) +
+        (if (r.notHere > 0) " · " + tr(R.string.lan_not_here, r.notHere) else "") +
+        (if (r.notThere > 0) " · " + tr(R.string.lan_not_there, r.notThere) else "")
 
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 32.dp)) {
         item {

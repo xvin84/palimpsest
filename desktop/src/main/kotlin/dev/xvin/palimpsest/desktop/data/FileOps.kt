@@ -83,15 +83,7 @@ object FileOps {
     }
 
     /** The track's page on its service. */
-    fun webLink(t: Track): String? {
-        val id = t.remoteId ?: return null
-        return when (t.service) {
-            Service.YANDEX -> YandexLinks.trackUrl(t.remoteAlbumId, id)
-            Service.YOUTUBE -> "https://music.youtube.com/watch?v=$id"
-            Service.BANDCAMP -> if (id.startsWith("http")) id else "https://$id"
-            else -> null
-        }
-    }
+    fun webLink(t: Track): String? = dev.xvin.palimpsest.core.library.TrackLinks.web(t.service, t.remoteId, t.remoteAlbumId)
 
     fun copyToClipboard(text: String) {
         runCatching { java.awt.Toolkit.getDefaultToolkit().systemClipboard.setContents(java.awt.datatransfer.StringSelection(text), null) }

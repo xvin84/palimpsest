@@ -79,6 +79,8 @@ class PhoneLanServer(
         if (p == null || msg.token != p.token) return@runBlocking LanAnswer(LanReply(error = "not paired"))
         when {
             msg.ping -> LanAnswer(LanReply(ok = true))
+            // The computer changed likes or playlists: sync now rather than at the next round.
+            msg.syncNow -> { scope.launch { runCatching { lan().sync() } }; LanAnswer(LanReply(ok = true)) }
             msg.file != null -> handoff.file(msg.file!!.key, msg.file!!.from)
             // Through a port forward (adb, an emulator) the computer seems to call from this very phone: use its paired address.
             msg.handoff != null -> LanAnswer(handoff.received(msg.handoff!!, if (host.startsWith("127.") || host == "::1") p.host else host, p.token))

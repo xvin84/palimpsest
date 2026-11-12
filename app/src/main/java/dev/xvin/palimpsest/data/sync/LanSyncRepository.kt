@@ -104,14 +104,30 @@ class LanSyncRepository(
         }
     }
 
+    /** Likes and playlists as they were right after the last sync (null: not synced in this run). */
+    @Volatile private var agreed: String? = null
+
+    /**
+     * Syncs when likes or playlists changed here since the last sync — called a few seconds after a
+     * change and whenever the app comes to the front, so a like reaches the computer in moments,
+     * not at the next three-hourly round. Quiet when the computer isn't around.
+     */
+    suspend fun syncIfChanged(): Result<SyncReport>? {
+        if (_pairing.value == null) return null
+        val now = withContext(Dispatchers.IO) { LanSync.fingerprint(state()) }
+        if (now == agreed) return null
+        return sync()
+    }
+
     private suspend fun syncWith(p: LanPairing): SyncReport {
         val reply = LanTransport.call(p.host, p.port, LanMessage(token = p.token, sync = SyncRequest(device, state(), p.base)))
         val resp = reply.sync ?: error(reply.error ?: "no answer")
         val mine = apply(resp.state)
         // What changed here and there, together.
         val d = resp.desktopReport
-        val report = SyncReport(mine.likesAdded + d.likesAdded, mine.likesRemoved + d.likesRemoved, mine.playlistsChanged + d.playlistsChanged, mine.playsAdded + d.playsAdded)
+        val report = SyncReport(mine.likesAdded + d.likesAdded, mine.likesRemoved + d.likesRemoved, mine.playlistsChanged + d.playlistsChanged, mine.playsAdded + d.playsAdded, notHere = mine.notHere, notThere = d.notHere)
         save(p.copy(base = resp.state, lastSync = System.currentTimeMillis(), lastReport = report))
+        agreed = LanSync.fingerprint(state())
         return report
     }
 
@@ -170,6 +186,7 @@ class LanSyncRepository(
             PlayEventEntity(trackId = index[pl.identity]?.id, title = pl.title, artist = pl.artist, album = null, startedAt = pl.at, listenedMs = pl.listenedMs, completed = true, scrobbled = true)
         }
         if (newPlays.isNotEmpty()) db.plays().insertAll(newPlays)
-        return SyncReport(added, removed, changed, newPlays.size)
+        val missing = (merged.likes + merged.playlists.flatMap { it.keys }).distinct().count { resolve(it) == null }
+        return SyncReport(added, removed, changed, newPlays.size, notHere = missing)
     }
 }

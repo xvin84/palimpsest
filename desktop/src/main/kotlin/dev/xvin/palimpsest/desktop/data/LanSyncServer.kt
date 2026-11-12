@@ -25,6 +25,7 @@ import java.io.DataOutputStream
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.security.SecureRandom
+import dev.xvin.palimpsest.desktop.ui.t
 
 data class LanStatus(val running: Boolean = false, val code: String = "", val last: String? = null, val error: String? = null)
 
@@ -101,8 +102,28 @@ class LanSyncServer(private val graph: Graph) {
         val req = msg.sync ?: return LanReply(error = "empty request")
         val merged = LanSync.merge(req.base, req.state, state())
         val report = apply(merged)
-        _status.value = _status.value.copy(last = "${device}: +${report.likesAdded}/−${report.likesRemoved} ♥, ${report.playlistsChanged} playlists, +${report.playsAdded} plays")
+        agreed = LanSync.fingerprint(state())
+        _status.value = _status.value.copy(
+            last = "${device}: +${report.likesAdded}/−${report.likesRemoved} ♥, ${report.playlistsChanged} playlists, +${report.playsAdded} plays" +
+                (if (report.notHere > 0) ", ${report.notHere} " + t("песен нет на этом компьютере", "songs aren't on this computer") else ""),
+        )
         return LanReply(sync = SyncResponse(merged, report))
+    }
+
+    /** Likes and playlists as both sides agreed at the last sync. */
+    @Volatile private var agreed: String? = null
+
+    /**
+     * Likes or playlists changed here: asks the phone to sync now (only the phone starts a sync).
+     * Without it a like made on the computer waited for the phone's next round, up to three hours.
+     */
+    fun nudgePhone() {
+        if (!_status.value.running) return
+        val phone = graph.handoff.phone.value ?: return
+        if (LanSync.fingerprint(state()) == agreed) return
+        graph.scope.launch(Dispatchers.IO) {
+            runCatching { LanTransport.call(phone.host, phone.port, LanMessage(token = phone.token, syncNow = true), 3_000) }
+        }
     }
 
     private fun identity(t: Track) = LanSync.identity(t.artist, t.title)
@@ -161,6 +182,7 @@ class LanSyncServer(private val graph: Graph) {
         }
         graph.history.addAll(newPlays)
         graph.fillInServiceTracks()
-        return SyncReport(added, removed, changed, newPlays.size)
+        val missing = (merged.likes + merged.playlists.flatMap { it.keys }).distinct().count { resolve(it) == null }
+        return SyncReport(added, removed, changed, newPlays.size, notHere = missing)
     }
 }

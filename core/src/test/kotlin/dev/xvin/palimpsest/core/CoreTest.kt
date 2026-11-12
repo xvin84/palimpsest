@@ -512,3 +512,21 @@ class PlaylistExportTest {
         assertNull(dev.xvin.palimpsest.core.library.TrackLinks.web(Service.LOCAL, "1"))
     }
 }
+
+class SyncFingerprintTest {
+    private fun state(likes: List<String>, lists: Map<String, List<String>>, plays: Int = 0) = dev.xvin.palimpsest.core.sync.SyncState(
+        likes = LinkedHashSet(likes),
+        playlists = lists.map { (n, k) -> dev.xvin.palimpsest.core.sync.SyncPlaylist(n, k) },
+        plays = List(plays) { dev.xvin.palimpsest.core.sync.SyncPlay("a|b", "b", "a", it.toLong(), 1) },
+    )
+
+    @Test fun onlyLikesAndPlaylistsCount() {
+        val f = dev.xvin.palimpsest.core.sync.LanSync::fingerprint
+        val a = state(listOf("x|1", "y|2"), mapOf("Road" to listOf("x|1", "y|2")))
+        // Order of likes, playlist name case and history don't make a change worth a sync.
+        assertEquals(f(a), f(state(listOf("y|2", "x|1"), mapOf("road" to listOf("x|1", "y|2")), plays = 5)))
+        // A song moved inside a playlist, or a new like, does.
+        assertTrue(f(a) != f(state(listOf("x|1", "y|2"), mapOf("Road" to listOf("y|2", "x|1")))))
+        assertTrue(f(a) != f(state(listOf("x|1", "y|2", "z|3"), mapOf("Road" to listOf("x|1", "y|2")))))
+    }
+}

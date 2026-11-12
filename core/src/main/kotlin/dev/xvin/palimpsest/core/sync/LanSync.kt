@@ -27,6 +27,14 @@ object LanSync {
         TrackMatcher.normalize(ArtistNames.split(artist).firstOrNull() ?: artist) + "|" + TrackMatcher.normalizeTitle(title)
 
     /**
+     * What likes and playlists look like, in one string: a change since the last sync is a different
+     * fingerprint, while a sync that only brought the other side's changes leaves it as agreed.
+     */
+    fun fingerprint(state: SyncState): String =
+        state.likes.sorted().joinToString("\n") + "\u0000" +
+            state.playlists.sortedBy { it.name.lowercase() }.joinToString("\n") { it.name.lowercase() + ":" + it.keys.joinToString(",") }
+
+    /**
      * Three-way merge. Likes: what either side added since [base] is kept, what either removed
      * is removed. Playlists (by name): one side changed → that side wins; both → the phone's
      * order plus what only the desktop added; deleted on one side and untouched on the other →
@@ -101,7 +109,11 @@ data class PairResponse(val token: String, val name: String)
 
 /** What a sync changed, for the «Synced: …» line on both sides. */
 @Serializable
-data class SyncReport(val likesAdded: Int = 0, val likesRemoved: Int = 0, val playlistsChanged: Int = 0, val playsAdded: Int = 0)
+/**
+ * [notHere]: liked or playlist songs this side has neither as a file nor as a service track, so they
+ * can't show here; [notThere]: the same on the other side (filled in by the phone).
+ */
+data class SyncReport(val likesAdded: Int = 0, val likesRemoved: Int = 0, val playlistsChanged: Int = 0, val playsAdded: Int = 0, val notHere: Int = 0, val notThere: Int = 0)
 
 @Serializable
 data class SyncResponse(val state: SyncState, val desktopReport: SyncReport)

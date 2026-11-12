@@ -372,6 +372,10 @@ interface PlaylistDao {
     @Query("SELECT * FROM playlists WHERE id = :id")
     fun observe(id: Long): Flow<PlaylistEntity?>
 
+    /** Any change to any playlist's songs (the computer sync follows it). */
+    @Query("SELECT COUNT(*) || ':' || COALESCE(SUM(trackId * (position + 1)), 0) FROM playlist_entries")
+    fun observeEntriesStamp(): Flow<String>
+
     @Query("UPDATE playlists SET coverUrl = :url WHERE id = :id")
     suspend fun setCover(id: Long, url: String?)
 

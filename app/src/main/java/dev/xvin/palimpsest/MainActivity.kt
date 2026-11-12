@@ -68,6 +68,10 @@ class MainActivity : ComponentActivity() {
         }
         // Back in front: is the paired computer there? (Greys the handover button out, or lights it up.)
         graph.lanServer.helloNow()
+        // …and catch up with what changed there (likes, playlists) — at most once a minute.
+        graph.lanSync.pairing.value?.takeIf { System.currentTimeMillis() - it.lastSync > 60_000 }?.let {
+            graph.appScope.launch { runCatching { graph.lanSync.sync() } }
+        }
         // Coming back from the "All files access" settings page.
         val before = hasStorageAccess.value
         refreshAccess()

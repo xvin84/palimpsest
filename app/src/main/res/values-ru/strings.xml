@@ -951,4 +951,6 @@
         <item quantity="many">Добавлено %d песен</item>
         <item quantity="other">Добавлено %d песни</item>
     </plurals>
+    <string name="lan_not_here">песен нет на этом телефоне (ни файла, ни ссылки на сервис): %1$d</string>
+    <string name="lan_not_there">нет на компьютере: %1$d</string>
 </resources>

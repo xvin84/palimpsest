@@ -29,6 +29,8 @@ data class LanMessage(
     val file: FileRequest? = null,
     /** «Are you there?» — both sides check the other is reachable before offering to hand music over. */
     val ping: Boolean = false,
+    /** «Something changed here — sync now»: the computer can't sync by itself, the phone always starts it. */
+    val syncNow: Boolean = false,
 )
 
 @Serializable

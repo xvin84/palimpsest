@@ -37,6 +37,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.drop
 import okhttp3.OkHttpClient
 import java.io.File
 import java.io.IOException
@@ -57,6 +59,7 @@ class PalimpsestApp : Application(), SingletonImageLoader.Factory {
         dev.xvin.palimpsest.i18n.Strings.init(this)
     }
 
+    @OptIn(kotlinx.coroutines.FlowPreview::class)
     override fun onCreate() {
         super.onCreate()
         CrashReporter.install(this)
@@ -66,6 +69,17 @@ class PalimpsestApp : Application(), SingletonImageLoader.Factory {
         graph.appScope.launch {
             kotlinx.coroutines.delay(8_000)
             if (graph.lanSync.pairing.value != null) graph.lanSync.sync()
+        }
+        // A like or a playlist edit reaches the computer a few seconds later, not at the next round.
+        graph.appScope.launch {
+            kotlinx.coroutines.flow.combine(
+                graph.db.tracks().observeLiked(),
+                graph.db.playlists().observeAll(),
+                graph.db.playlists().observeEntriesStamp(),
+            ) { _, _, _ -> Unit }
+                .drop(1)
+                .debounce(4_000)
+                .collect { runCatching { graph.lanSync.syncIfChanged() } }
         }
     }
 
