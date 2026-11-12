@@ -54,7 +54,7 @@ import dev.xvin.palimpsest.desktop.data.Track
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private val searchSources = listOf<Service?>(null, Service.YANDEX, Service.YOUTUBE, Service.BANDCAMP)
+private val searchSources = listOf<Service?>(null, Service.YANDEX, Service.YOUTUBE, Service.BANDCAMP, Service.SOUNDCLOUD)
 private fun label(s: Service?) = when (s) { null -> t("Медиатека", "Library"); Service.YANDEX -> t("Яндекс Музыка", "Yandex Music"); Service.YOUTUBE -> "YouTube Music"; else -> s.displayName }
 private fun norm(s: String?) = s.orEmpty().lowercase().replace('ё', 'е').trim()
 

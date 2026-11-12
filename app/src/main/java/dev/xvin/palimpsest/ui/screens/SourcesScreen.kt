@@ -127,6 +127,10 @@ fun SourcesScreen() {
         }
 
         item {
+            Card("SoundCloud · Bandcamp") { Text(tr(R.string.soundcloud_hint), color = Ink.Muted) }
+        }
+
+        item {
             Card("Spotify") {
                 var link by remember { mutableStateOf("") }
                 Text(

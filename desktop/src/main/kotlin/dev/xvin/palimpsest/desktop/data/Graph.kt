@@ -38,7 +38,7 @@ class Graph {
     private val proxySelector = object : ProxySelector() {
         private val hosts = listOf(
             "youtube.com", "googlevideo.com", "ytimg.com", "youtu.be", "ggpht.com", "googleapis.com", "googleusercontent.com",
-            "spotify.com", "scdn.co", "spotifycdn.com", "musicbrainz.org", "coverartarchive.org", "archive.org", "bandcamp.com", "bcbits.com", "radio-browser.info",
+            "spotify.com", "scdn.co", "spotifycdn.com", "musicbrainz.org", "coverartarchive.org", "archive.org", "bandcamp.com", "bcbits.com", "soundcloud.com", "sndcdn.com", "soundcloud.cloud", "radio-browser.info",
         )
         override fun select(uri: URI?): List<Proxy> {
             val proxy = settings.value.proxy
@@ -62,11 +62,13 @@ class Graph {
     val yandex = YandexMusicProvider({ settings.value.yandexToken }, http)
     val youtube by lazy { YouTubeProvider(http) }
     val bandcamp by lazy { NewPipeProvider.bandcamp(http) }
+    val soundcloud by lazy { NewPipeProvider.soundcloud(http) }
 
     fun provider(s: Service): MusicProvider? = when (s) {
         Service.YANDEX -> yandex
         Service.YOUTUBE -> youtube
         Service.BANDCAMP -> bandcamp
+        Service.SOUNDCLOUD -> soundcloud
         else -> null
     }
 

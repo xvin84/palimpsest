@@ -443,7 +443,9 @@ class Player(private val graph: Graph) {
                 val tmp = File(cacheDir, key(t) + ".part")
                 val req = Request.Builder().url(info.url).apply { info.headers.forEach { (k, v) -> header(k, v) } }.build()
                 try {
-                graph.http.newCall(req).execute().use { resp ->
+                // SoundCloud's HLS: the parts joined into one .m4a, then played like any file.
+                if (info.hls) tmp.outputStream().use { out -> dev.xvin.palimpsest.core.net.HlsFetch.download(graph.http, info.url, out, onProgress) }
+                else graph.http.newCall(req).execute().use { resp ->
                     if (!resp.isSuccessful) throw java.io.IOException("HTTP ${resp.code}")
                     val total = resp.body.contentLength()
                     val input = info.aesCtrKey?.let { AesCtr.decrypting(resp.body.byteStream(), it) } ?: resp.body.byteStream()

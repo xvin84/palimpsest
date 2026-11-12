@@ -166,7 +166,7 @@ class LibraryStore(private val settings: SettingsStore) {
             val remoteId = when (service) {
                 Service.YANDEX -> yandex?.second
                 Service.YOUTUBE -> guess.youtubeId ?: url?.let { Regex("""(?:v=|youtu\.be/)([A-Za-z0-9_-]{11})""").find(it)?.groupValues?.get(1) }
-                Service.BANDCAMP -> url?.removePrefix("https://")?.removePrefix("http://")?.trimEnd('/')
+                Service.BANDCAMP, Service.SOUNDCLOUD -> url?.removePrefix("https://")?.removePrefix("http://")?.trimEnd('/')
                 else -> null
             }
             fun gain(name: String) = custom(name)?.substringBefore(" dB")?.trim()?.replace(',', '.')?.toFloatOrNull()

@@ -41,6 +41,7 @@ class Downloads(private val graph: Graph) {
         Service.YANDEX -> "Яндекс"
         Service.YOUTUBE -> "YouTube"
         Service.BANDCAMP -> "Bandcamp"
+        Service.SOUNDCLOUD -> "SoundCloud"
         else -> "Разное"
     }
 
@@ -53,7 +54,9 @@ class Downloads(private val graph: Graph) {
         val info = provider.resolveStream(rid, graph.settings.value.quality, forDownload = true)
         val dir = File(graph.settings.value.downloadDir, folder(t.service)).apply { mkdirs() }
         val tmp = File(dir, ".download-${rid.hashCode().toUInt()}.${info.extension}")
-        graph.http.newCall(Request.Builder().url(info.url).apply { info.headers.forEach { (k, v) -> header(k, v) } }.build()).execute().use { resp ->
+        // SoundCloud's HLS: the parts joined into one .m4a.
+        if (info.hls) tmp.outputStream().use { out -> dev.xvin.palimpsest.core.net.HlsFetch.download(graph.http, info.url, out) { p -> _state.value = _state.value.copy(progress = p) } }
+        else graph.http.newCall(Request.Builder().url(info.url).apply { info.headers.forEach { (k, v) -> header(k, v) } }.build()).execute().use { resp ->
             if (!resp.isSuccessful) throw java.io.IOException("HTTP ${resp.code}")
             val total = resp.body.contentLength()
             val input = info.aesCtrKey?.let { AesCtr.decrypting(resp.body.byteStream(), it) } ?: resp.body.byteStream()

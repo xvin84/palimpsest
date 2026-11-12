@@ -162,7 +162,7 @@ fun ServicesScreen() {
                 }
             }
         }
-        item { SectionHeader("YouTube Music · Bandcamp") }
+        item { SectionHeader("YouTube Music · Bandcamp · SoundCloud") }
         item {
             Text(
                 t("Работают без входа — ищи в «Поиске». Из России нужен прокси (Настройки → Сеть).", "No sign-in needed — use Search. From Russia they need the proxy (Settings → Network)."),
