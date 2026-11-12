@@ -85,9 +85,9 @@ fun InternetRadioScreen() {
         results = runCatching {
             when {
                 query.isNotBlank() -> graph.radioBrowser.search(name = query.trim())
-                tag == COUNTRY -> graph.radioBrowser.top(country = "RU")
+                tag == COUNTRY -> graph.radioBrowser.top(country = dev.xvin.palimpsest.core.radio.homeCountry().ifBlank { "RU" })
                 tag != null -> graph.radioBrowser.search(tag = tag!!)
-                else -> graph.radioBrowser.top(country = if (java.util.Locale.getDefault().language == "ru") "RU" else "")
+                else -> graph.radioBrowser.top(country = dev.xvin.palimpsest.core.radio.homeCountry())
             }
         }.onFailure { error = it.message }.getOrNull()
         loading = false
@@ -113,7 +113,7 @@ fun InternetRadioScreen() {
         }
         item {
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                (listOf(COUNTRY to tr(R.string.iradio_russia)) + GENRES.map { it to it }).forEach { (value, label) ->
+                (listOf(COUNTRY to (dev.xvin.palimpsest.core.radio.homeCountry().ifBlank { null }?.let { dev.xvin.palimpsest.core.radio.countryName(it) } ?: tr(R.string.iradio_russia))) + GENRES.map { it to it }).forEach { (value, label) ->
                     val on = tag == value && query.isBlank()
                     Text(
                         label, style = MaterialTheme.typography.labelLarge, color = if (on) Ink.Paper else Ink.Text,

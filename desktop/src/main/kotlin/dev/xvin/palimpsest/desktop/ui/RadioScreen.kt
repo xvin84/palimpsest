@@ -74,9 +74,9 @@ fun RadioScreen() {
         results = runCatching {
             when {
                 query.isNotBlank() -> graph.radioBrowser.search(name = query.trim())
-                tag == RU -> graph.radioBrowser.top(country = "RU")
+                tag == RU -> graph.radioBrowser.top(country = dev.xvin.palimpsest.core.radio.homeCountry().ifBlank { "RU" })
                 tag != null -> graph.radioBrowser.search(tag = tag!!)
-                else -> graph.radioBrowser.top(country = if (language == "ru") "RU" else "")
+                else -> graph.radioBrowser.top(country = dev.xvin.palimpsest.core.radio.homeCountry())
             }
         }.onFailure { error = it.message }.getOrNull()
         loading = false
@@ -104,7 +104,7 @@ fun RadioScreen() {
             PField(query, { query = it }, t("Название станции", "Station name"), Modifier.width(420.dp))
             Spacer(Modifier.height(12.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                (listOf(RU to t("Россия", "Russia")) + GENRES.map { it to it }).forEach { (v, label) ->
+                (listOf(RU to (dev.xvin.palimpsest.core.radio.homeCountry().ifBlank { null }?.let { dev.xvin.palimpsest.core.radio.countryName(it) } ?: t("Россия", "Russia"))) + GENRES.map { it to it }).forEach { (v, label) ->
                     Pill(label, tag == v && query.isBlank(), { query = ""; tag = if (tag == v) null else v })
                 }
             }

@@ -256,3 +256,15 @@ class IcyInputStream(input: InputStream, private val metaInt: Int, private val o
         }
     }
 }
+
+/**
+ * The listener's country for «the country's most listened»: the system's region (not its language —
+ * an English phone in Russia still wants Russian stations), or Russia for a Russian system without one.
+ */
+fun homeCountry(): String {
+    val l = java.util.Locale.getDefault()
+    return l.country.takeIf { it.length == 2 } ?: if (l.language == "ru") "RU" else ""
+}
+
+/** [code]'s name in the app's language, e.g. «Россия». */
+fun countryName(code: String): String = java.util.Locale("", code).getDisplayCountry(java.util.Locale.getDefault()).ifBlank { code }
