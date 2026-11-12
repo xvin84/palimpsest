@@ -10,7 +10,8 @@ import java.io.File
 data class Play(val trackId: String, val title: String, val artist: String, val at: Long, val listenedMs: Long)
 
 @Serializable
-data class Playlist(val id: Long, val name: String, val trackIds: List<String> = emptyList(), val createdAt: Long = System.currentTimeMillis())
+/** [cover]: a picture chosen for it (a file in the config folder); none — a collage of its songs. */
+data class Playlist(val id: Long, val name: String, val trackIds: List<String> = emptyList(), val createdAt: Long = System.currentTimeMillis(), val cover: String? = null)
 
 /** Listening history: a play counts after 30 s (or half a short track). */
 class HistoryStore {
@@ -42,6 +43,9 @@ class PlaylistStore {
     fun create(name: String): Playlist = Playlist((_lists.value.maxOfOrNull { it.id } ?: 0) + 1, name).also { save(_lists.value + it) }
     fun rename(id: Long, name: String) = save(_lists.value.map { if (it.id == id) it.copy(name = name) else it })
     fun delete(id: Long) = save(_lists.value.filterNot { it.id == id })
+    /** Puts a deleted playlist back as it was (undo). */
+    fun restore(p: Playlist) { if (_lists.value.none { it.id == p.id }) save(_lists.value + p) }
+    fun setCover(id: Long, cover: String?) = save(_lists.value.map { if (it.id == id) it.copy(cover = cover) else it })
     fun add(id: Long, trackIds: List<String>) = save(_lists.value.map { if (it.id == id) it.copy(trackIds = it.trackIds + trackIds) else it })
     fun setTracks(id: Long, trackIds: List<String>) = save(_lists.value.map { if (it.id == id) it.copy(trackIds = trackIds) else it })
     /** A track's id changed (its file moved): the playlists follow. */

@@ -79,6 +79,7 @@ class Graph {
     val downloads = Downloads(this)
     val flacUpgrade by lazy { FlacUpgrade(this) }
     val player = Player(this)
+    val preview = PlaylistPreview(this)
     val videos by lazy { dev.xvin.palimpsest.desktop.render.VideoRenders(this) }
     val handoff = HandoffDesk(this)
     val radioBrowser = dev.xvin.palimpsest.core.radio.RadioBrowser(http)

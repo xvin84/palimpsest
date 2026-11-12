@@ -43,6 +43,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.ui.input.pointer.isCtrlPressed
 import androidx.compose.ui.input.pointer.isMetaPressed
 import androidx.compose.ui.input.pointer.isShiftPressed
@@ -59,6 +60,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import sh.calvin.reorderable.ReorderableItem
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -217,7 +219,7 @@ fun Tile(cover: @Composable () -> Unit, title: String, subtitle: String, modifie
 /** A sortable table of tracks: click a column header to sort by it, again to reverse. */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-fun TrackTable(tracks: List<Track>, liked: Set<String>, numbered: Boolean = false, showAdded: Boolean = false, header: (@Composable () -> Unit)? = null, onRemove: ((Int) -> Unit)? = null) {
+fun TrackTable(tracks: List<Track>, liked: Set<String>, numbered: Boolean = false, showAdded: Boolean = false, header: (@Composable () -> Unit)? = null, onRemove: ((Int) -> Unit)? = null, onMove: ((List<String>) -> Unit)? = null) {
     val graph = LocalGraph.current
     val nav = LocalNav.current
     val pal = LocalPal.current
@@ -278,7 +280,37 @@ fun TrackTable(tracks: List<Track>, liked: Set<String>, numbered: Boolean = fals
     // Narrow windows drop the album column, and the date before it.
     val showAlbum = maxWidth >= 720.dp
     val withAdded = showAdded && maxWidth >= 1000.dp
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = if (chosen.size > 1) 72.dp else 24.dp)) {
+    // A playlist in its own order drags into a new one by the handle; rows keep keys of their own
+    // (a song can be in twice) and the new order is saved when the row is dropped.
+    val draggable = onMove != null && sort == null
+    val uids = remember { intArrayOf(0) }
+    val rows = remember { androidx.compose.runtime.mutableStateListOf<Pair<Int, Track>>() }
+    var dragging by remember { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(sorted) {
+        if (dragging) return@LaunchedEffect
+        val kept = rows.groupBy { it.second.id }.mapValues { it.value.toMutableList() }
+        val fresh = sorted.map { t -> kept[t.id]?.removeFirstOrNull()?.let { it.first to t } ?: (uids[0]++ to t) }
+        rows.clear(); rows.addAll(fresh)
+    }
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val reorder = sh.calvin.reorderable.rememberReorderableLazyListState(listState) { from, to ->
+        val a = rows.indexOfFirst { "u${it.first}" == from.key }
+        val b = rows.indexOfFirst { "u${it.first}" == to.key }
+        if (a >= 0 && b >= 0) rows.add(b, rows.removeAt(a))
+    }
+    @Composable
+    fun androidx.compose.foundation.layout.RowScope.line(i: Int, t: Track, list: List<Track>, handle: Modifier?) {
+        Box(Modifier.weight(1f)) {
+            TrackLine(t, if (numbered && onMove == null) (t.trackNumber ?: (i + 1)) else i + 1, st.current?.id == t.id, t.id in liked,
+                onPlay = { graph.player.play(list, i) },
+                // The menu of the selection when the row is in it, otherwise of this row alone.
+                onMenu = { if (t.id in selected && chosen.size > 1) nav.openMenu(chosen) else { selected = setOf(t.id); anchor = i; nav.openMenu(t) } },
+                showAlbum = showAlbum, selected = t.id in selected, onSelect = { select(i, it) }, showAdded = withAdded)
+        }
+        if (onRemove != null) PIconButton(Icons.Rounded.Close, t("Убрать из плейлиста", "Remove from playlist"), { onRemove(i) }, iconSize = 16.dp, tint = pal.faint)
+        if (handle != null) Icon(Icons.Rounded.DragHandle, t("Перетащить", "Drag to move"), handle.padding(horizontal = 6.dp).size(18.dp), tint = pal.faint)
+    }
+    LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = if (chosen.size > 1) 72.dp else 24.dp)) {
         header?.let { h -> item { h() } }
         item {
             Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -313,23 +345,26 @@ fun TrackTable(tracks: List<Track>, liked: Set<String>, numbered: Boolean = fals
         item { Spacer(Modifier.height(4.dp)) }
         // Keyed by the track when each is there once, so a new sort or filter slides the rows to
         // their places instead of redrawing the list (a playlist may hold a track twice: then by place).
-        itemsIndexed(sorted, key = { i, t -> if (unique) t.id else "$i:${t.id}" }) { i, t ->
+        if (draggable) {
+            items(rows, key = { "u${it.first}" }) { (uid, t) ->
+                ReorderableItem(reorder, key = "u$uid") { isDragging ->
+                    Row(Modifier.background(if (isDragging) pal.paper2 else pal.paper), verticalAlignment = Alignment.CenterVertically) {
+                        val i = rows.indexOfFirst { it.first == uid }
+                        line(i, t, rows.map { it.second }, Modifier.draggableHandle(
+                            onDragStarted = { dragging = true },
+                            onDragStopped = { dragging = false; onMove!!(rows.map { it.second.id }) },
+                        ))
+                    }
+                }
+            }
+        } else itemsIndexed(sorted, key = { i, t -> if (unique) t.id else "$i:${t.id}" }) { i, t ->
             Row(
                 Modifier.animateItem(
                     fadeInSpec = tween(220), fadeOutSpec = tween(120),
                     placementSpec = androidx.compose.animation.core.spring(dampingRatio = 0.9f, stiffness = 380f, visibilityThreshold = androidx.compose.ui.unit.IntOffset.VisibilityThreshold),
                 ),
                 verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(Modifier.weight(1f)) {
-                    TrackLine(t, if (numbered) (t.trackNumber ?: (i + 1)) else i + 1, st.current?.id == t.id, t.id in liked,
-                        onPlay = { graph.player.play(sorted, i) },
-                        // The menu of the selection when the row is in it, otherwise of this row alone.
-                        onMenu = { if (t.id in selected && chosen.size > 1) nav.openMenu(chosen) else { selected = setOf(t.id); anchor = i; nav.openMenu(t) } },
-                        showAlbum = showAlbum, selected = t.id in selected, onSelect = { select(i, it) }, showAdded = withAdded)
-                }
-                if (onRemove != null) PIconButton(Icons.Rounded.Close, t("Убрать из плейлиста", "Remove from playlist"), { onRemove(tracks.indexOf(t)) }, iconSize = 16.dp, tint = pal.faint)
-            }
+            ) { line(i, t, sorted, null) }
         }
     }
     // The bar rises from the bottom when a second row is picked and sinks when the selection goes.
@@ -412,30 +447,3 @@ fun LikedScreen() {
     }
 }
 
-@Composable
-fun PlaylistScreen(id: Long) {
-    val graph = LocalGraph.current
-    val nav = LocalNav.current
-    val pal = LocalPal.current
-    val lists by graph.playlists.lists.collectAsState()
-    val all by graph.library.tracks.collectAsState()
-    val liked by graph.library.liked.collectAsState()
-    val p = lists.firstOrNull { it.id == id } ?: return
-    val byId = remember(all) { all.associateBy { it.id } }
-    val tracks = p.trackIds.mapNotNull(byId::get)
-    var name by remember(p.id) { mutableStateOf(p.name) }
-    Column(Modifier.fillMaxSize().padding(start = 28.dp, end = 20.dp, top = 22.dp)) {
-        Text(t("ПЛЕЙЛИСТ", "PLAYLIST"), style = Type.caption, color = pal.muted)
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            // The name is edited in place, set in the page title's own type.
-            androidx.compose.foundation.text.BasicTextField(
-                name, { name = it; graph.playlists.rename(p.id, it) }, Modifier.weight(1f).ownsKeys(), singleLine = true,
-                textStyle = MaterialTheme.typography.displayMedium.copy(color = pal.text), cursorBrush = androidx.compose.ui.graphics.SolidColor(pal.text),
-            )
-            PButton(t("Удалить плейлист", "Delete playlist"), { graph.playlists.delete(p.id); nav.root(Screen.Library) }, icon = Icons.Rounded.DeleteOutline, kind = Kind.GHOST)
-        }
-        Text(tracksCount(tracks.size) + " · " + fmtTotal(tracks.sumOf { it.durationMs }), style = Type.meta, color = pal.faint, modifier = Modifier.padding(top = 2.dp, bottom = 14.dp))
-        if (tracks.isEmpty()) EmptyState(t("Плейлист пуст", "Empty playlist"), t("Правый клик или ⋯ у трека → «В плейлист…»", "Right-click or ⋯ on a track → «Add to playlist…»"), "empty-playlist")
-        else TrackTable(tracks, liked, numbered = true, onRemove = { i -> graph.playlists.removeAt(p.id, i) })
-    }
-}

@@ -58,6 +58,7 @@ fun main(args: Array<String>) {
         add(Shot("liked") { it.root(Screen.Liked) })
         add(Shot("history") { it.root(Screen.History) })
         add(Shot("flac") { it.go(Screen.Flac) })
+        graph.playlists.lists.value.firstOrNull()?.let { p -> add(Shot("playlist") { it.root(Screen.Playlist(p.id)) }) }
         if (artist != null) add(Shot("artist") { it.go(Screen.Artist(artist)) })
         if (current?.album != null) add(Shot("album") { it.go(Screen.LocalAlbum(current.album!!, current.albumArtist ?: current.artist)) })
         add(Shot("settings") { it.root(Screen.Settings) })

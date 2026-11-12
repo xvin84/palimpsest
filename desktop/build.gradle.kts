@@ -19,6 +19,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.swing)
     implementation(libs.jaudiotagger)
     implementation(libs.coil.compose)
+    implementation(libs.reorderable)
     implementation(libs.coil.network.okhttp)
     implementation(libs.newpipe.extractor)
     // MPRIS: media keys and the desktop's player controls on Linux.
