@@ -2,6 +2,31 @@
 
 **English** | [Русский](CHANGELOG.ru.md)
 
+## 0.9.1 — 2026-11-17
+
+### Video from a track, redesigned
+- **Three looks after the app's styles.** *Notebook*: a ruled page with a margin, the cover pasted in as a photo,
+  the spectrum in pen strokes. *Cover*: the whole frame in the cover's colour, the cover breathing with the bass, big
+  headlines. *Console*: meters, an LED spectrum, the file's format and the track's waveform with a playhead; lyrics
+  come with their timestamps.
+- **A live still of the video** in the window, redrawn as you pick the look, lyrics or cover, vertical or horizontal.
+  The phone and the computer draw the very same frames.
+
+### Albums
+- **One album page instead of two.** The service's whole tracklist with your songs in their places («you have 1 of
+  21»), playable and downloadable from there. An album from your files with no service link is found by name — on
+  Yandex, or on YouTube Music when Yandex isn't connected.
+- The buttons under an album's or a list's header fit on any phone (they used to squeeze off the edge).
+
+### Also
+- **Cover** takes the colour the cover reads as overall: a black-and-white cover gives graphite, not the colour of
+  a little skin in it; a green field stays green.
+- The artist and the album under the song's title open their pages again in every player style — also for songs
+  from the wave.
+- The library follows the song that starts, so what plays is always one glance away.
+- **Nostalgia wears its era**: while it plays, the app takes the colour of those years — cassettes, compact discs,
+  Winamp green, the glossy iPod's blue, Holo, flat-design pink — and the station says which era it is.
+
 ## 0.9.0 — 2026-11-12
 
 ### New look
