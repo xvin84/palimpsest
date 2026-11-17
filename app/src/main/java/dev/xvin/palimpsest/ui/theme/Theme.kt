@@ -19,6 +19,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -220,6 +221,8 @@ fun PalimpsestTheme(
     style: UiStyle = UiStyle.PALIMPSEST,
     /** The cover's dominant colour; Lane tints its backgrounds with it. */
     tint: Color = accent,
+    /** What the cover reads as overall ([dev.xvin.palimpsest.core.covers.CoverTone]); «Обложка» uses it, null = the accent. */
+    mood: Color? = null,
     content: @Composable () -> Unit,
 ) {
     val systemDark = isSystemInDarkTheme()
@@ -227,7 +230,12 @@ fun PalimpsestTheme(
     val animatedTint by animateColorAsState(tint, tween(700), label = "tint")
     val wantLight = theme == ThemeMode.LIGHT || (theme == ThemeMode.SYSTEM && !systemDark)
     // «Обложка» wants the cover's colour itself, vivid, not Lane's dark-safe version of it.
-    val vivid by animateColorAsState(lerp(readableAccent(accent, wantLight), tint, 0.25f), tween(700), label = "vivid")
+    // A grey cover stays grey: making a grey «vivid» used to give vermilion or a stray skin tone.
+    val coverColour = when {
+        mood != null && dev.xvin.palimpsest.core.covers.CoverTone.isNeutral(mood.toArgb()) -> mood
+        else -> lerp(readableAccent(mood ?: accent, wantLight), tint, 0.25f)
+    }
+    val vivid by animateColorAsState(coverColour, tween(700), label = "vivid")
     val palette = when (style) {
         UiStyle.LANE -> Palette.lane(animatedTint, theme, systemDark)
         UiStyle.GLASS -> Palette.cover(vivid, wantLight)

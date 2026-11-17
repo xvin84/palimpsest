@@ -139,6 +139,9 @@ fun LibraryScreen() {
     }
 }
 
+/** Items above the songs in [TracksTab]: stations, the duplicates hint, filters, shuffle/sort. */
+private const val TRACKS_HEADER_ITEMS = 4
+
 @Composable
 private fun TracksTab() {
     val graph = LocalGraph.current
@@ -192,6 +195,21 @@ private fun TracksTab() {
     val hasWave = s.yandexToken != null
     LaunchedEffect(hasWave) {
         if (hasWave && listState.firstVisibleItemIndex <= 1) listState.scrollToItem(0)
+    }
+    // A new song starts: the list goes to it, so what plays is always one glance away. Not when the
+    // library is opened (it keeps where it was left) and not while the list is being scrolled.
+    val nowId = playing.nowPlaying?.trackId
+    var seenId by remember { mutableStateOf(nowId) }
+    LaunchedEffect(nowId) {
+        if (nowId == null || nowId == seenId) return@LaunchedEffect
+        seenId = nowId
+        val i = tracks.indexOfFirst { it.id == nowId }
+        if (i < 0 || listState.isScrollInProgress) return@LaunchedEffect
+        val info = listState.layoutInfo
+        val row = info.visibleItemsInfo.firstOrNull { it.key == nowId }
+        if (row != null && row.offset >= info.viewportStartOffset && row.offset + row.size <= info.viewportEndOffset) return@LaunchedEffect
+        // One row of the previous song above it, so it doesn't sit at the very edge.
+        listState.animateScrollToItem((TRACKS_HEADER_ITEMS + i - 1).coerceAtLeast(0))
     }
     LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 16.dp)) {
         // The ways to just put music on, as one row of tiles: the songs start right under it.

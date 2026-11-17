@@ -62,6 +62,7 @@ enum class TrackListKind { ALBUM, ARTIST, FOLDER, PLAYLIST, LIKED, UPDATES, MOST
 @Composable
 fun TrackListScreen(kind: TrackListKind, key: String, extra: String?) {
     if (kind == TrackListKind.PLAYLIST) { key.toLongOrNull()?.let { PlaylistScreen(it) }; return }
+    if (kind == TrackListKind.ALBUM) { AlbumScreen(key, extra, null, dev.xvin.palimpsest.core.model.Service.YANDEX); return }
     val graph = LocalGraph.current
     val nav = LocalNav.current
     val scope = rememberCoroutineScope()
@@ -131,32 +132,15 @@ fun TrackListScreen(kind: TrackListKind, key: String, extra: String?) {
                         )
                     }
                 }
-                Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button(onClick = { graph.player.play(tracks) }, enabled = tracks.isNotEmpty()) {
-                        Icon(Icons.Rounded.PlayArrow, null); Spacer(Modifier.width(6.dp)); Text(tr(R.string.listen))
+                dev.xvin.palimpsest.ui.components.ListActions(onPlay = { graph.player.play(tracks) }, enabled = tracks.isNotEmpty()) {
+                    dev.xvin.palimpsest.ui.components.ListKey(Icons.Rounded.Shuffle, tr(R.string.shuffle), enabled = tracks.isNotEmpty()) { graph.player.play(tracks, shuffle = true) }
+                    // The whole list after what's queued.
+                    dev.xvin.palimpsest.ui.components.ListKey(Icons.AutoMirrored.Rounded.QueueMusic, tr(R.string.action_enqueue), enabled = tracks.isNotEmpty()) {
+                        graph.player.enqueue(tracks); nav.toast(dev.xvin.palimpsest.i18n.plural(R.plurals.queued_n, tracks.size))
                     }
-                    OutlinedButton(onClick = { graph.player.play(tracks, shuffle = true) }, enabled = tracks.isNotEmpty()) {
-                        Icon(Icons.Rounded.Shuffle, null); Spacer(Modifier.width(6.dp)); Text(tr(R.string.shuffled))
-                    }
-                    // The whole album / list after what's queued.
-                    IconButton(onClick = { graph.player.enqueue(tracks); nav.toast(dev.xvin.palimpsest.i18n.plural(R.plurals.queued_n, tracks.size)) }, enabled = tracks.isNotEmpty()) {
-                        Icon(Icons.AutoMirrored.Rounded.QueueMusic, tr(R.string.action_enqueue))
-                    }
-                    if (remoteOnly.isNotEmpty()) {
-                        IconButton(onClick = {
-                            scope.launch { graph.downloads.enqueue(remoteOnly.map { it.id }) }
-                            nav.toast(tr(R.string.downloading_n, remoteOnly.size))
-                        }) { Icon(Icons.Rounded.Download, tr(R.string.download_all)) }
-                    }
-                    if (kind == TrackListKind.ALBUM && tracks.any { it.path != null }) {
-                        IconButton(onClick = { editingAlbum = true }) { Icon(Icons.Rounded.Edit, tr(R.string.album_edit), tint = Ink.Muted) }
-                    }
-                    if (kind == TrackListKind.PLAYLIST && playlist?.service == null) {
-                        Box { IconButton(onClick = { renaming = true }) { Icon(Icons.Rounded.Edit, tr(R.string.rename), tint = Ink.Muted) } }
-                        IconButton(onClick = {
-                            scope.launch { playlist?.let { graph.db.playlists().delete(it.id) } }
-                            nav.back()
-                        }) { Icon(Icons.Rounded.Delete, tr(R.string.delete), tint = Ink.Muted) }
+                    if (remoteOnly.isNotEmpty()) dev.xvin.palimpsest.ui.components.ListKey(Icons.Rounded.Download, tr(R.string.download_all)) {
+                        scope.launch { graph.downloads.enqueue(remoteOnly.map { it.id }) }
+                        nav.toast(tr(R.string.downloading_n, remoteOnly.size))
                     }
                 }
             }

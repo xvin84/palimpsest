@@ -95,6 +95,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -315,7 +316,7 @@ fun CoverNowPlaying(onClose: () -> Unit) {
             Row(verticalAlignment = Alignment.Bottom) {
                 Column(Modifier.weight(1f)) {
                     Text(np.title, style = MaterialTheme.typography.headlineLarge, color = fg, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text(np.artist, Modifier.padding(top = 6.dp), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium), color = fg.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Credits(np, bits.track, MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium), fg.copy(alpha = 0.8f), Modifier.padding(top = 6.dp))
                 }
             }
             FlacCandidatePrompt(bits.track, np.mediaId)
@@ -414,10 +415,7 @@ fun ConsoleNowPlaying(onClose: () -> Unit) {
                         Spacer(Modifier.width(14.dp))
                         Column(Modifier.weight(1f)) {
                             Text(np.title, style = MaterialTheme.typography.headlineMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            Text(
-                                listOfNotNull(np.artist, np.album, t?.year?.toString()).joinToString(" · "),
-                                Modifier.padding(top = 4.dp), style = MaterialTheme.typography.bodyMedium, color = Ink.Muted, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                            )
+                            Credits(np, t, MaterialTheme.typography.bodyMedium, Ink.Muted, Modifier.padding(top = 4.dp), extra = t?.year?.toString(), maxLines = 2)
                             // The facts of the file, as chips: lossless in cyan.
                             val lossless = t?.codec?.lowercase()?.let { c -> listOf("flac", "alac", "wav", "aiff", "ape", "wv").any { c.contains(it) } } == true
                             val chips = listOfNotNull(
@@ -514,4 +512,45 @@ fun ConsoleNowPlaying(onClose: () -> Unit) {
         }
     }
     if (showQueue) QueueSheet(onDismiss = { showQueue = false })
+}
+
+/**
+ * «Artist · Album» under the title, each name a link: the artist's page (each of several on its
+ * own) and the album's. The styled players showed it as plain text, and the classic one only had
+ * links for songs whose artists were in the library — a song from the wave had none.
+ */
+@Composable
+internal fun Credits(
+    np: dev.xvin.palimpsest.playback.NowPlaying,
+    track: TrackEntity?,
+    style: androidx.compose.ui.text.TextStyle,
+    color: Color,
+    modifier: Modifier = Modifier,
+    extra: String? = null,
+    showAlbum: Boolean = true,
+    maxLines: Int = 1,
+) {
+    val graph = LocalGraph.current
+    val nav = dev.xvin.palimpsest.ui.LocalNav.current
+    val known by remember(np.trackId) { graph.db.artists().observeForTrack(np.trackId ?: -1) }.collectAsStateWithLifecycle(emptyList())
+    val artists = known.map { it.name to it.remoteId }.ifEmpty { dev.xvin.palimpsest.core.library.ArtistNames.split(np.artist).map { it to null } }
+    val album = (track?.album ?: np.album)?.takeIf { showAlbum && it.isNotBlank() }
+    val albumId = track?.remoteAlbumId?.takeIf { track.remoteId != null }
+    // Links that look like the rest of the line (no underline, no link blue); pressing dims them.
+    val plain = androidx.compose.ui.text.TextLinkStyles(androidx.compose.ui.text.SpanStyle(color = color, textDecoration = androidx.compose.ui.text.style.TextDecoration.None), pressedStyle = androidx.compose.ui.text.SpanStyle(color = color.copy(alpha = 0.5f)))
+    val text = androidx.compose.ui.text.buildAnnotatedString {
+        fun link(label: String, open: () -> Unit) = withLink(androidx.compose.ui.text.LinkAnnotation.Clickable(label, plain) { open() }) { append(label) }
+        // The tag as written when the split names don't add up to it («A & B» stays one link).
+        if (artists.size > 1 && known.isEmpty() && artists.joinToString(", ") { it.first } != np.artist) link(np.artist) { nav.openArtist(artists[0].first) }
+        else artists.forEachIndexed { i, (name, id) ->
+            if (i > 0) append(", ")
+            link(name) { nav.openArtist(name, id) }
+        }
+        if (album != null || albumId != null) {
+            if (length > 0) append(" · ")
+            link(album ?: np.title) { nav.openAlbum(album, track?.albumArtist ?: track?.artist ?: artists.firstOrNull()?.first, albumId, track?.service ?: dev.xvin.palimpsest.core.model.Service.YANDEX) }
+        }
+        extra?.let { if (length > 0) append(" · "); append(it) }
+    }
+    Text(text, modifier, style = style, color = color, maxLines = maxLines, overflow = TextOverflow.Ellipsis)
 }

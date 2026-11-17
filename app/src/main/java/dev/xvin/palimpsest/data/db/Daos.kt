@@ -157,6 +157,9 @@ interface TrackDao {
     @Query("SELECT * FROM tracks WHERE album = :album COLLATE NOCASE AND COALESCE(albumArtist, artist) = :artist COLLATE NOCASE AND $IN_LIBRARY ORDER BY discNumber, trackNumber, title")
     fun observeAlbumTracks(album: String, artist: String): Flow<List<TrackEntity>>
 
+    @Query("SELECT * FROM tracks WHERE service = :service AND remoteAlbumId = :albumId AND $IN_LIBRARY ORDER BY discNumber, trackNumber, title")
+    fun observeByRemoteAlbum(service: Service, albumId: String): Flow<List<TrackEntity>>
+
 
     @Query("SELECT * FROM tracks WHERE folder = :folder ORDER BY path")
     fun observeFolderTracks(folder: String): Flow<List<TrackEntity>>

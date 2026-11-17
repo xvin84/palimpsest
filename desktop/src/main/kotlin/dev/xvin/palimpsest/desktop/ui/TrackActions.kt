@@ -197,12 +197,10 @@ fun TrackMenu(tracks: List<Track>, onDismiss: () -> Unit) {
                 if (one != null) {
                     Divider()
                     one.artists.forEach { a -> Item(Icons.Rounded.Person, a) { act { nav.go(Screen.Artist(a)) } } }
-                    one.album?.let { a ->
-                        if (one.path != null) Item(Icons.Rounded.Album, a) { act { nav.go(Screen.LocalAlbum(a, one.albumArtist ?: one.artist)) } }
-                        else one.remoteAlbumId?.let { id -> Item(Icons.Rounded.Album, a) { act { nav.go(Screen.RemoteAlbum(id, one.service)) } } }
-                    }
-                    if (one.path != null && one.service == Service.YANDEX) one.remoteAlbumId?.let { id ->
-                        Item(Icons.Rounded.Album, t("Альбом на Яндексе", "Album on Yandex")) { act { nav.go(Screen.RemoteAlbum(id, Service.YANDEX)) } }
+                    // One album page: your songs from it and the service's tracklist together.
+                    val albumId = one.remoteAlbumId?.takeIf { one.remoteId != null }
+                    if (one.album != null || albumId != null) Item(Icons.Rounded.Album, one.album ?: t("Альбом", "Album")) {
+                        act { nav.go(Screen.Album(one.album, one.albumArtist ?: one.artist, albumId, one.service)) }
                     }
                     if (one.service == Service.YANDEX && one.remoteId != null && graph.yandex.isReady) {
                         Item(Icons.Rounded.Radio, t("Радио по треку", "Track radio")) {

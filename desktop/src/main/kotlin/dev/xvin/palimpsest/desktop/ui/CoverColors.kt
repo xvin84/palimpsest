@@ -7,12 +7,15 @@ import java.io.ByteArrayInputStream
 import java.io.File
 import javax.imageio.ImageIO
 
+/** A cover's colours: [accent] (vivid), [tint] (dominant, Lane's backdrop), [mood] (what «Обложка» floods the window with). */
+data class CoverPalette(val accent: Color, val tint: Color, val mood: Color)
+
 /**
- * The cover's colours: a vivid one for the accent and the dominant one for Lane's backdrop —
- * a small Palette, done on a 48×48 thumbnail.
+ * The cover's colours: a vivid one for the accent, the dominant one for Lane's backdrop and the
+ * overall tone ([dev.xvin.palimpsest.core.covers.CoverTone]) — done on a 48×48 thumbnail.
  */
 object CoverColors {
-    suspend fun of(graph: Graph, t: Track): Pair<Color, Color>? {
+    suspend fun of(graph: Graph, t: Track): CoverPalette? {
         val model = graph.covers.model(t) ?: return null
         val bytes = when (model) {
             is File -> model.readBytes()
@@ -25,7 +28,6 @@ object CoverColors {
         // Buckets by hue; the most populated saturated bucket is the accent, the most populated overall the tint.
         val counts = HashMap<Int, IntArray>()
         val hsb = FloatArray(3)
-        var bestVivid: Pair<Int, Float>? = null
         for (y in 0 until 48) for (x in 0 until 48) {
             val rgb = small.getRGB(x, y)
             val r = (rgb shr 16) and 255; val g = (rgb shr 8) and 255; val b = rgb and 255
@@ -37,7 +39,7 @@ object CoverColors {
         fun avg(c: IntArray) = Color(c[1] / c[0] / 255f, c[2] / c[0] / 255f, c[3] / c[0] / 255f)
         val dominant = counts.values.maxByOrNull { it[0] } ?: return null
         val vivid = counts.filter { (k, v) -> ((k shr 2) and 3) >= 1 && (k and 3) >= 1 && v[0] > 20 }.maxByOrNull { (k, v) -> v[0] * (1 + ((k shr 2) and 3)) }?.value
-        bestVivid?.let { }
-        return avg(vivid ?: dominant) to avg(dominant)
+        val px = IntArray(48 * 48).also { small.getRGB(0, 0, 48, 48, it, 0, 48) }
+        return CoverPalette(avg(vivid ?: dominant), avg(dominant), Color(dev.xvin.palimpsest.core.covers.CoverTone.of(px)))
     }
 }

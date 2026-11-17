@@ -65,7 +65,7 @@ class TrayController(private val graph: Graph, val showOrHide: () -> Unit, val q
             combine(player.state.map { it.current }.distinctUntilChanged { a, b -> a?.id == b?.id }, graph.settings.state.map { it.dynamicColor }.distinctUntilChanged()) { t, dynamic -> t to dynamic }
                 .collect { (t, dynamic) ->
                     val c = if (t != null && dynamic) runCatching { CoverColors.of(graph, t) }.getOrNull() else null
-                    colors = if (c == null) Vermilion.toArgb() to Vermilion.toArgb() else readable(c.first, light = false).toArgb() to c.first.toArgb()
+                    colors = if (c == null) Vermilion.toArgb() to Vermilion.toArgb() else readable(c.accent, light = false).toArgb() to c.accent.toArgb()
                 }
         }
         // The menu and tooltip follow the track, play state and like.

@@ -131,7 +131,7 @@ fun main(args: Array<String>) {
     val pcm = ClockedPcm(File(dir, "desk.pcm"), fps)
     graph.player.engine.output = pcm
     val current = graph.player.state.value.current
-    val colors = runBlocking { current?.let { CoverColors.of(graph, it) } } ?: (Vermilion to Color(0xFF2A2A30))
+    val colors = runBlocking { current?.let { CoverColors.of(graph, it) } } ?: dev.xvin.palimpsest.desktop.ui.CoverPalette(Vermilion, Color(0xFF2A2A30), Vermilion)
 
     // Two fingers up on the emulator's touch screen, through its console (adb can't do multi-touch).
     File(dir, "swipe.sh").writeText(
@@ -155,7 +155,7 @@ fun main(args: Array<String>) {
                 .build()
         }
         val settings by graph.settings.state.collectAsState()
-        PalimpsestDesktopTheme(settings.style, settings.theme, colors.first, colors.second) {
+        PalimpsestDesktopTheme(settings.style, settings.theme, colors.accent, colors.tint, colors.mood) {
             CompositionLocalProvider(LocalGraph provides graph, LocalNav provides nav) { Shell() }
         }
     }

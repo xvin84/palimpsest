@@ -159,18 +159,6 @@ fun ArtistScreen(s: Screen.Artist) {
 }
 
 @Composable
-fun RemoteAlbumScreen(s: Screen.RemoteAlbum) {
-    val graph = LocalGraph.current
-    val data by produceState<Load<dev.xvin.palimpsest.core.model.AlbumWithTracks>>(Load.Loading, s) {
-        value = load {
-            if (s.service == Service.YANDEX) graph.yandex.albumWithTracks(s.id)
-            else (graph.provider(s.service) as BrowsableProvider).album(s.id)
-        }
-    }
-    RemoteList(data, t("Альбом", "Album"), { it.album.title }, { albumLine(it.album) }, { it.album.coverUrl }, { it.tracks }, numbered = true)
-}
-
-@Composable
 fun RemotePlaylistScreen(s: Screen.RemotePlaylist) {
     val graph = LocalGraph.current
     val data by produceState<Load<List<RemoteTrack>>>(Load.Loading, s) { value = load { graph.provider(s.service)!!.playlistTracks(s.id) } }

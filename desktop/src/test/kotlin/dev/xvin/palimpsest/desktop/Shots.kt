@@ -44,7 +44,7 @@ fun main(args: Array<String>) {
     @Suppress("UNCHECKED_CAST")
     (graph.player.engine.state as kotlinx.coroutines.flow.MutableStateFlow<dev.xvin.palimpsest.desktop.playback.AudioEngine.State>).value =
         dev.xvin.palimpsest.desktop.playback.AudioEngine.State(positionMs = System.getenv("SHOTS_POS")?.toLongOrNull() ?: 40_000)
-    val colors = runBlocking { current?.let { CoverColors.of(graph, it) } } ?: (Vermilion to Color(0xFF2A2A30))
+    val colors = runBlocking { current?.let { CoverColors.of(graph, it) } } ?: dev.xvin.palimpsest.desktop.ui.CoverPalette(Vermilion, Color(0xFF2A2A30), Vermilion)
     val artist = current?.artists?.firstOrNull()
     class Shot(val name: String, val theme: DesktopTheme = DesktopTheme.DARK, val style: DesktopStyle? = null, val setup: (Nav) -> Unit)
     val shots = buildList {
@@ -99,7 +99,7 @@ fun main(args: Array<String>) {
                     .diskCache { DiskCache.Builder().directory(File(Paths.cache, "coil").toOkioPath()).maxSizeBytes(256L shl 20).build() }
                     .build()
             }
-            PalimpsestDesktopTheme(shot.style ?: graph.settings.value.style, shot.theme, colors.first, colors.second) {
+            PalimpsestDesktopTheme(shot.style ?: graph.settings.value.style, shot.theme, colors.accent, colors.tint, colors.mood) {
                 CompositionLocalProvider(LocalGraph provides graph, LocalNav provides nav) { Shell() }
             }
         }

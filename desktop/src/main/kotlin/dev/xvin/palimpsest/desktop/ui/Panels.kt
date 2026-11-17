@@ -1,5 +1,6 @@
 package dev.xvin.palimpsest.desktop.ui
 
+import androidx.compose.ui.text.withLink
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.animateScrollBy
@@ -614,8 +615,23 @@ fun NowPlayingView() {
         @Composable
         fun Titles(color: Color = pal.text) {
             Text(t.title, style = titleStyle, color = color, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            // Each artist and the album are links to their pages.
+            val nav = LocalNav.current
+            // Links that look like the rest of the line (no underline, no link blue); pressing dims them.
+            val plain = androidx.compose.ui.text.TextLinkStyles(androidx.compose.ui.text.SpanStyle(color = color.copy(alpha = 0.7f), textDecoration = androidx.compose.ui.text.style.TextDecoration.None), pressedStyle = androidx.compose.ui.text.SpanStyle(color = color.copy(alpha = 0.4f)))
+            val credits = androidx.compose.ui.text.buildAnnotatedString {
+                fun link(label: String, open: () -> Unit) = withLink(androidx.compose.ui.text.LinkAnnotation.Clickable(label, plain) { open() }) { append(label) }
+                val names = t.artists.ifEmpty { listOf(t.artist) }
+                if (names.joinToString(", ") != t.artist) link(t.artist) { nav.go(Screen.Artist(names.first())) }
+                else names.forEachIndexed { i, a -> if (i > 0) append(", "); link(a) { nav.go(Screen.Artist(a)) } }
+                t.album?.takeIf { it != t.title }?.let { a ->
+                    append(" · ")
+                    link(a) { nav.go(Screen.Album(a, t.albumArtist ?: t.artist, t.remoteAlbumId?.takeIf { t.remoteId != null }, t.service)) }
+                }
+                t.year?.takeIf { style == DesktopStyle.CONSOLE }?.let { append(" · $it") }
+            }
             Text(
-                listOfNotNull(t.artist, t.album?.takeIf { it != t.title }, t.year?.toString().takeIf { style == DesktopStyle.CONSOLE }).joinToString(" · "), color = color.copy(alpha = 0.7f),
+                credits, color = color.copy(alpha = 0.7f),
                 style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp),
             )
             // «Пульт»: the facts of the file under the title, lossless in cyan.

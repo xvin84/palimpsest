@@ -97,6 +97,7 @@ import dev.xvin.palimpsest.i18n.tr
 @Serializable data class ListRoute(val kind: TrackListKind, val key: String, val extra: String? = null)
 @Serializable data class TrackRoute(val trackId: Long, val tab: Int = 0)
 @Serializable data class ArtistRoute(val name: String, val remoteId: String? = null, val service: dev.xvin.palimpsest.core.model.Service = dev.xvin.palimpsest.core.model.Service.YANDEX)
+@Serializable data class AlbumRoute(val album: String?, val artist: String?, val remoteId: String?, val service: dev.xvin.palimpsest.core.model.Service = dev.xvin.palimpsest.core.model.Service.YANDEX)
 @Serializable data class RemoteAlbumRoute(val albumId: String, val service: dev.xvin.palimpsest.core.model.Service = dev.xvin.palimpsest.core.model.Service.YANDEX)
 @Serializable data class RemotePlaylistRoute(val service: dev.xvin.palimpsest.core.model.Service, val id: String, val title: String)
 @Serializable data class SimilarRoute(val trackRemoteId: String, val title: String)
@@ -121,6 +122,8 @@ interface AppNav {
     fun openPlayer()
     fun openArtist(name: String, remoteId: String? = null, service: dev.xvin.palimpsest.core.model.Service = dev.xvin.palimpsest.core.model.Service.YANDEX)
     fun openRemoteAlbum(albumId: String, service: dev.xvin.palimpsest.core.model.Service = dev.xvin.palimpsest.core.model.Service.YANDEX)
+    /** One album page for both: your songs by name and the service's tracklist by id, whichever is known. */
+    fun openAlbum(album: String?, artist: String?, remoteId: String?, service: dev.xvin.palimpsest.core.model.Service)
     fun openRemotePlaylist(service: dev.xvin.palimpsest.core.model.Service, id: String, title: String)
     fun openSimilar(trackRemoteId: String, title: String)
     fun openErrors()
@@ -153,12 +156,14 @@ fun AppRoot(graph: AppGraph, activity: MainActivity) {
     var accent by remember { mutableStateOf(Ink.Vermilion) }
     // The cover's dominant colour: Lane tints the whole app with it.
     var tint by remember { mutableStateOf(Color(0xFF2A2A30)) }
+    // What the cover reads as overall: «Обложка» floods the screens with it (null = the accent).
+    var mood by remember { mutableStateOf<Color?>(null) }
 
     // Pull an accent colour out of the current cover.
     val ctx = LocalContext.current
     val artKey = player.nowPlaying?.artworkUri ?: player.nowPlaying?.artworkData
     LaunchedEffect(artKey, settings?.dynamicColor) {
-        if (settings?.dynamicColor == false || artKey == null) { accent = Ink.Vermilion; tint = Color(0xFF2A2A30); return@LaunchedEffect }
+        if (settings?.dynamicColor == false || artKey == null) { accent = Ink.Vermilion; tint = Color(0xFF2A2A30); mood = null; return@LaunchedEffect }
         val picked = withContext(Dispatchers.IO) {
             runCatching {
                 val req = ImageRequest.Builder(ctx).data(artKey).size(128).allowHardware(false).build()
@@ -166,18 +171,21 @@ fun AppRoot(graph: AppGraph, activity: MainActivity) {
                 val p = Palette.from(bmp).generate()
                 val sw = p.vibrantSwatch ?: p.lightVibrantSwatch ?: p.dominantSwatch
                 val dom = p.dominantSwatch ?: sw
-                (sw?.rgb?.let { Color(it) } ?: Ink.Vermilion) to (dom?.rgb?.let { Color(it) } ?: Color(0xFF2A2A30))
+                val small = android.graphics.Bitmap.createScaledBitmap(bmp, 48, 48, true)
+                val px = IntArray(48 * 48).also { small.getPixels(it, 0, 48, 0, 0, 48, 48) }
+                Triple(sw?.rgb?.let { Color(it) } ?: Ink.Vermilion, dom?.rgb?.let { Color(it) } ?: Color(0xFF2A2A30), Color(dev.xvin.palimpsest.core.covers.CoverTone.of(px)))
             }.getOrNull()
         }
         accent = picked?.first ?: Ink.Vermilion
         tint = picked?.second ?: Color(0xFF2A2A30)
+        mood = picked?.third
     }
 
     val theme = settings?.theme ?: ThemeMode.DARK
     // While «Ностальгия» plays, the app takes the colour of those years (Holo blue for 2012…).
     val station by graph.radio.station.collectAsStateWithLifecycle()
     val era = station?.years?.let(dev.xvin.palimpsest.core.radio.Era::of)?.let { Color(it.accent) }
-    PalimpsestTheme(era ?: accent, theme, settings?.uiStyle ?: dev.xvin.palimpsest.data.settings.UiStyle.PALIMPSEST, era ?: tint) {
+    PalimpsestTheme(era ?: accent, theme, settings?.uiStyle ?: dev.xvin.palimpsest.data.settings.UiStyle.PALIMPSEST, era ?: tint, if (era != null) null else mood) {
         // Status/navigation bar icons must be dark on the light theme.
         val light = Ink.isLight
         LaunchedEffect(light) {
@@ -284,7 +292,8 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
             override fun openSettings() { nav.navigate(SettingsRoute) }
             override fun openPlayer() { playerOpen = true }
             override fun openArtist(name: String, remoteId: String?, service: dev.xvin.palimpsest.core.model.Service) { playerOpen = false; nav.navigate(ArtistRoute(name, remoteId, service)) }
-            override fun openRemoteAlbum(albumId: String, service: dev.xvin.palimpsest.core.model.Service) { playerOpen = false; nav.navigate(RemoteAlbumRoute(albumId, service)) }
+            override fun openRemoteAlbum(albumId: String, service: dev.xvin.palimpsest.core.model.Service) { playerOpen = false; nav.navigate(AlbumRoute(null, null, albumId, service)) }
+            override fun openAlbum(album: String?, artist: String?, remoteId: String?, service: dev.xvin.palimpsest.core.model.Service) { playerOpen = false; nav.navigate(AlbumRoute(album, artist, remoteId, service)) }
             override fun openRemotePlaylist(service: dev.xvin.palimpsest.core.model.Service, id: String, title: String) { playerOpen = false; nav.navigate(RemotePlaylistRoute(service, id, title)) }
             override fun openSimilar(trackRemoteId: String, title: String) { playerOpen = false; nav.navigate(SimilarRoute(trackRemoteId, title)) }
             override fun openErrors() { nav.navigate(ErrorsRoute) }
@@ -361,7 +370,8 @@ private fun MainScaffold(graph: AppGraph, activity: MainActivity) {
                     composable<ListRoute> { e -> Screen { val r = e.toRoute<ListRoute>(); TrackListScreen(r.kind, r.key, r.extra) } }
                     composable<TrackRoute> { e -> Screen { val r = e.toRoute<TrackRoute>(); TrackScreen(r.trackId, r.tab) } }
                     composable<ArtistRoute> { e -> Screen { val r = e.toRoute<ArtistRoute>(); dev.xvin.palimpsest.ui.screens.ArtistScreen(r.name, r.remoteId, r.service) } }
-                    composable<RemoteAlbumRoute> { e -> Screen { val r = e.toRoute<RemoteAlbumRoute>(); dev.xvin.palimpsest.ui.screens.RemoteAlbumScreen(r.albumId, r.service) } }
+                    composable<RemoteAlbumRoute> { e -> Screen { val r = e.toRoute<RemoteAlbumRoute>(); dev.xvin.palimpsest.ui.screens.AlbumScreen(null, null, r.albumId, r.service) } }
+                    composable<AlbumRoute> { e -> Screen { val r = e.toRoute<AlbumRoute>(); dev.xvin.palimpsest.ui.screens.AlbumScreen(r.album, r.artist, r.remoteId, r.service) } }
                     composable<RemotePlaylistRoute> { e -> Screen { val r = e.toRoute<RemotePlaylistRoute>(); dev.xvin.palimpsest.ui.screens.RemotePlaylistScreen(r.service, r.id, r.title) } }
                     composable<SimilarRoute> { e -> Screen { val r = e.toRoute<SimilarRoute>(); dev.xvin.palimpsest.ui.screens.SimilarScreen(r.trackRemoteId, r.title) } }
                     composable<ErrorsRoute> { Screen { dev.xvin.palimpsest.ui.screens.ErrorsScreen() } }

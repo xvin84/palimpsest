@@ -124,7 +124,7 @@ fun LibraryScreen() {
             },
         ) { tab ->
         when (tab) {
-            LibTab.TRACKS -> TrackTable(visible, liked, showAdded = true)
+            LibTab.TRACKS -> TrackTable(visible, liked, showAdded = true, followPlaying = true)
             LibTab.ALBUMS -> {
                 val albums = remember(visible) { visible.filter { !it.album.isNullOrBlank() && it.isLocal }.groupBy { it.albumKey }.values.sortedBy { (it.first().albumArtist ?: it.first().artist).lowercase() } }
                 LazyVerticalGrid(GridCells.Adaptive(168.dp), horizontalArrangement = Arrangement.spacedBy(20.dp), verticalArrangement = Arrangement.spacedBy(22.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
@@ -219,7 +219,7 @@ fun Tile(cover: @Composable () -> Unit, title: String, subtitle: String, modifie
 /** A sortable table of tracks: click a column header to sort by it, again to reverse. */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-fun TrackTable(tracks: List<Track>, liked: Set<String>, numbered: Boolean = false, showAdded: Boolean = false, header: (@Composable () -> Unit)? = null, onRemove: ((Int) -> Unit)? = null, onMove: ((List<String>) -> Unit)? = null) {
+fun TrackTable(tracks: List<Track>, liked: Set<String>, numbered: Boolean = false, showAdded: Boolean = false, header: (@Composable () -> Unit)? = null, onRemove: ((Int) -> Unit)? = null, onMove: ((List<String>) -> Unit)? = null, followPlaying: Boolean = false) {
     val graph = LocalGraph.current
     val nav = LocalNav.current
     val pal = LocalPal.current
@@ -309,6 +309,24 @@ fun TrackTable(tracks: List<Track>, liked: Set<String>, numbered: Boolean = fals
         }
         if (onRemove != null) PIconButton(Icons.Rounded.Close, t("Убрать из плейлиста", "Remove from playlist"), { onRemove(i) }, iconSize = 16.dp, tint = pal.faint)
         if (handle != null) Icon(Icons.Rounded.DragHandle, t("Перетащить", "Drag to move"), handle.padding(horizontal = 6.dp).size(18.dp), tint = pal.faint)
+    }
+    // The library goes to a song when it starts, so what plays is always one glance away — not when
+    // the page is opened (it keeps its place) and not while it's being scrolled.
+    if (followPlaying) {
+        val nowId = st.current?.id
+        var seenId by remember { mutableStateOf(nowId) }
+        androidx.compose.runtime.LaunchedEffect(nowId) {
+            if (nowId == null || nowId == seenId) return@LaunchedEffect
+            seenId = nowId
+            val i = sorted.indexOfFirst { it.id == nowId }
+            if (i < 0 || listState.isScrollInProgress) return@LaunchedEffect
+            val info = listState.layoutInfo
+            val row = info.visibleItemsInfo.firstOrNull { it.key == nowId }
+            // The sticky column titles cover the top row, so «visible» starts below them.
+            if (row != null && row.offset >= info.viewportStartOffset + 48 && row.offset + row.size <= info.viewportEndOffset) return@LaunchedEffect
+            val before = (if (header != null) 1 else 0) + 3
+            listState.animateScrollToItem((before + i - 2).coerceAtLeast(0))
+        }
     }
     LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = if (chosen.size > 1) 72.dp else 24.dp)) {
         header?.let { h -> item { h() } }

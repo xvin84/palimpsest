@@ -162,8 +162,6 @@ fun NowPlayingScreen(onClose: () -> Unit) {
     val dragOffset = remember { androidx.compose.animation.core.Animatable(0f) }
     val dragScope = rememberCoroutineScope()
     var heightPx by remember { mutableFloatStateOf(1f) }
-    var artistMenu by remember { mutableStateOf(false) }
-    val artists by remember(np.trackId) { graph.db.artists().observeForTrack(np.trackId ?: -1) }.collectAsStateWithLifecycle(emptyList())
     val station by graph.radio.station.collectAsStateWithLifecycle()
     val artModel: Any? = np.artworkUri ?: np.artworkData
 
@@ -299,21 +297,7 @@ fun NowPlayingScreen(onClose: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(np.title, style = MaterialTheme.typography.headlineSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Box {
-                        Text(
-                            listOfNotNull(np.artist.ifBlank { null }, np.album).joinToString(" · "),
-                            style = MaterialTheme.typography.bodyMedium, color = Ink.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.clickable(enabled = artists.isNotEmpty()) {
-                                if (artists.size == 1) nav.openArtist(artists[0].name, artists[0].remoteId) else artistMenu = true
-                            },
-                        )
-                        // Several artists: let the user pick whose page to open.
-                        DropdownMenu(artistMenu, onDismissRequest = { artistMenu = false }) {
-                            artists.forEach { a ->
-                                DropdownMenuItem(text = { Text(a.name) }, onClick = { artistMenu = false; nav.openArtist(a.name, a.remoteId) })
-                            }
-                        }
-                    }
+                    Credits(np, track, MaterialTheme.typography.bodyMedium, Ink.Muted)
                 }
                 track?.let { t ->
                     dev.xvin.palimpsest.ui.components.HeartButton(t.liked, {

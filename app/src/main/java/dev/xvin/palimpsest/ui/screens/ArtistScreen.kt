@@ -49,7 +49,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dev.xvin.palimpsest.core.model.AlbumWithTracks
 import dev.xvin.palimpsest.core.model.ArtistInfo
 import dev.xvin.palimpsest.core.model.RemoteTrack
 import dev.xvin.palimpsest.core.model.Service
@@ -66,7 +65,7 @@ import dev.xvin.palimpsest.R
 import dev.xvin.palimpsest.i18n.tr
 import dev.xvin.palimpsest.i18n.plural
 
-private sealed interface Loaded<out T> {
+internal sealed interface Loaded<out T> {
     data object Loading : Loaded<Nothing>
     data class Ok<T>(val value: T) : Loaded<T>
     data class Failed(val error: Throwable?) : Loaded<Nothing>
@@ -270,27 +269,6 @@ private fun compact(n: Int) = when {
     else -> n.toString()
 }
 
-/** An album straight from Yandex: play, shuffle or download it whole. */
-@Composable
-fun RemoteAlbumScreen(albumId: String, service: Service = Service.YANDEX) {
-    val graph = LocalGraph.current
-    val nav = LocalNav.current
-    val actions = rememberRemoteActions()
-    val data by produceState<Loaded<AlbumWithTracks>>(Loaded.Loading, albumId) {
-        value = runCatching { graph.remote.album(albumId, service) }.fold({ Loaded.Ok(it) }, { Loaded.Failed(it) })
-    }
-    RemoteListLayout(
-        title = (data as? Loaded.Ok)?.value?.album?.title ?: "",
-        subtitle = (data as? Loaded.Ok)?.value?.album?.let { a -> listOfNotNull(a.artists.joinToString(", "), a.year?.toString()).joinToString(" · ") },
-        cover = (data as? Loaded.Ok)?.value?.album?.coverUrl,
-        state = data,
-        tracks = (data as? Loaded.Ok)?.value?.tracks.orEmpty(),
-        numbered = true,
-        actions = actions,
-        onArtist = { if (service == Service.YANDEX) nav.openArtist(it, null) },
-    )
-}
-
 /** A service playlist (Yandex or YouTube Music): play, shuffle or download it whole. */
 @Composable
 fun RemotePlaylistScreen(service: Service, id: String, title: String) {
@@ -358,11 +336,10 @@ private fun RemoteListLayout(
                         }
                     }
                 }
-                Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button(onClick = { actions.play(tracks, 0) }, enabled = tracks.isNotEmpty()) { Icon(Icons.Rounded.PlayArrow, null); Spacer(Modifier.width(6.dp)); Text(tr(R.string.listen)) }
-                    OutlinedButton(onClick = { actions.play(tracks.shuffled(), 0) }, enabled = tracks.isNotEmpty()) { Icon(Icons.Rounded.Shuffle, null) }
-                    OutlinedButton(onClick = { actions.enqueue(tracks, false) }, enabled = tracks.isNotEmpty()) { Icon(Icons.AutoMirrored.Rounded.QueueMusic, tr(R.string.action_enqueue)) }
-                    OutlinedButton(onClick = { actions.download(tracks) }, enabled = tracks.isNotEmpty()) { Icon(Icons.Rounded.Download, null); Spacer(Modifier.width(6.dp)); Text(tr(R.string.download)) }
+                dev.xvin.palimpsest.ui.components.ListActions(onPlay = { actions.play(tracks, 0) }, enabled = tracks.isNotEmpty()) {
+                    dev.xvin.palimpsest.ui.components.ListKey(Icons.Rounded.Shuffle, tr(R.string.shuffle), enabled = tracks.isNotEmpty()) { actions.play(tracks.shuffled(), 0) }
+                    dev.xvin.palimpsest.ui.components.ListKey(Icons.AutoMirrored.Rounded.QueueMusic, tr(R.string.action_enqueue), enabled = tracks.isNotEmpty()) { actions.enqueue(tracks, false) }
+                    dev.xvin.palimpsest.ui.components.ListKey(Icons.Rounded.Download, tr(R.string.download_all), enabled = tracks.isNotEmpty()) { actions.download(tracks) }
                 }
             }
         }

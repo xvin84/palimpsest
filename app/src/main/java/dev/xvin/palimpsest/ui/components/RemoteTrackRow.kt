@@ -34,19 +34,23 @@ fun RemoteTrackRow(
     onMore: () -> Unit,
     modifier: Modifier = Modifier,
     index: Int? = null,
+    playing: Boolean = false,
 ) {
     Row(
         modifier.fillMaxWidth().combinedClickable(onClick = onPlay, onLongClick = onMore).padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (index != null) {
-            Text("$index", style = MaterialTheme.typography.labelMedium, color = Ink.Faint, modifier = Modifier.width(28.dp))
+            androidx.compose.foundation.layout.Box(Modifier.width(28.dp)) {
+                if (playing) PlayingBars(Modifier.size(14.dp))
+                else Text("$index", style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"), color = Ink.Faint)
+            }
         } else {
             Artwork(r.coverUrl, r.album ?: r.title, Modifier.size(48.dp), corner = 6.dp)
             Spacer(Modifier.width(14.dp))
         }
         Column(Modifier.weight(1f)) {
-            Text(r.title, maxLines = 1, overflow = TextOverflow.Ellipsis, color = if (r.available) Ink.Text else Ink.Faint)
+            Text(r.title, maxLines = 1, overflow = TextOverflow.Ellipsis, color = if (playing) dev.xvin.palimpsest.ui.theme.LocalAccent.current else if (r.available) Ink.Text else Ink.Faint)
             Text(
                 listOfNotNull(r.artistLine.ifBlank { null }, r.album.takeIf { index == null }).joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall, color = Ink.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis,

@@ -17,6 +17,7 @@ import androidx.compose.foundation.background
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -169,11 +170,16 @@ fun readable(c: Color, light: Boolean): Color {
 }
 
 @Composable
-fun PalimpsestDesktopTheme(style: DesktopStyle, theme: DesktopTheme, accent: Color, tint: Color, content: @Composable () -> Unit) {
+fun PalimpsestDesktopTheme(style: DesktopStyle, theme: DesktopTheme, accent: Color, tint: Color, mood: Color? = null, content: @Composable () -> Unit) {
     val animTint by animateColorAsState(tint, tween(700))
     val light = theme == DesktopTheme.LIGHT
     // «Обложка» wants the cover's colour itself, vivid, not Lane's dark-safe version of it.
-    val vivid by animateColorAsState(lerp(readable(accent, light), tint, 0.25f), tween(700))
+    // A grey cover stays grey: making a grey «vivid» used to give vermilion or a stray skin tone.
+    val coverColour = when {
+        mood != null && dev.xvin.palimpsest.core.covers.CoverTone.isNeutral(mood.toArgb()) -> mood
+        else -> lerp(readable(mood ?: accent, light), tint, 0.25f)
+    }
+    val vivid by animateColorAsState(coverColour, tween(700))
     val pal = when (style) {
         DesktopStyle.LANE -> lane(theme, animTint)
         DesktopStyle.COVER -> cover(theme, vivid)

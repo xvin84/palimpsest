@@ -18,6 +18,7 @@
     <string name="action_yandex_album">Album on Yandex</string>
     <string name="add">Add</string>
     <string name="added_to_playlist">Added to “%1$s”</string>
+    <string name="album_you_have">you have %1$d of %2$d</string>
     <string name="album_cover_all">Cover for all tracks</string>
     <string name="album_edit">Edit album</string>
     <string name="album_edit_hint">Applies to %1$s of %2$s tracks (the rest aren\'t downloaded or their format has no tags).</string>

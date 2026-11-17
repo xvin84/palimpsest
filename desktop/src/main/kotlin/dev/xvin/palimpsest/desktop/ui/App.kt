@@ -153,6 +153,8 @@ sealed interface Screen {
     data class Artist(val name: String, val remoteId: String? = null, val service: Service = Service.YANDEX) : Screen
     data class RemoteAlbum(val id: String, val service: Service) : Screen
     data class LocalAlbum(val album: String, val artist: String) : Screen
+    /** Both at once (a track's menu): your songs by name and the service's tracklist by id. */
+    data class Album(val album: String?, val artist: String?, val remoteId: String?, val service: Service) : Screen
     data class Folder(val folder: String) : Screen
     data class Playlist(val id: Long) : Screen
     data class RemotePlaylist(val service: Service, val id: String, val title: String) : Screen
@@ -315,13 +317,13 @@ private fun ApplicationScope.App(showRequests: kotlinx.coroutines.channels.Recei
         val player by graph.player.state.collectAsState()
         val current = player.current
         // Accent and tint from the current cover.
-        val colors by produceState(Vermilion to Color(0xFF2A2A30), current?.id, settings.dynamicColor) {
-            value = if (!settings.dynamicColor || current == null) Vermilion to Color(0xFF2A2A30)
-            else withContext(Dispatchers.IO) { CoverColors.of(graph, current) } ?: (Vermilion to Color(0xFF2A2A30))
+        val colors by produceState<CoverPalette?>(null, current?.id, settings.dynamicColor) {
+            value = if (!settings.dynamicColor || current == null) null
+            else withContext(Dispatchers.IO) { CoverColors.of(graph, current) }
         }
         // While «Ностальгия» plays, the window takes the colour of those years (Holo blue for 2012…).
         val era = remember(player.radio) { graph.player.nostalgiaYears()?.let(dev.xvin.palimpsest.core.radio.Era::of)?.let { Color(it.accent) } }
-        PalimpsestDesktopTheme(settings.style, settings.theme, era ?: colors.first, era ?: colors.second) {
+        PalimpsestDesktopTheme(settings.style, settings.theme, era ?: colors?.accent ?: Vermilion, era ?: colors?.tint ?: Color(0xFF2A2A30), if (era != null) null else colors?.mood) {
             CompositionLocalProvider(LocalGraph provides graph, LocalNav provides nav, LocalTray provides tray) {
                 LaunchedEffect(Unit) {
                     graph.library.scan()
@@ -443,8 +445,9 @@ private fun ScreenContent(s: Screen) {
         Screen.Liked -> LikedScreen()
         Screen.Flac -> FlacScreen()
         is Screen.Artist -> ArtistScreen(s)
-        is Screen.RemoteAlbum -> RemoteAlbumScreen(s)
-        is Screen.LocalAlbum -> LocalListScreen(s.album, s.artist, t("Альбом", "Album")) { it.album == s.album && (it.albumArtist ?: it.artist) == s.artist }
+        is Screen.RemoteAlbum -> AlbumScreen(null, null, s.id, s.service)
+        is Screen.LocalAlbum -> AlbumScreen(s.album, s.artist, null, Service.YANDEX)
+        is Screen.Album -> AlbumScreen(s.album, s.artist, s.remoteId, s.service)
         is Screen.Folder -> LocalListScreen(s.folder.substringAfterLast('/'), s.folder, t("Папка", "Folder")) { it.folder == s.folder }
         is Screen.Playlist -> PlaylistScreen(s.id)
         is Screen.RemotePlaylist -> RemotePlaylistScreen(s)

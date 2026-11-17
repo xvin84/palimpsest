@@ -128,7 +128,11 @@ fun TrackActionsSheet(initial: TrackEntity, onDismiss: () -> Unit) {
             if (t.path != null) Action(Icons.Rounded.DriveFileMove, tr(R.string.action_move_file)) { moveDialog = true }
             if (t.path != null) Action(Icons.Rounded.Delete, tr(R.string.action_delete_file)) { confirmDelete = true }
             Action(Icons.Rounded.History, tr(R.string.action_versions)) { act { nav.openTrack(t.id, 2) } }
-            t.album?.let { album -> Action(Icons.Rounded.Album, tr(R.string.action_album, album)) { act { nav.openList(TrackListKind.ALBUM, album, t.albumArtist ?: t.artist) } } }
+            // One album page: your songs from it and the service's tracklist together.
+            val albumId = t.remoteAlbumId?.takeIf { t.remoteId != null }
+            if (t.album != null || albumId != null) Action(Icons.Rounded.Album, t.album?.let { tr(R.string.action_album, it) } ?: tr(R.string.action_yandex_album)) {
+                act { nav.openAlbum(t.album, t.albumArtist ?: t.artist, albumId, t.service) }
+            }
             artists.forEach { a -> Action(Icons.Rounded.Person, a.name) { act { nav.openArtist(a.name, a.remoteId) } } }
             if (t.service == Service.YANDEX && t.remoteId != null && graph.yandex.isReady) {
                 Action(Icons.Rounded.Radio, tr(R.string.action_track_radio)) {
@@ -139,7 +143,6 @@ fun TrackActionsSheet(initial: TrackEntity, onDismiss: () -> Unit) {
                     }
                 }
                 Action(Icons.Rounded.AutoAwesome, tr(R.string.action_similar)) { act { nav.openSimilar(t.remoteId, t.title) } }
-                t.remoteAlbumId?.let { id -> Action(Icons.Rounded.Album, tr(R.string.action_yandex_album)) { act { nav.openRemoteAlbum(id) } } }
             }
         }
     }

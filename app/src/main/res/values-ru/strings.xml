@@ -17,6 +17,7 @@
     <string name="action_yandex_album">Альбом в Яндексе</string>
     <string name="add">Добавить</string>
     <string name="added_to_playlist">Добавлено в «%1$s»</string>
+    <string name="album_you_have">у тебя %1$d из %2$d</string>
     <string name="album_cover_all">Обложка для всех треков</string>
     <string name="album_edit">Изменить альбом</string>
     <string name="album_edit_hint">Изменится у %1$s из %2$s треков (у остальных формат не поддерживает теги или они не скачаны).</string>

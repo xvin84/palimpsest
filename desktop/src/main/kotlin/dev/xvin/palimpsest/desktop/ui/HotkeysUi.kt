@@ -156,7 +156,7 @@ fun runHotAction(a: HotAction, graph: Graph, nav: Nav, window: WindowControls): 
         HotAction.GO_ARTIST -> return onCurrent { t -> t.artists.firstOrNull()?.let { nav.go(Screen.Artist(it)) } }
         HotAction.GO_ALBUM -> return onCurrent { t ->
             val album = t.album ?: return@onCurrent
-            if (t.path != null) nav.go(Screen.LocalAlbum(album, t.albumArtist ?: t.artist)) else t.remoteAlbumId?.let { nav.go(Screen.RemoteAlbum(it, t.service)) }
+            nav.go(Screen.Album(album, t.albumArtist ?: t.artist, t.remoteAlbumId?.takeIf { t.remoteId != null }, t.service))
         }
         HotAction.BIG_PLAYER -> { if (current != null) nav.nowPlaying = !nav.nowPlaying }
         HotAction.LYRICS -> if (nav.nowPlaying) nav.bigLyrics = !nav.bigLyrics else nav.rightPanel = if (nav.rightPanel == "lyrics") null else "lyrics"

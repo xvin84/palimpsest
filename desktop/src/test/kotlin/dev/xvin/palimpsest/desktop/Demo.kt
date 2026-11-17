@@ -67,7 +67,7 @@ fun main(args: Array<String>) {
     val startMs = System.getenv("DEMO_POS")?.toLongOrNull() ?: 20_000L
     engine.value = AudioEngine.State(playing = true, positionMs = startMs)
     val current = graph.player.state.value.current
-    val colors = runBlocking { current?.let { CoverColors.of(graph, it) } } ?: (Vermilion to Color(0xFF2A2A30))
+    val colors = runBlocking { current?.let { CoverColors.of(graph, it) } } ?: dev.xvin.palimpsest.desktop.ui.CoverPalette(Vermilion, Color(0xFF2A2A30), Vermilion)
 
     val nav = Nav()
     var cursor by mutableStateOf(Offset(640f, 400f))
@@ -79,7 +79,7 @@ fun main(args: Array<String>) {
                 .build()
         }
         val settings by graph.settings.state.collectAsState()
-        PalimpsestDesktopTheme(settings.style, settings.theme, colors.first, colors.second) {
+        PalimpsestDesktopTheme(settings.style, settings.theme, colors.accent, colors.tint, colors.mood) {
             CompositionLocalProvider(LocalGraph provides graph, LocalNav provides nav) { Shell() }
         }
         // The pointer, drawn: a plain arrow with a dark edge, readable on any background.

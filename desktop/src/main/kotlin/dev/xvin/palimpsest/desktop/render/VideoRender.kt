@@ -123,7 +123,7 @@ class VideoRenders(private val graph: Graph) {
             }
         }
         val coverImage = cover?.let { runCatching { Image.makeFromEncoded(it) }.getOrNull() }
-        val accent = runCatching { dev.xvin.palimpsest.desktop.ui.CoverColors.of(graph, t)?.first?.let { c -> argb(255, (c.red * 255).toInt(), (c.green * 255).toInt(), (c.blue * 255).toInt()) } }.getOrNull()
+        val accent = runCatching { dev.xvin.palimpsest.desktop.ui.CoverColors.of(graph, t)?.accent?.let { c -> argb(255, (c.red * 255).toInt(), (c.green * 255).toInt(), (c.blue * 255).toInt()) } }.getOrNull()
             ?: 0xFFE4572E.toInt()
         val lyrics = if (mode == RenderMode.LYRICS) syncedLyrics(t) else null
         val durationMs = timeline.size * 1000L / fps

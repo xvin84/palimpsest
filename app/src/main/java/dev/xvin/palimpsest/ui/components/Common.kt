@@ -3,6 +3,7 @@ package dev.xvin.palimpsest.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.sp
@@ -392,5 +393,29 @@ fun HeartButton(liked: Boolean, onToggle: () -> Unit, modifier: Modifier = Modif
                 tint = if (liked) likedTint else idleTint,
             )
         }
+    }
+}
+
+/**
+ * The buttons under a list's header: a wide «Слушать» and square icon keys after it. The labelled
+ * «Вперемешку» and «Скачать» used to push the rest off the edge (a squeezed queue icon, a pill
+ * standing on end with letters stacked in it), so only the first one has words.
+ */
+@Composable
+fun ListActions(onPlay: () -> Unit, enabled: Boolean, modifier: Modifier = Modifier, keys: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit) {
+    Row(modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+        androidx.compose.material3.Button(onClick = onPlay, enabled = enabled, modifier = Modifier.weight(1f), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 8.dp)) {
+            Icon(Icons.Rounded.PlayArrow, null); Spacer(Modifier.width(6.dp))
+            Text(tr(R.string.listen), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        keys()
+    }
+}
+
+/** One icon key of [ListActions]. */
+@Composable
+fun ListKey(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, enabled: Boolean = true, onClick: () -> Unit) {
+    androidx.compose.material3.OutlinedButton(onClick = onClick, enabled = enabled, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 8.dp)) {
+        Icon(icon, label)
     }
 }
