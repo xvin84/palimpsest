@@ -1,5 +1,8 @@
 package dev.xvin.palimpsest.render
 
+import dev.xvin.palimpsest.core.render.VideoFrame
+import dev.xvin.palimpsest.core.render.VideoLook
+import dev.xvin.palimpsest.core.render.VideoSpec
 import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
@@ -66,8 +69,38 @@ class VideoRenderer(private val context: Context, private val graph: AppGraph) {
     suspend fun syncedLyrics(track: TrackEntity): ParsedLyrics? =
         graph.lyrics.syncedForVideo(track)?.synced?.let(Lrc::parse)?.takeIf { it.isSynced && it.lines.isNotEmpty() }
 
+    /** What every frame of a track's video shares, read once: the cover, its colours, the file's facts. */
+    class Look(val cover: Bitmap?, val accent: Int, val mood: Int, val facts: List<Pair<String, Boolean>>)
+
+    suspend fun look(track: TrackEntity): Look = withContext(Dispatchers.IO) {
+        val cover = track.path?.let(::File)?.takeIf { it.isFile }?.let { f -> runCatching { TagIO.coverBytes(f) }.getOrNull() }
+            ?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
+        val accent = cover?.let { Palette.from(it).generate().let { p -> (p.vibrantSwatch ?: p.lightVibrantSwatch ?: p.dominantSwatch)?.rgb } }
+            ?.let(::vividAccent) ?: 0xFFE4572E.toInt()
+        val mood = cover?.let { c ->
+            val small = Bitmap.createScaledBitmap(c, 48, 48, true)
+            IntArray(48 * 48).also { small.getPixels(it, 0, 48, 0, 0, 48, 48) }.let(dev.xvin.palimpsest.core.covers.CoverTone::of)
+        } ?: dev.xvin.palimpsest.core.covers.CoverTone.NEUTRAL
+        val lossless = track.codec?.lowercase()?.let { c -> listOf("flac", "alac", "wav", "aiff", "ape", "wv").any { c.contains(it) } } == true
+        val facts = listOfNotNull(
+            track.codec?.uppercase()?.let { it to lossless },
+            listOfNotNull(track.bitsPerSample?.takeIf { it > 0 }?.toString(), track.sampleRate?.let { "%.1f".format(it / 1000f).removeSuffix(".0") }).joinToString("/").ifEmpty { null }?.let { it to false },
+            track.bitrateKbps?.let { "$it kbps" to false },
+            track.replayGainTrackDb?.let { "RG %+.1f dB".format(it) to false },
+        )
+        Look(cover, accent, mood, facts)
+    }
+
+    fun spec(track: TrackEntity, look: Look, style: VideoLook, aspect: RenderAspect, lyrics: ParsedLyrics?, durationMs: Long, envelope: FloatArray?) = VideoSpec(
+        style, aspect == RenderAspect.VERTICAL, track.title, track.artist, track.album, track.year, lyrics, durationMs, look.accent, look.mood, look.facts, envelope,
+    )
+
+    /** A still of the video for the dialog, at a third of the full size, with a made-up spectrum. */
+    fun preview(spec: VideoSpec, look: Look, aspect: RenderAspect): Bitmap =
+        FrameRenderer(VideoFrame(spec), look.cover, videoFonts(context), RenderQuality.PREVIEW, aspect, null).still(VideoFrame.previewTime(spec))
+
     /** Renders and saves to Movies/Palimpsest; returns the saved video's content URI. */
-    suspend fun render(track: TrackEntity, mode: RenderMode, aspect: RenderAspect, quality: RenderQuality, onProgress: (Float) -> Unit): Uri {
+    suspend fun render(track: TrackEntity, mode: RenderMode, aspect: RenderAspect, quality: RenderQuality, style: VideoLook, onProgress: (Float) -> Unit): Uri {
         val file = track.path?.let(::File)?.takeIf { it.isFile } ?: throw IOException(context.getString(R.string.render_needs_file))
         val s = graph.settings.state.filterNotNull().first()
 
@@ -80,22 +113,14 @@ class VideoRenderer(private val context: Context, private val graph: AppGraph) {
         }
         val gainDb = if (rg == null) 0.0 else (rg + s.replayGainPreampDb).toDouble()
 
-        val cover = withContext(Dispatchers.IO) { runCatching { TagIO.coverBytes(file) }.getOrNull()?.let { BitmapFactory.decodeByteArray(it, 0, it.size) } }
-        val accent = cover?.let { Palette.from(it).generate().let { p -> (p.vibrantSwatch ?: p.lightVibrantSwatch ?: p.dominantSwatch)?.rgb } }
-            ?.let(::vividAccent) ?: 0xFFE4572E.toInt()
+        val look = look(track)
         // No timed lyrics anywhere: the cover version rather than a failed render.
         val lyrics = if (mode == RenderMode.LYRICS) syncedLyrics(track) else null
 
         val fps = quality.fps
         val timeline = SpectrumTimeline.analyze(file, fps, 48, profile, s.eqEnabled, gainDb) { onProgress(it * 0.2f) }
-        val spec = FrameSpec(
-            aspect, if (lyrics == null) RenderMode.COVER else mode, s.visualizer.takeIf { it != dev.xvin.palimpsest.data.settings.VisualizerMode.OFF } ?: dev.xvin.palimpsest.data.settings.VisualizerMode.BARS,
-            accent, cover, track.title, track.artist, lyrics, timeline, timeline.durationUs / 1000,
-            ResourcesCompat.getFont(context, R.font.literata) ?: android.graphics.Typeface.SERIF,
-            android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL),
-            quality,
-        )
-        val renderer = FrameRenderer(spec)
+        val spec = spec(track, look, style, aspect, lyrics, timeline.durationUs / 1000, timeline.envelope())
+        val renderer = FrameRenderer(VideoFrame(spec), look.cover, videoFonts(context), quality, aspect, timeline)
 
         val work = File(context.cacheDir, "render").apply { deleteRecursively(); mkdirs() }
         val backgroundPng = File(work, "background.png").also { f -> f.outputStream().use { renderer.background.compress(Bitmap.CompressFormat.PNG, 100, it) } }

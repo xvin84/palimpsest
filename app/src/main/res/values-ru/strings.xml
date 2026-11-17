@@ -634,6 +634,12 @@
     <string name="update_allow_install">Разреши установку приложений из Palimpsest и нажми кнопку ещё раз</string>
     <string name="render_action">Видео из трека</string>
     <string name="render_hint">Трек целиком, звук прямо из файла через твой эквалайзер — без микрофона и шумов. Визуализация как в плеере. Видео сохранится в Movies/Palimpsest.</string>
+    <string name="render_look">Вид</string>
+    <string name="render_look_notebook_hint">Лист в линейку, обложка вклеена фотографией, спектр — штрихами пера</string>
+    <string name="render_look_cover_hint">Весь кадр в цвете обложки, обложка дышит с басом, крупные заголовки</string>
+    <string name="render_look_console_hint">Приборная панель: индикаторы, LED-спектр, формат файла и волна трека</string>
+    <string name="render_whats_in">Что в кадре</string>
+    <string name="render_format">Формат</string>
     <string name="render_mode_cover">Обложка</string>
     <string name="render_mode_lyrics">Текст</string>
     <string name="render_no_lyrics_hint">Синхронного текста нет ни в файле, ни в сети (LRCLIB, NetEase, Яндекс) — в видео будет обложка</string>

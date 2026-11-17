@@ -121,6 +121,8 @@ data class AppSettings(
     val renderMode: String?,
     val renderAspect: String?,
     val renderQuality: String?,
+    /** «Тетрадь», «Обложка» or «Пульт» for the video; null — the app's style. */
+    val renderLook: String? = null,
     val autoDownloadLikes: Boolean,
     /** Downloads wait for Wi-Fi (or any unmetered network) instead of using mobile data. */
     val wifiOnlyDownloads: Boolean = false,
@@ -195,6 +197,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
         val renderMode = stringPreferencesKey("render_mode")
         val renderAspect = stringPreferencesKey("render_aspect")
         val renderQuality = stringPreferencesKey("render_quality")
+        val renderLook = stringPreferencesKey("render_look")
         val autoDownloadLikes = booleanPreferencesKey("auto_download_likes")
         val wifiOnlyDownloads = booleanPreferencesKey("wifi_only_downloads")
         val continueSimilar = booleanPreferencesKey("continue_similar")
@@ -256,6 +259,7 @@ class Settings(private val context: Context, scope: CoroutineScope) {
             renderMode = p[K.renderMode],
             renderAspect = p[K.renderAspect],
             renderQuality = p[K.renderQuality],
+            renderLook = p[K.renderLook],
             lyricsTranslation = p[K.lyricsTranslation]?.let { runCatching { LyricsTranslation.valueOf(it) }.getOrNull() } ?: LyricsTranslation.OFF,
             autoDownloadLikes = p[K.autoDownloadLikes] ?: true,
             wifiOnlyDownloads = p[K.wifiOnlyDownloads] ?: false,
@@ -307,8 +311,8 @@ class Settings(private val context: Context, scope: CoroutineScope) {
     suspend fun setAutoSync(on: Boolean) = edit { it[K.autoSync] = on }
     suspend fun setCheckUpdates(on: Boolean) = edit { it[K.checkUpdates] = on }
     suspend fun setLyricsTranslation(m: LyricsTranslation) = edit { it[K.lyricsTranslation] = m.name }
-    suspend fun setRenderChoice(mode: String, aspect: String, quality: String) = edit {
-        it[K.renderMode] = mode; it[K.renderAspect] = aspect; it[K.renderQuality] = quality
+    suspend fun setRenderChoice(mode: String, aspect: String, quality: String, look: String) = edit {
+        it[K.renderMode] = mode; it[K.renderAspect] = aspect; it[K.renderQuality] = quality; it[K.renderLook] = look
     }
     suspend fun setAutoDownloadLikes(on: Boolean) = edit { it[K.autoDownloadLikes] = on }
     suspend fun setWifiOnlyDownloads(on: Boolean) = edit { it[K.wifiOnlyDownloads] = on }

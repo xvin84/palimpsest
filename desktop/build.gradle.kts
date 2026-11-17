@@ -39,6 +39,14 @@ tasks.register<JavaExec>("shots") {
     )
 }
 
+// Every «video from the track» look as a PNG (see src/test/.../VideoLooks.kt): -Pout=… -Pcover=….
+tasks.register<JavaExec>("videoLooks") {
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass = "dev.xvin.palimpsest.desktop.VideoLooksKt"
+    jvmArgs("-Dfile.encoding=UTF-8")
+    args(providers.gradleProperty("out").getOrElse(layout.buildDirectory.dir("video-looks").get().asFile.path), providers.gradleProperty("cover").getOrElse(""))
+}
+
 // A recorded tour of the app without a window (see src/test/.../Demo.kt); needs ffmpeg.
 tasks.register<JavaExec>("demo") {
     classpath = sourceSets["test"].runtimeClasspath

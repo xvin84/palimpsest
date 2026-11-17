@@ -14,7 +14,13 @@ import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
 import android.text.TextUtils
-import dev.xvin.palimpsest.core.lyrics.ParsedLyrics
+import android.graphics.BlurMaskFilter
+import android.graphics.RadialGradient
+import dev.xvin.palimpsest.core.render.Align
+import dev.xvin.palimpsest.core.render.Face
+import dev.xvin.palimpsest.core.render.Font
+import dev.xvin.palimpsest.core.render.Pen
+import dev.xvin.palimpsest.core.render.VideoFrame
 import dev.xvin.palimpsest.data.settings.VisualizerMode
 import kotlin.math.PI
 import kotlin.math.cos
@@ -23,8 +29,6 @@ import kotlin.math.sin
 
 enum class RenderMode { COVER, LYRICS }
 
-/** How long a line change (scroll + highlight) takes in lyrics videos. */
-private const val TRANSITION_MS = 650f
 enum class RenderAspect(val width: Int, val height: Int) { VERTICAL(1080, 1920), HORIZONTAL(1920, 1080) }
 
 /**
@@ -34,332 +38,143 @@ enum class RenderAspect(val width: Int, val height: Int) { VERTICAL(1080, 1920),
 enum class RenderQuality(val scale: Float, val fps: Int, val videoBitrate: Int, val audioBitrate: Int, val labelRes: Int) {
     STANDARD(1f, 30, 6_000_000, 256_000, dev.xvin.palimpsest.R.string.render_quality_standard),
     HIGH(1f, 60, 8_000_000, 320_000, dev.xvin.palimpsest.R.string.render_quality_high),
-    MAX(4f / 3, 60, 12_000_000, 320_000, dev.xvin.palimpsest.R.string.render_quality_max);
+    MAX(4f / 3, 60, 12_000_000, 320_000, dev.xvin.palimpsest.R.string.render_quality_max),
+    /** Only for the dialog's still, never offered. */
+    PREVIEW(0.5f, 30, 0, 0, dev.xvin.palimpsest.R.string.render_quality_standard);
 
     fun width(a: RenderAspect) = (a.width * scale).toInt() and 1.inv()
     fun height(a: RenderAspect) = (a.height * scale).toInt() and 1.inv()
 }
 
-/** Everything a frame needs; times in milliseconds. */
-class FrameSpec(
-    val aspect: RenderAspect,
-    val mode: RenderMode,
-    val visualizer: VisualizerMode,
-    val accent: Int,
-    val cover: Bitmap?,
-    val title: String,
-    val artist: String,
-    val lyrics: ParsedLyrics?,
-    val spectrum: SpectrumTimeline,
-    val durationMs: Long,
-    val serif: Typeface,
-    val sans: Typeface,
-    val quality: RenderQuality = RenderQuality.STANDARD,
-)
-
 /**
- * Draws one video frame at a given time onto a Canvas, in the app's look: the blurred cover as
- * the backdrop, the cover itself, the visualiser and either the title or the synced lyrics.
+ * [Pen] on an Android canvas, for the video frames laid out in :core ([VideoFrame]). Text falls
+ * back to system fonts by itself for what ours lack (♪, CJK titles).
  */
-class FrameRenderer(private val s: FrameSpec) {
-    private val w = s.aspect.width.toFloat()
-    private val h = s.aspect.height.toFloat()
-    private val vertical = s.aspect == RenderAspect.VERTICAL
-    private val unit = min(w, h) / 1080f
-    private val scale = s.quality.scale
-
-    /** Static backdrop, drawn once: blurred, darkened cover tinted with the accent. */
-    val background: Bitmap = Bitmap.createBitmap(s.quality.width(s.aspect), s.quality.height(s.aspect), Bitmap.Config.ARGB_8888).also { bmp ->
-        val c = Canvas(bmp)
-        c.scale(scale, scale)
-        c.drawColor(Color.BLACK)
-        val cover = s.cover
-        if (cover != null) {
-            val side = maxOf(w, h)
-            c.drawBitmap(blurredCover(cover), null, RectF((w - side) / 2, (h - side) / 2, (w + side) / 2, (h + side) / 2), Paint(Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG))
-        }
-        c.drawColor(withAlpha(s.accent, 0.12f))
-        // Dark enough for white text on any cover, even a bright yellow one.
-        c.drawRect(0f, 0f, w, h, Paint().apply {
-            shader = LinearGradient(0f, 0f, 0f, h, Color.argb(150, 0, 0, 0), Color.argb(215, 0, 0, 0), Shader.TileMode.CLAMP)
-        })
-    }
-
+class AndroidPen(private val c: Canvas, private val cover: Bitmap?, private val fonts: (Face) -> Typeface) : Pen {
+    private val fill = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+    private val textPaints = HashMap<Font, TextPaint>()
+    private val coverShader = cover?.let { BitmapShader(it, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP) }
     private val coverPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-    private val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.BLACK; setShadowLayer(48 * unit, 0f, 18 * unit, Color.argb(150, 0, 0, 0)) }
-    private val barPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeCap = Paint.Cap.ROUND }
-    // Bold serif with a soft shadow, like good subtitles: readable on any part of any cover.
-    private val titlePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = s.serif; color = Color.WHITE; fontVariationSettings = "'wght' 760"; textShadow() }
-    private val artistPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.create(s.sans, 600, false); color = Color.argb(225, 255, 255, 255); textShadow() }
-    private val smallPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = s.sans; color = Color.argb(170, 255, 255, 255) }
-    private val lyricPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = s.serif; fontVariationSettings = "'wght' 720"; textShadow() }
-    private val coverShader = s.cover?.let { BitmapShader(it, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP) }
-    private val layouts = HashMap<Int, StaticLayout>()
+    private val blurred by lazy { cover?.let { blurredCover(it) } }
+    private val r = RectF()
 
-    private fun Paint.textShadow() = setShadowLayer(9 * unit, 0f, 3 * unit, Color.argb(170, 0, 0, 0))
-
-    fun draw(c: Canvas, tMs: Long) {
-        c.drawColor(Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR)
-        c.save()
-        c.scale(scale, scale)
-        val levels = s.spectrum.at(tMs * 1000)
-        when {
-            s.mode == RenderMode.LYRICS && vertical -> lyricsVertical(c, tMs, levels)
-            s.mode == RenderMode.LYRICS -> lyricsHorizontal(c, tMs, levels)
-            vertical -> coverVertical(c, tMs, levels)
-            else -> coverHorizontal(c, tMs, levels)
-        }
-        watermark(c)
-        c.restore()
-        // Fade in from black and out to black at the edges of the track.
-        val fade = minOf(tMs / 700f, (s.durationMs - tMs) / 900f, 1f).coerceAtLeast(0f)
-        if (fade < 1f) c.drawColor(Color.argb(((1 - fade) * 255).toInt(), 0, 0, 0))
+    override fun rect(l: Float, t: Float, r: Float, b: Float, color: Int, radius: Float) {
+        fill.color = color
+        if (radius > 0f) c.drawRoundRect(l, t, r, b, radius, radius, fill) else c.drawRect(l, t, r, b, fill)
     }
 
-    // ---- Cover mode ------------------------------------------------------------------------------
-
-    private fun coverVertical(c: Canvas, t: Long, levels: FloatArray) {
-        val ring = s.visualizer == VisualizerMode.RING
-        val size = if (ring) 640 * unit else 860 * unit
-        val cx = w / 2; val cy = if (ring) 760 * unit else 720 * unit
-        val rect = RectF(cx - size / 2, cy - size / 2, cx + size / 2, cy + size / 2)
-        if (ring) ring(c, cx, cy, size / 2 + 26 * unit, 150 * unit, levels)
-        cover(c, rect, if (ring) size / 2 else 40 * unit)
-        val textTop = if (ring) 1250 * unit else 1250 * unit
-        titleBlock(c, cx, textTop, w - 140 * unit, center = true)
-        val vizTop = 1460 * unit
-        if (!ring) spectrum(c, RectF(90 * unit, vizTop, w - 90 * unit, vizTop + 230 * unit), levels)
-        progress(c, RectF(90 * unit, h - 150 * unit, w - 90 * unit, h - 150 * unit), t)
+    override fun stroke(l: Float, t: Float, r: Float, b: Float, color: Int, width: Float, radius: Float) {
+        strokePaint.color = color; strokePaint.strokeWidth = width; strokePaint.strokeCap = Paint.Cap.BUTT
+        c.drawRoundRect(l, t, r, b, radius, radius, strokePaint)
     }
 
-    private fun coverHorizontal(c: Canvas, t: Long, levels: FloatArray) {
-        val ring = s.visualizer == VisualizerMode.RING
-        val size = if (ring) 600f else 780f
-        val cx = 140f + 780f / 2; val cy = h / 2
-        if (ring) ring(c, cx, cy, size / 2 + 24, 130f, levels)
-        cover(c, RectF(cx - size / 2, cy - size / 2, cx + size / 2, cy + size / 2), if (ring) size / 2 else 36f)
-        val left = 1040f; val right = w - 120f
-        titleBlock(c, left, 300f, right - left, center = false)
-        if (!ring) spectrum(c, RectF(left, 520f, right, 800f), levels)
-        progress(c, RectF(left, 900f, right, 900f), t)
+    override fun line(x0: Float, y0: Float, x1: Float, y1: Float, color: Int, width: Float) {
+        strokePaint.color = color; strokePaint.strokeWidth = width; strokePaint.strokeCap = Paint.Cap.ROUND
+        c.drawLine(x0, y0, x1, y1, strokePaint)
     }
 
-    // ---- Lyrics mode -----------------------------------------------------------------------------
+    override fun circle(cx: Float, cy: Float, r: Float, color: Int) { fill.color = color; c.drawCircle(cx, cy, r, fill) }
 
-    private fun lyricsVertical(c: Canvas, t: Long, levels: FloatArray) {
-        val coverSize = 200 * unit
-        cover(c, RectF(80 * unit, 150 * unit, 80 * unit + coverSize, 150 * unit + coverSize), 24 * unit)
-        titleBlock(c, 80 * unit + coverSize + 40 * unit, 175 * unit, w - coverSize - 200 * unit, center = false, small = true)
-        lyricsColumn(c, t, RectF(80 * unit, 470 * unit, w - 80 * unit, 1500 * unit), center = true)
-        spectrum(c, RectF(80 * unit, 1560 * unit, w - 80 * unit, 1720 * unit), levels)
-        progress(c, RectF(80 * unit, h - 140 * unit, w - 80 * unit, h - 140 * unit), t)
+    override fun verticalGradient(l: Float, t: Float, r: Float, b: Float, top: Int, bottom: Int) {
+        c.drawRect(l, t, r, b, Paint().apply { shader = LinearGradient(0f, t, 0f, b, top, bottom, Shader.TileMode.CLAMP) })
     }
 
-    private fun lyricsHorizontal(c: Canvas, t: Long, levels: FloatArray) {
-        val coverSize = 520f
-        cover(c, RectF(120f, 150f, 120f + coverSize, 150f + coverSize), 30f)
-        titleBlock(c, 120f, 730f, coverSize, center = false, small = true)
-        spectrum(c, RectF(120f, 880f, 120f + coverSize, 980f), levels)
-        lyricsColumn(c, t, RectF(760f, 90f, w - 110f, h - 150f), center = false)
-        progress(c, RectF(760f, h - 90f, w - 110f, h - 90f), t)
+    override fun glow(cx: Float, cy: Float, radius: Float, inner: Int, outer: Int) {
+        c.drawCircle(cx, cy, radius, Paint(Paint.ANTI_ALIAS_FLAG).apply { shader = RadialGradient(cx, cy, radius, inner, outer, Shader.TileMode.CLAMP) })
     }
 
-    /**
-     * The current line sits a little above the middle of [area], bigger and in full white; the
-     * neighbours fade with distance. Everything moves continuously: a line grows and lights up
-     * while the previous one shrinks and dims, and the column glides to the new line. Before the
-     * first line, it waits just below the centre as "what's coming".
-     */
-    private fun lyricsColumn(c: Canvas, t: Long, area: RectF, center: Boolean) {
-        val lyr = s.lyrics ?: return
-        val lines = lyr.lines
-        if (lines.isEmpty()) return
-        val idx = lyr.indexAt(t).coerceAtLeast(-1)
-        val width = area.width().toInt()
-        val big = (if (vertical) 66 else 60) * unit
-        val small = (if (vertical) 46 else 42) * unit
-        val gap = 30 * unit
-
-        // 0 → 1 over the first part of the current line; drives the scroll and the line highlight.
-        val since = if (idx >= 0) t - lines[idx].timeMs else 0L
-        val k = smooth((since / TRANSITION_MS).coerceIn(0f, 1f))
-        val focus = if (idx >= 0) idx - 1 + k else -1f // -1 before the first line, then glides idx-1 → idx
-
-        fun activation(i: Int): Float = when (i) {
-            idx -> k
-            idx - 1 -> 1 - k
-            else -> 0f
-        }
-
-        // Each line is laid out once at the big size and drawn scaled, so size changes are smooth.
-        val first = (idx - 7).coerceAtLeast(0)
-        val last = (idx + 9).coerceAtMost(lines.lastIndex)
-        val scales = FloatArray(last - first + 1) { j -> lerp(small / big, 1f, activation(first + j)) }
-        val heights = FloatArray(last - first + 1) { j -> layoutFor(first + j, lines[first + j].text, big, width, center).height * scales[j] + gap }
-        // y of each line's top relative to line `first`, and of the focus point.
-        val tops = FloatArray(heights.size)
-        for (j in 1 until heights.size) tops[j] = tops[j - 1] + heights[j - 1]
-        val focusY = when {
-            focus < first -> tops[0] - heights[0] * (first - focus) // before the first line: it sits lower
-            else -> {
-                val fi = focus.toInt().coerceIn(first, last)
-                tops[fi - first] + heights[fi - first] * (focus - fi)
-            }
-        }
-        val anchorY = area.top + area.height() * 0.40f
-
-        c.save()
-        c.clipRect(area)
-        for (i in first..last) {
-            val j = i - first
-            val y = anchorY + tops[j] - focusY
-            if (y > area.bottom || y + heights[j] < area.top) continue
-            val act = activation(i)
-            val dist = kotlin.math.abs(i - focus)
-            val base = (205 - dist * 38).coerceIn(50f, 170f)
-            val layout = layoutFor(i, lines[i].text, big, width, center)
-            // The sung line takes the track's colour, the rest stay white and fade with distance.
-            val color = blend(Color.argb(base.toInt(), 255, 255, 255), s.accent, act)
-            layout.paint.color = color
-            // The shadow fades with the line, so dim lines stay clean instead of looking smudged.
-            layout.paint.setShadowLayer(9 * unit, 0f, 3 * unit, Color.argb(Color.alpha(color) * 2 / 3, 0, 0, 0))
-            val sc = scales[j]
-            c.save()
-            // Scale around the line's horizontal anchor: its centre, or the left edge.
-            val px = if (center) area.left + width * (1 - sc) / 2 else area.left
-            c.translate(px, y)
-            c.scale(sc, sc)
-            layout.draw(c)
-            c.restore()
-        }
-        c.restore()
+    override fun shadow(l: Float, t: Float, r: Float, b: Float, radius: Float, blur: Float, color: Int) {
+        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color; maskFilter = BlurMaskFilter(blur / 2, BlurMaskFilter.Blur.NORMAL) }
+        c.drawRoundRect(l, t, r, b, radius, radius, p)
     }
 
-    private fun layoutFor(i: Int, text: String, size: Float, width: Int, center: Boolean): StaticLayout =
-        layouts.getOrPut(i) {
-            val shown = text.ifBlank { "♪" }
-            val p = TextPaint(lyricPaint).apply { textSize = size }
-            StaticLayout.Builder.obtain(shown, 0, shown.length, p, width)
-                .setAlignment(if (center) Layout.Alignment.ALIGN_CENTER else Layout.Alignment.ALIGN_NORMAL)
-                .setLineSpacing(0f, 1.05f)
-                .build()
-        }
-
-    // ---- Pieces ----------------------------------------------------------------------------------
-
-    private fun cover(c: Canvas, r: RectF, radius: Float) {
-        c.drawRoundRect(r, radius, radius, shadowPaint)
+    override fun cover(l: Float, t: Float, r: Float, b: Float, radius: Float, fallback: Int) {
         val shader = coverShader
-        val bmp = s.cover
-        if (shader == null || bmp == null) {
-            c.drawRoundRect(r, radius, radius, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = s.accent })
-            return
-        }
+        val bmp = cover
+        if (shader == null || bmp == null) return rect(l, t, r, b, fallback, radius)
         val m = Matrix()
-        val scale = maxOf(r.width() / bmp.width, r.height() / bmp.height)
-        m.setScale(scale, scale)
-        m.postTranslate(r.left + (r.width() - bmp.width * scale) / 2, r.top + (r.height() - bmp.height * scale) / 2)
+        val k = maxOf((r - l) / bmp.width, (b - t) / bmp.height)
+        m.setScale(k, k)
+        m.postTranslate(l + ((r - l) - bmp.width * k) / 2, t + ((b - t) - bmp.height * k) / 2)
         shader.setLocalMatrix(m)
         coverPaint.shader = shader
-        c.drawRoundRect(r, radius, radius, coverPaint)
+        c.drawRoundRect(l, t, r, b, radius, radius, coverPaint)
     }
 
-    private fun titleBlock(c: Canvas, x: Float, top: Float, width: Float, center: Boolean, small: Boolean = false) {
-        titlePaint.textSize = (if (small) 52 else 76) * unit
-        artistPaint.textSize = (if (small) 36 else 44) * unit
-        val title = TextUtils.ellipsize(s.title, titlePaint, width, TextUtils.TruncateAt.END).toString()
-        val artist = TextUtils.ellipsize(s.artist, artistPaint, width, TextUtils.TruncateAt.END).toString()
-        titlePaint.textAlign = if (center) Paint.Align.CENTER else Paint.Align.LEFT
-        artistPaint.textAlign = titlePaint.textAlign
-        val ty = top - titlePaint.ascent()
-        c.drawText(title, x, ty, titlePaint)
-        c.drawText(artist, x, ty + titlePaint.descent() + 14 * unit - artistPaint.ascent(), artistPaint)
+    override fun blurredCover(l: Float, t: Float, r: Float, b: Float, alpha: Float) {
+        val img = blurred ?: return
+        val side = maxOf(r - l, b - t)
+        val cx = (l + r) / 2; val cy = (t + b) / 2
+        this.r.set(cx - side / 2, cy - side / 2, cx + side / 2, cy + side / 2)
+        c.drawBitmap(img, null, this.r, Paint(Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG).apply { this.alpha = (alpha * 255).toInt() })
     }
 
-    private fun spectrum(c: Canvas, r: RectF, levels: FloatArray) {
-        when (s.visualizer) {
-            VisualizerMode.BARS, VisualizerMode.RING -> bars(c, r, levels)
-            VisualizerMode.MIRROR -> mirror(c, r, levels)
-            VisualizerMode.OFF -> Unit
-        }
+    private fun paint(f: Font) = textPaints.getOrPut(f) {
+        TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = fonts(f.face); textSize = f.size; fontVariationSettings = "'wght' ${f.weight}" }
     }
 
-    private fun bars(c: Canvas, r: RectF, levels: FloatArray) {
-        val n = levels.size
-        val step = r.width() / n
-        val gap = step * 0.28f
-        val bw = step - gap
-        barPaint.shader = LinearGradient(0f, r.top, 0f, r.bottom, s.accent, withAlpha(s.accent, 0.3f), Shader.TileMode.CLAMP)
-        for (i in 0 until n) {
-            val bh = (levels[i] * r.height()).coerceAtLeast(bw * 0.6f)
-            val x = r.left + i * step + gap / 2
-            c.drawRoundRect(x, r.bottom - bh, x + bw, r.bottom, bw / 2, bw / 2, barPaint)
-        }
+    override fun text(s: String, x: Float, y: Float, font: Font, color: Int, align: Align, shadow: Boolean) {
+        val p = paint(font)
+        p.color = color
+        p.textAlign = when (align) { Align.START -> Paint.Align.LEFT; Align.CENTER -> Paint.Align.CENTER; Align.END -> Paint.Align.RIGHT }
+        c.drawText(s, x, y, p)
     }
 
-    private fun mirror(c: Canvas, r: RectF, levels: FloatArray) {
-        val n = levels.size
-        val step = r.width() / n
-        val mid = r.centerY()
-        linePaint.strokeWidth = step * 0.55f
-        for (i in 0 until n) {
-            val hh = (levels[i] * r.height() / 2).coerceAtLeast(2f)
-            val x = r.left + i * step + step / 2
-            linePaint.color = withAlpha(s.accent, 0.35f + levels[i] * 0.65f)
-            c.drawLine(x, mid - hh, x, mid + hh, linePaint)
-        }
-    }
+    override fun width(s: String, font: Font) = paint(font).measureText(s)
+    override fun ascent(font: Font) = -paint(font).fontMetrics.ascent
+    override fun descent(font: Font) = paint(font).fontMetrics.descent
+    override fun save() { c.save() }
+    override fun restore() { c.restore() }
+    override fun clip(l: Float, t: Float, r: Float, b: Float) { c.clipRect(l, t, r, b) }
+    override fun translate(dx: Float, dy: Float) { c.translate(dx, dy) }
+    override fun scale(s: Float) { c.scale(s, s) }
+    override fun rotate(degrees: Float, px: Float, py: Float) { c.rotate(degrees, px, py) }
+}
 
-    private fun ring(c: Canvas, cx: Float, cy: Float, r0: Float, maxLen: Float, levels: FloatArray) {
-        val n = levels.size
-        linePaint.strokeWidth = 7 * unit
-        for (k in 0 until n * 2) {
-            val i = if (k < n) k else 2 * n - 1 - k
-            val a = (k.toFloat() / (n * 2)) * 2 * PI.toFloat() - PI.toFloat() / 2
-            val len = levels[i] * maxLen + 4 * unit
-            val dx = cos(a); val dy = sin(a)
-            linePaint.color = withAlpha(s.accent, 0.45f + levels[i] * 0.55f)
-            c.drawLine(cx + dx * r0, cy + dy * r0, cx + dx * (r0 + len), cy + dy * (r0 + len), linePaint)
-        }
-    }
-
-    private fun progress(c: Canvas, r: RectF, t: Long) {
-        val p = (t.toFloat() / s.durationMs).coerceIn(0f, 1f)
-        linePaint.strokeWidth = 6 * unit
-        linePaint.color = Color.argb(70, 255, 255, 255)
-        c.drawLine(r.left, r.top, r.right, r.top, linePaint)
-        linePaint.color = s.accent
-        c.drawLine(r.left, r.top, r.left + (r.width() * p).coerceAtLeast(1f), r.top, linePaint)
-        smallPaint.textSize = 30 * unit
-        smallPaint.textAlign = Paint.Align.LEFT
-        c.drawText(time(t), r.left, r.top + 50 * unit, smallPaint)
-        smallPaint.textAlign = Paint.Align.RIGHT
-        c.drawText(time(s.durationMs), r.right, r.top + 50 * unit, smallPaint)
-    }
-
-    private fun watermark(c: Canvas) {
-        smallPaint.textSize = 26 * unit
-        smallPaint.textAlign = Paint.Align.RIGHT
-        val old = smallPaint.typeface
-        smallPaint.typeface = s.serif
-        smallPaint.color = Color.argb(90, 255, 255, 255)
-        c.drawText("Palimpsest", w - 40 * unit, h - 36 * unit, smallPaint)
-        smallPaint.typeface = old
-        smallPaint.color = Color.argb(170, 255, 255, 255)
-    }
-
-    private fun time(ms: Long): String { val sec = ms / 1000; return "%d:%02d".format(sec / 60, sec % 60) }
-    /** Ease-in-out (smootherstep): starts and stops gently, no jolt at either end. */
-    private fun smooth(x: Float) = x * x * x * (x * (x * 6 - 15) + 10)
-    private fun lerp(a: Float, b: Float, t: Float) = a + (b - a) * t
-    private fun blend(from: Int, to: Int, t: Float) = Color.argb(
-        lerp(Color.alpha(from).toFloat(), Color.alpha(to).toFloat(), t).toInt(),
-        lerp(Color.red(from).toFloat(), Color.red(to).toFloat(), t).toInt(),
-        lerp(Color.green(from).toFloat(), Color.green(to).toFloat(), t).toInt(),
-        lerp(Color.blue(from).toFloat(), Color.blue(to).toFloat(), t).toInt(),
+/** The app's fonts for video frames. */
+fun videoFonts(context: android.content.Context): (Face) -> Typeface {
+    fun load(id: Int) = androidx.core.content.res.ResourcesCompat.getFont(context, id) ?: Typeface.DEFAULT
+    val map = mapOf(
+        Face.SERIF to load(dev.xvin.palimpsest.R.font.literata), Face.DISPLAY to load(dev.xvin.palimpsest.R.font.unbounded),
+        Face.SANS to load(dev.xvin.palimpsest.R.font.onest), Face.MONO to load(dev.xvin.palimpsest.R.font.jetbrains_mono),
     )
-    private fun withAlpha(color: Int, a: Float) = Color.argb((a.coerceIn(0f, 1f) * 255).toInt(), Color.red(color), Color.green(color), Color.blue(color))
+    return { map.getValue(it) }
+}
+
+/**
+ * Draws [VideoFrame]s at the output size: [background] once (a bitmap the video track is made
+ * of), [draw] for the moving part on a clear overlay above it.
+ */
+class FrameRenderer(private val frame: VideoFrame, private val cover: Bitmap?, private val fonts: (Face) -> Typeface, private val quality: RenderQuality, aspect: RenderAspect, private val spectrum: SpectrumTimeline?) {
+    private val w = quality.width(aspect)
+    private val h = quality.height(aspect)
+    private val k = w / frame.width
+
+    val background: Bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).also { bmp ->
+        val c = Canvas(bmp)
+        c.scale(k, k)
+        frame.background(AndroidPen(c, cover, fonts))
+    }
+
+    private var pen: AndroidPen? = null
+    private var penCanvas: Canvas? = null
+
+    fun draw(c: Canvas, tMs: Long, levels: FloatArray = spectrum?.at(tMs * 1000) ?: VideoFrame.previewLevels()) {
+        c.drawColor(Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR)
+        val p = if (penCanvas === c) pen!! else AndroidPen(c, cover, fonts).also { pen = it; penCanvas = c }
+        c.save()
+        c.scale(k, k)
+        frame.draw(p, tMs, levels)
+        c.restore()
+    }
+
+    /** A still for the dialog: the background with the frame at [tMs] over it. */
+    fun still(tMs: Long): Bitmap = background.copy(Bitmap.Config.ARGB_8888, true).also { bmp ->
+        val c = Canvas(bmp)
+        c.scale(k, k)
+        frame.draw(AndroidPen(c, cover, fonts), tMs, VideoFrame.previewLevels())
+    }
 }
 
 /**

@@ -1,5 +1,13 @@
 package dev.xvin.palimpsest.desktop.ui
 
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import dev.xvin.palimpsest.core.render.VideoFrame
+import dev.xvin.palimpsest.core.render.VideoLook
+import dev.xvin.palimpsest.desktop.render.RenderAspect
+import dev.xvin.palimpsest.desktop.render.RenderMode
+import dev.xvin.palimpsest.desktop.render.RenderQuality
+import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -601,7 +609,11 @@ private fun Version(name: String, info: String, actions: @Composable () -> Unit)
 
 // --- Video ------------------------------------------------------------------------------------------
 
-/** «Видео из трека»: cover or synced lyrics, 9:16 (Reels, Shorts) or 16:9 (YouTube), quality, visualiser. */
+/**
+ * «Видео из трека»: a live still of the video on the left, the choices on the right — the look
+ * («Тетрадь», «Обложка», «Пульт»; the app's current style first), cover or synced lyrics, 9:16
+ * (Reels, Shorts) or 16:9 (YouTube), quality, and where it's saved.
+ */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun VideoDialog(track: Track, onDismiss: () -> Unit) {
@@ -610,13 +622,28 @@ private fun VideoDialog(track: Track, onDismiss: () -> Unit) {
     val pal = LocalPal.current
     val saved = remember { graph.settings.value.renderChoice }
     fun <E : Enum<E>> pick(i: Int, all: Array<E>, default: E) = saved.getOrNull(i)?.let { n -> all.firstOrNull { it.name == n } } ?: default
-    var mode by remember { mutableStateOf(pick(0, dev.xvin.palimpsest.desktop.render.RenderMode.entries.toTypedArray(), dev.xvin.palimpsest.desktop.render.RenderMode.COVER)) }
-    var aspect by remember { mutableStateOf(pick(1, dev.xvin.palimpsest.desktop.render.RenderAspect.entries.toTypedArray(), dev.xvin.palimpsest.desktop.render.RenderAspect.VERTICAL)) }
-    var quality by remember { mutableStateOf(pick(2, dev.xvin.palimpsest.desktop.render.RenderQuality.entries.toTypedArray(), dev.xvin.palimpsest.desktop.render.RenderQuality.HIGH)) }
-    var viz by remember { mutableStateOf(pick(3, dev.xvin.palimpsest.desktop.render.RenderViz.entries.toTypedArray(), dev.xvin.palimpsest.desktop.render.RenderViz.BARS)) }
-    val hasLyrics by produceState<Boolean?>(null, track.id) { value = graph.videos.syncedLyrics(track) != null }
+    val styleLook = when (graph.settings.value.style) {
+        dev.xvin.palimpsest.desktop.data.DesktopStyle.PALIMPSEST -> VideoLook.NOTEBOOK
+        dev.xvin.palimpsest.desktop.data.DesktopStyle.CONSOLE -> VideoLook.CONSOLE
+        else -> VideoLook.COVER
+    }
+    var mode by remember { mutableStateOf(pick(0, RenderMode.entries.toTypedArray(), RenderMode.COVER)) }
+    var aspect by remember { mutableStateOf(pick(1, RenderAspect.entries.toTypedArray(), RenderAspect.VERTICAL)) }
+    var quality by remember { mutableStateOf(pick(2, RenderQuality.entries.toTypedArray(), RenderQuality.HIGH)) }
+    var look by remember { mutableStateOf(pick(3, VideoLook.entries.toTypedArray(), styleLook)) }
+    // null while searching; the Boolean says whether there are any.
+    val lyrics by produceState<Pair<Boolean, dev.xvin.palimpsest.core.lyrics.ParsedLyrics?>?>(null, track.id) { val l = graph.videos.syncedLyrics(track); value = (l != null) to l }
+    val hasLyrics = lyrics?.first
     val busy by graph.videos.job.collectAsState()
-    val effective = if (mode == dev.xvin.palimpsest.desktop.render.RenderMode.LYRICS && hasLyrics == false) dev.xvin.palimpsest.desktop.render.RenderMode.COVER else mode
+    val effective = if (mode == RenderMode.LYRICS && hasLyrics == false) RenderMode.COVER else mode
+    val parts by produceState<dev.xvin.palimpsest.desktop.render.VideoRenders.Look?>(null, track.id) { value = graph.videos.look(track) }
+    val preview by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, parts, look, aspect, effective, lyrics) {
+        val p = parts ?: return@produceState
+        value = withContext(Dispatchers.Default) {
+            val spec = graph.videos.spec(track, p, look, aspect, lyrics?.second?.takeIf { effective == RenderMode.LYRICS }, track.durationMs.takeIf { it > 0 } ?: 200_000, VideoFrame.previewEnvelope())
+            graph.videos.preview(spec, p, if (aspect == RenderAspect.VERTICAL) 540 else 960).toComposeImageBitmap()
+        }
+    }
 
     @Composable
     fun Group(title: String, content: @Composable () -> Unit) {
@@ -626,8 +653,8 @@ private fun VideoDialog(track: Track, onDismiss: () -> Unit) {
         androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { content() }
     }
     fun make() {
-        graph.settings.update { it.copy(renderChoice = listOf(mode.name, aspect.name, quality.name, viz.name)) }
-        graph.videos.start(track, effective, aspect, quality, viz) { r ->
+        graph.settings.update { it.copy(renderChoice = listOf(mode.name, aspect.name, quality.name, look.name)) }
+        graph.videos.start(track, effective, aspect, quality, look) { r ->
             r.onSuccess { f -> nav.toast(t("Видео готово: ${f.name}", "The video is ready: ${f.name}"), t("Показать", "Show")) { FileOps.showInFolder(f) } }
                 .onFailure { nav.toast(t("Видео не получилось: ", "The video failed: ") + (it.message ?: it.javaClass.simpleName)) }
         }
@@ -635,14 +662,60 @@ private fun VideoDialog(track: Track, onDismiss: () -> Unit) {
         onDismiss()
     }
     PDialog(
-        t("Видео из трека", "Video from the track"), onDismiss, width = 600.dp,
+        t("Видео из трека", "Video from the track"), onDismiss, width = 920.dp,
         subtitle = t("Трек целиком, звук прямо из файла через твой эквалайзер. Спектр — как в плеере.", "The whole track, the sound straight from the file through your equalizer. The spectrum moves as in the player."),
         buttons = {
             PButton(t("Отмена", "Cancel"), onDismiss, kind = Kind.GHOST)
             PButton(t("Сделать видео", "Make the video"), ::make, icon = Icons.Rounded.Movie, kind = Kind.PRIMARY, enabled = busy == null && hasLyrics != null)
         },
     ) {
-        Column {
+        Row(verticalAlignment = Alignment.Top) {
+            // The still: what the video will look like, redrawn as the choices change.
+            val vertical = aspect == RenderAspect.VERTICAL
+            Box(
+                Modifier.width(if (vertical) 270.dp else 420.dp).aspectRatio(if (vertical) 9f / 16 else 16f / 9).clip(RoundedCornerShape(Radius.md)).background(pal.paper3),
+                contentAlignment = Alignment.Center,
+            ) {
+                androidx.compose.animation.Crossfade(preview, animationSpec = androidx.compose.animation.core.tween(200)) { img ->
+                    if (img != null) androidx.compose.foundation.Image(img, null, Modifier.fillMaxSize()) else Spinner()
+                }
+            }
+            Spacer(Modifier.width(24.dp))
+            Column(Modifier.weight(1f)) {
+                Caption(t("Вид", "Look"))
+                Spacer(Modifier.height(8.dp))
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Pill(t("Тетрадь", "Notebook"), look == VideoLook.NOTEBOOK, { look = VideoLook.NOTEBOOK })
+                    Pill(t("Обложка", "Cover"), look == VideoLook.COVER, { look = VideoLook.COVER })
+                    Pill(t("Пульт", "Console"), look == VideoLook.CONSOLE, { look = VideoLook.CONSOLE })
+                }
+                Text(
+                    when (look) {
+                        VideoLook.NOTEBOOK -> t("Лист в линейку, обложка вклеена фотографией, спектр — штрихами пера", "A ruled page, the cover pasted in as a photo, the spectrum in pen strokes")
+                        VideoLook.COVER -> t("Весь кадр в цвете обложки, обложка дышит с басом, крупные заголовки", "The whole frame in the cover's colour, the cover breathing with the bass, big headlines")
+                        VideoLook.CONSOLE -> t("Приборная панель: индикаторы, LED-спектр, формат файла и волна трека", "An instrument panel: meters, an LED spectrum, the file's format and the track's waveform")
+                    },
+                    style = MaterialTheme.typography.bodySmall, color = pal.muted, modifier = Modifier.padding(top = 8.dp),
+                )
+                Group(t("Что в кадре", "What's in it")) {
+                    Pill(t("Обложка", "Cover"), effective == RenderMode.COVER, { mode = RenderMode.COVER })
+                    if (hasLyrics == true) Pill(t("Текст", "Lyrics"), effective == RenderMode.LYRICS, { mode = RenderMode.LYRICS })
+                }
+                when (hasLyrics) {
+                    null -> Text(t("Ищу синхронный текст…", "Looking for synced lyrics…"), color = pal.faint, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 6.dp))
+                    false -> Text(t("Синхронного текста нет — в видео будет обложка", "No synced lyrics — the video shows the cover"), color = pal.faint, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 6.dp))
+                    else -> Unit
+                }
+                Group(t("Формат", "Format")) {
+                    Pill(t("Вертикальное 9:16", "Vertical 9:16"), aspect == RenderAspect.VERTICAL, { aspect = RenderAspect.VERTICAL })
+                    Pill(t("Горизонтальное 16:9", "Horizontal 16:9"), aspect == RenderAspect.HORIZONTAL, { aspect = RenderAspect.HORIZONTAL })
+                }
+                Group(t("Качество", "Quality")) {
+                    Pill(t("Обычное · 1080p · 30 к/с", "Standard · 1080p · 30 fps"), quality == RenderQuality.STANDARD, { quality = RenderQuality.STANDARD })
+                    Pill(t("Высокое · 1080p · 60 к/с", "High · 1080p · 60 fps"), quality == RenderQuality.HIGH, { quality = RenderQuality.HIGH })
+                    Pill(t("Максимум · 1440p · 60 к/с", "Max · 1440p · 60 fps"), quality == RenderQuality.MAX, { quality = RenderQuality.MAX })
+                }
+                Spacer(Modifier.height(16.dp))
                 // Where it will be saved, in plain sight, with a way to change it.
                 val settings by graph.settings.state.collectAsState()
                 Row(
@@ -658,30 +731,8 @@ private fun VideoDialog(track: Track, onDismiss: () -> Unit) {
                     PButton(t("Изменить…", "Change…"), { pickVideoFolder(graph) }, kind = Kind.GHOST)
                     PIconButton(Icons.Rounded.FolderOpen, t("Открыть папку", "Open the folder"), { graph.videos.folder.apply { mkdirs() }.let(FileOps::showInFolder) }, iconSize = 18.dp)
                 }
-                Group(t("Что в кадре", "What's in it")) {
-                    Pill(t("Обложка", "Cover"), effective == dev.xvin.palimpsest.desktop.render.RenderMode.COVER, { mode = dev.xvin.palimpsest.desktop.render.RenderMode.COVER })
-                    if (hasLyrics == true) Pill(t("Текст", "Lyrics"), effective == dev.xvin.palimpsest.desktop.render.RenderMode.LYRICS, { mode = dev.xvin.palimpsest.desktop.render.RenderMode.LYRICS })
-                }
-                when (hasLyrics) {
-                    null -> Text(t("Ищу синхронный текст…", "Looking for synced lyrics…"), color = pal.faint, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 6.dp))
-                    false -> Text(t("Синхронного текста нет — в видео будет обложка", "No synced lyrics — the video shows the cover"), color = pal.faint, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 6.dp))
-                    else -> Unit
-                }
-                Group(t("Формат", "Format")) {
-                    Pill(t("Вертикальное 9:16", "Vertical 9:16"), aspect == dev.xvin.palimpsest.desktop.render.RenderAspect.VERTICAL, { aspect = dev.xvin.palimpsest.desktop.render.RenderAspect.VERTICAL })
-                    Pill(t("Горизонтальное 16:9", "Horizontal 16:9"), aspect == dev.xvin.palimpsest.desktop.render.RenderAspect.HORIZONTAL, { aspect = dev.xvin.palimpsest.desktop.render.RenderAspect.HORIZONTAL })
-                }
-                Group(t("Качество", "Quality")) {
-                    Pill(t("Обычное · 1080p · 30 к/с", "Standard · 1080p · 30 fps"), quality == dev.xvin.palimpsest.desktop.render.RenderQuality.STANDARD, { quality = dev.xvin.palimpsest.desktop.render.RenderQuality.STANDARD })
-                    Pill(t("Высокое · 1080p · 60 к/с", "High · 1080p · 60 fps"), quality == dev.xvin.palimpsest.desktop.render.RenderQuality.HIGH, { quality = dev.xvin.palimpsest.desktop.render.RenderQuality.HIGH })
-                    Pill(t("Максимум · 1440p · 60 к/с", "Max · 1440p · 60 fps"), quality == dev.xvin.palimpsest.desktop.render.RenderQuality.MAX, { quality = dev.xvin.palimpsest.desktop.render.RenderQuality.MAX })
-                }
-                Group(t("Спектр", "Spectrum")) {
-                    Pill(t("Полосы", "Bars"), viz == dev.xvin.palimpsest.desktop.render.RenderViz.BARS, { viz = dev.xvin.palimpsest.desktop.render.RenderViz.BARS })
-                    Pill(t("Зеркало", "Mirror"), viz == dev.xvin.palimpsest.desktop.render.RenderViz.MIRROR, { viz = dev.xvin.palimpsest.desktop.render.RenderViz.MIRROR })
-                    Pill(t("Кольцо вокруг обложки", "Ring around the cover"), viz == dev.xvin.palimpsest.desktop.render.RenderViz.RING, { viz = dev.xvin.palimpsest.desktop.render.RenderViz.RING })
-                }
                 if (busy != null) Text(t("Сейчас уже делается видео «${busy!!.title}» — дождись его.", "A video of «${busy!!.title}» is being made — wait for it."), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 12.dp))
+            }
         }
     }
 }

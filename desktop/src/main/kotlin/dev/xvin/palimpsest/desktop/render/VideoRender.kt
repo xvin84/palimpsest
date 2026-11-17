@@ -19,6 +19,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import dev.xvin.palimpsest.core.render.VideoFrame
+import dev.xvin.palimpsest.core.render.VideoLook
+import dev.xvin.palimpsest.core.render.VideoSpec
+import androidx.compose.ui.graphics.toArgb
 import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.Canvas
 import org.jetbrains.skia.ColorAlphaType
@@ -58,7 +62,6 @@ import kotlin.math.sin
 
 enum class RenderMode { COVER, LYRICS }
 enum class RenderAspect(val width: Int, val height: Int) { VERTICAL(1080, 1920), HORIZONTAL(1920, 1080) }
-enum class RenderViz { BARS, MIRROR, RING }
 
 /** Frames are laid out on a 1080-based canvas and scaled, so [scale] only changes the pixel count. */
 enum class RenderQuality(val scale: Float, val fps: Int, val videoKbps: Int, val audioKbps: Int) {
@@ -89,10 +92,48 @@ class VideoRenders(private val graph: Graph) {
     suspend fun syncedLyrics(t: Track): ParsedLyrics? =
         runCatching { graph.lyrics.best(t) }.getOrNull()?.synced?.let(Lrc::parse)?.takeIf { it.isSynced && it.lines.isNotEmpty() }
 
-    fun start(t: Track, mode: RenderMode, aspect: RenderAspect, quality: RenderQuality, viz: RenderViz, onDone: (Result<File>) -> Unit) {
+    /** What every frame of a track's video shares, read once: the cover (and its blur), colours, the file's facts. */
+    class Look(val cover: Image?, val blurred: Image?, val accent: Int, val mood: Int, val facts: List<Pair<String, Boolean>>)
+
+    suspend fun look(t: Track): Look = withContext(Dispatchers.IO) {
+        val bytes = when (val m = graph.covers.model(t)) {
+            is File -> m.readBytes()
+            is String -> if (m.startsWith("http")) graph.covers.bytes(m) else File(m).takeIf(File::isFile)?.readBytes()
+            else -> null
+        }
+        val cover = bytes?.let { runCatching { Image.makeFromEncoded(it) }.getOrNull() }
+        val colors = runCatching { dev.xvin.palimpsest.desktop.ui.CoverColors.of(graph, t) }.getOrNull()
+        fun argb(c: androidx.compose.ui.graphics.Color) = c.toArgb()
+        val accent = colors?.accent?.let { argb(dev.xvin.palimpsest.desktop.ui.readable(it, light = false)) } ?: 0xFFE4572E.toInt()
+        val lossless = t.codec?.lowercase()?.let { c -> listOf("flac", "alac", "wav", "aiff", "ape", "wv").any { c.contains(it) } } == true
+        val facts = listOfNotNull(
+            t.codec?.uppercase()?.let { it to lossless },
+            t.bitrateKbps?.let { "$it kbps" to false },
+            t.rgTrackDb?.let { "RG %+.1f dB".format(it) to false },
+        )
+        Look(cover, SkiaPen.blur(cover), accent, colors?.mood?.let(::argb) ?: dev.xvin.palimpsest.core.covers.CoverTone.NEUTRAL, facts)
+    }
+
+    fun spec(t: Track, look: Look, style: VideoLook, aspect: RenderAspect, lyrics: ParsedLyrics?, durationMs: Long, envelope: FloatArray?) = VideoSpec(
+        style, aspect == RenderAspect.VERTICAL, t.title, t.artist, t.album, t.year, lyrics, durationMs, look.accent, look.mood, look.facts, envelope,
+    )
+
+    /** A still of the video for the dialog, [width] pixels wide, with a made-up spectrum. */
+    fun preview(spec: VideoSpec, look: Look, width: Int): Image {
+        val frame = VideoFrame(spec)
+        val k = width / frame.width
+        val surface = org.jetbrains.skia.Surface.makeRasterN32Premul(width, (frame.height * k).toInt())
+        surface.canvas.scale(k, k)
+        val pen = SkiaPen(surface.canvas, look.cover) { look.blurred }
+        frame.background(pen)
+        frame.draw(pen, VideoFrame.previewTime(spec), VideoFrame.previewLevels())
+        return surface.makeImageSnapshot()
+    }
+
+    fun start(t: Track, mode: RenderMode, aspect: RenderAspect, quality: RenderQuality, style: VideoLook, onDone: (Result<File>) -> Unit) {
         if (running?.isActive == true) return
         running = graph.scope.launch(Dispatchers.Default) {
-            val r = runCatching { render(t, mode, aspect, quality, viz) }
+            val r = runCatching { render(t, mode, aspect, quality, style) }
             _job.value = null
             if (r.exceptionOrNull() !is CancellationException) withContext(Dispatchers.Main) { onDone(r) }
         }
@@ -100,7 +141,7 @@ class VideoRenders(private val graph: Graph) {
 
     fun cancel() { running?.cancel() }
 
-    private suspend fun render(t: Track, mode: RenderMode, aspect: RenderAspect, quality: RenderQuality, viz: RenderViz): File {
+    private suspend fun render(t: Track, mode: RenderMode, aspect: RenderAspect, quality: RenderQuality, style: VideoLook): File {
         fun stage(p: Float, s: String) { _job.value = RenderJob(t.title, p, s) }
         stage(0f, "audio")
         val source = graph.player.audioFileOf(t) { stage(it * 0.05f, "audio") }
@@ -115,19 +156,10 @@ class VideoRenders(private val graph: Graph) {
         val pcm = File(tmp, "audio.f32")
         val fps = quality.fps
         val timeline = analyze(source, pcm, eq, fps) { stage(0.05f + it * 0.15f, "audio") }
-        val cover = withContext(Dispatchers.IO) {
-            when (val m = graph.covers.model(t)) {
-                is File -> m.readBytes()
-                is String -> if (m.startsWith("http")) graph.covers.bytes(m) else File(m).takeIf(File::isFile)?.readBytes()
-                else -> null
-            }
-        }
-        val coverImage = cover?.let { runCatching { Image.makeFromEncoded(it) }.getOrNull() }
-        val accent = runCatching { dev.xvin.palimpsest.desktop.ui.CoverColors.of(graph, t)?.accent?.let { c -> argb(255, (c.red * 255).toInt(), (c.green * 255).toInt(), (c.blue * 255).toInt()) } }.getOrNull()
-            ?: 0xFFE4572E.toInt()
+        val look = look(t)
         val lyrics = if (mode == RenderMode.LYRICS) syncedLyrics(t) else null
         val durationMs = timeline.size * 1000L / fps
-        val frame = FrameDrawer(aspect, if (lyrics != null) mode else RenderMode.COVER, viz, accent, coverImage, t.title, t.artist, lyrics, timeline, durationMs, quality.scale)
+        val frame = VideoFrame(spec(t, look, style, aspect, lyrics, durationMs, envelope(timeline)))
 
         folder.mkdirs()
         val name = "${t.artist} - ${t.title}".replace(Regex("""[\\/:*?"<>|]"""), "_").take(120)
@@ -147,11 +179,22 @@ class VideoRenders(private val graph: Graph) {
         val info = ImageInfo(w, h, ColorType.RGBA_8888, ColorAlphaType.PREMUL)
         val bmp = Bitmap().apply { allocPixels(info) }
         val canvas = Canvas(bmp)
+        // The still part once, then each frame is that plus what moves.
+        val background = org.jetbrains.skia.Surface.makeRasterN32Premul(w, h).let { sf ->
+            sf.canvas.scale(quality.scale, quality.scale)
+            frame.background(SkiaPen(sf.canvas, look.cover) { look.blurred })
+            sf.makeImageSnapshot()
+        }
+        val pen = SkiaPen(canvas, look.cover) { look.blurred }
         try {
             proc.outputStream.buffered(1 shl 20).use { video ->
                 for (i in 0 until timeline.size) {
                     currentCoroutineContext().ensureActive()
-                    frame.draw(canvas, i * 1000L / fps)
+                    canvas.drawImage(background, 0f, 0f)
+                    canvas.save()
+                    canvas.scale(quality.scale, quality.scale)
+                    frame.draw(pen, i * 1000L / fps, timeline[i])
+                    canvas.restore()
                     video.write(bmp.readPixels(info, w * 4, 0, 0) ?: throw IOException("frame $i"))
                     if (i % 15 == 0) stage(0.2f + 0.8f * i / timeline.size, "video")
                 }
@@ -237,6 +280,17 @@ class VideoRenders(private val graph: Graph) {
         out
     }
 
+    /** «Пульт»'s waveform: the track's loudness in 140 steps, from the spectrum already sampled per frame. */
+    private fun envelope(timeline: List<FloatArray>, n: Int = 140): FloatArray {
+        val raw = FloatArray(n) { i ->
+            val from = i * timeline.size / n
+            val to = maxOf(from + 1, (i + 1) * timeline.size / n)
+            (from until minOf(to, timeline.size)).map { timeline[it].average().toFloat() }.average().toFloat().takeIf { !it.isNaN() } ?: 0f
+        }
+        val peak = raw.maxOrNull()?.takeIf { it > 0f } ?: 1f
+        return FloatArray(n) { (raw[it] / peak).coerceIn(0.04f, 1f) }
+    }
+
     /** The length ffmpeg reports, for the progress bar only. */
     private fun probeDurationMs(f: File): Long = runCatching {
         val text = ProcessBuilder(AudioEngine.ffmpeg, "-hide_banner", "-i", f.absolutePath).redirectErrorStream(true).start().inputStream.bufferedReader().readText()
@@ -253,294 +307,3 @@ class VideoRenders(private val graph: Graph) {
     }
 }
 
-private fun argb(a: Int, r: Int, g: Int, b: Int) = (a shl 24) or (r shl 16) or (g shl 8) or b
-private fun alpha(c: Int) = (c ushr 24) and 0xFF
-/** A two-colour linear gradient (Skia's gradient API takes Color4f now). */
-private fun linear(x0: Float, y0: Float, x1: Float, y1: Float, from: Int, to: Int): Shader = Shader.makeLinearGradient(
-    x0, y0, x1, y1,
-    org.jetbrains.skia.Gradient(
-        org.jetbrains.skia.Gradient.Colors(arrayOf(org.jetbrains.skia.Color4f(from), org.jetbrains.skia.Color4f(to)), floatArrayOf(0f, 1f), FilterTileMode.CLAMP, org.jetbrains.skia.ColorSpace.sRGB),
-        org.jetbrains.skia.Gradient.Interpolation(),
-    ),
-)
-private fun withAlpha(c: Int, a: Float) = ((a.coerceIn(0f, 1f) * 255).toInt() shl 24) or (c and 0xFFFFFF)
-
-/** One frame at a time, in the phone's layout (the same numbers, on a 1080-based canvas). */
-private class FrameDrawer(
-    val aspect: RenderAspect, val mode: RenderMode, val viz: RenderViz, val accent: Int, val cover: Image?,
-    val title: String, val artist: String, val lyrics: ParsedLyrics?, val spectrum: List<FloatArray>, val durationMs: Long, val scale: Float,
-) {
-    private val w = aspect.width.toFloat()
-    private val h = aspect.height.toFloat()
-    private val vertical = aspect == RenderAspect.VERTICAL
-    private val unit = min(w, h) / 1080f
-
-    private val serif: Typeface = font("font/literata.ttf").let { runCatching { it.makeClone(FontVariation("wght", 760f)) }.getOrDefault(it) }
-    private val sans: Typeface = font("font/manrope.ttf")
-    private val sansBold: Typeface = runCatching { sans.makeClone(FontVariation("wght", 650f)) }.getOrDefault(sans)
-    private val fonts = FontCollection().apply {
-        setDefaultFontManager(FontMgr.default)
-        setAssetFontManager(TypefaceFontProvider().apply { registerTypeface(serif, "PalSerif") })
-    }
-
-    /** The backdrop, drawn once: the blurred cover, darkened and tinted with the accent. */
-    private val background: Image = run {
-        val info = ImageInfo(w.toInt(), h.toInt(), ColorType.RGBA_8888, ColorAlphaType.PREMUL)
-        val bmp = Bitmap().apply { allocPixels(info) }
-        val c = Canvas(bmp)
-        c.clear(0xFF000000.toInt())
-        if (cover != null) {
-            val side = maxOf(w, h) * 1.15f
-            c.drawImageRect(cover, Rect.makeWH(cover.width.toFloat(), cover.height.toFloat()).square(), Rect.makeXYWH((w - side) / 2, (h - side) / 2, side, side),
-                SamplingMode.LINEAR, Paint().apply { imageFilter = ImageFilter.makeBlur(60f * unit, 60f * unit, FilterTileMode.CLAMP) }, true)
-        }
-        c.drawRect(Rect.makeWH(w, h), Paint().apply { color = withAlpha(accent, 0.12f) })
-        c.drawRect(Rect.makeWH(w, h), Paint().apply { shader = linear(0f, 0f, 0f, h, argb(150, 0, 0, 0), argb(215, 0, 0, 0)) })
-        Image.makeFromBitmap(bmp.apply { setImmutable() })
-    }
-
-    fun draw(c: Canvas, t: Long) {
-        c.clear(0xFF000000.toInt())
-        c.save()
-        c.scale(scale, scale)
-        c.drawImage(background, 0f, 0f)
-        val levels = spectrum.getOrNull((t * spectrumFps() / 1000).toInt()) ?: FloatArray(48)
-        when {
-            mode == RenderMode.LYRICS && vertical -> lyricsVertical(c, t, levels)
-            mode == RenderMode.LYRICS -> lyricsHorizontal(c, t, levels)
-            vertical -> coverVertical(c, t, levels)
-            else -> coverHorizontal(c, t, levels)
-        }
-        watermark(c)
-        c.restore()
-        // Fade in from black and out to black at the edges of the track.
-        val fade = minOf(t / 700f, (durationMs - t) / 900f, 1f).coerceAtLeast(0f)
-        if (fade < 1f) c.drawRect(Rect.makeWH(w * scale, h * scale), Paint().apply { color = argb(((1 - fade) * 255).toInt(), 0, 0, 0) })
-    }
-
-    private fun spectrumFps() = (spectrum.size * 1000L / durationMs.coerceAtLeast(1)).coerceAtLeast(1)
-
-    // ---- Cover mode ------------------------------------------------------------------------------
-
-    private fun coverVertical(c: Canvas, t: Long, levels: FloatArray) {
-        val ring = viz == RenderViz.RING
-        val size = if (ring) 640 * unit else 860 * unit
-        val cx = w / 2
-        val cy = if (ring) 760 * unit else 720 * unit
-        if (ring) ring(c, cx, cy, size / 2 + 26 * unit, 150 * unit, levels)
-        cover(c, Rect.makeLTRB(cx - size / 2, cy - size / 2, cx + size / 2, cy + size / 2), if (ring) size / 2 else 40 * unit)
-        titleBlock(c, cx, 1250 * unit, w - 140 * unit, center = true)
-        if (!ring) spectrum(c, Rect.makeLTRB(90 * unit, 1460 * unit, w - 90 * unit, 1690 * unit), levels)
-        progress(c, 90 * unit, w - 90 * unit, h - 150 * unit, t)
-    }
-
-    private fun coverHorizontal(c: Canvas, t: Long, levels: FloatArray) {
-        val ring = viz == RenderViz.RING
-        val size = if (ring) 600f else 780f
-        val cx = 140f + 780f / 2
-        val cy = h / 2
-        if (ring) ring(c, cx, cy, size / 2 + 24, 130f, levels)
-        cover(c, Rect.makeLTRB(cx - size / 2, cy - size / 2, cx + size / 2, cy + size / 2), if (ring) size / 2 else 36f)
-        val left = 1040f
-        val right = w - 120f
-        titleBlock(c, left, 300f, right - left, center = false)
-        if (!ring) spectrum(c, Rect.makeLTRB(left, 520f, right, 800f), levels)
-        progress(c, left, right, 900f, t)
-    }
-
-    // ---- Lyrics mode -----------------------------------------------------------------------------
-
-    private fun lyricsVertical(c: Canvas, t: Long, levels: FloatArray) {
-        val coverSize = 200 * unit
-        cover(c, Rect.makeXYWH(80 * unit, 150 * unit, coverSize, coverSize), 24 * unit)
-        titleBlock(c, 80 * unit + coverSize + 40 * unit, 175 * unit, w - coverSize - 200 * unit, center = false, small = true)
-        lyricsColumn(c, t, Rect.makeLTRB(80 * unit, 470 * unit, w - 80 * unit, 1500 * unit), center = true)
-        spectrum(c, Rect.makeLTRB(80 * unit, 1560 * unit, w - 80 * unit, 1720 * unit), levels)
-        progress(c, 80 * unit, w - 80 * unit, h - 140 * unit, t)
-    }
-
-    private fun lyricsHorizontal(c: Canvas, t: Long, levels: FloatArray) {
-        val coverSize = 520f
-        cover(c, Rect.makeXYWH(120f, 150f, coverSize, coverSize), 30f)
-        titleBlock(c, 120f, 730f, coverSize, center = false, small = true)
-        spectrum(c, Rect.makeLTRB(120f, 880f, 120f + coverSize, 980f), levels)
-        lyricsColumn(c, t, Rect.makeLTRB(760f, 90f, w - 110f, h - 150f), center = false)
-        progress(c, 760f, w - 110f, h - 90f, t)
-    }
-
-    /**
-     * As on the phone: the current line sits a little above the middle, bigger and in the track's
-     * colour; the neighbours fade with distance, and everything moves continuously between lines.
-     */
-    private fun lyricsColumn(c: Canvas, t: Long, area: Rect, center: Boolean) {
-        val lyr = lyrics ?: return
-        val lines = lyr.lines
-        if (lines.isEmpty()) return
-        val idx = lyr.indexAt(t).coerceAtLeast(-1)
-        val width = area.width
-        val big = (if (vertical) 66 else 60) * unit
-        val small = (if (vertical) 46 else 42) * unit
-        val gap = 30 * unit
-        val since = if (idx >= 0) t - lines[idx].timeMs else 0L
-        val k = smooth((since / TRANSITION_MS).coerceIn(0f, 1f))
-        val focus = if (idx >= 0) idx - 1 + k else -1f
-        fun activation(i: Int) = when (i) { idx -> k; idx - 1 -> 1 - k; else -> 0f }
-        val first = (idx - 7).coerceAtLeast(0)
-        val last = (idx + 9).coerceAtMost(lines.lastIndex)
-        val scales = FloatArray(last - first + 1) { j -> lerp(small / big, 1f, activation(first + j)) }
-        val heights = FloatArray(last - first + 1) { j -> paragraph(lines[first + j].text, big, width, center, -1).height * scales[j] + gap }
-        val tops = FloatArray(heights.size)
-        for (j in 1 until heights.size) tops[j] = tops[j - 1] + heights[j - 1]
-        val focusY = if (focus < first) tops[0] - heights[0] * (first - focus) else {
-            val fi = focus.toInt().coerceIn(first, last)
-            tops[fi - first] + heights[fi - first] * (focus - fi)
-        }
-        val anchorY = area.top + area.height * 0.40f
-        c.save()
-        c.clipRect(area)
-        for (i in first..last) {
-            val j = i - first
-            val y = anchorY + tops[j] - focusY
-            if (y > area.bottom || y + heights[j] < area.top) continue
-            val dist = abs(i - focus)
-            val base = (205 - dist * 38).coerceIn(50f, 170f)
-            val color = blend(argb(base.toInt(), 255, 255, 255), accent, activation(i))
-            val p = paragraph(lines[i].text, big, width, center, color)
-            val sc = scales[j]
-            c.save()
-            val px = if (center) area.left + width * (1 - sc) / 2 else area.left
-            c.translate(px, y)
-            c.scale(sc, sc)
-            p.paint(c, 0f, 0f)
-            c.restore()
-        }
-        c.restore()
-    }
-
-    private val measured = HashMap<String, org.jetbrains.skia.paragraph.Paragraph>()
-
-    /** A wrapped lyric line; [color] -1 means «only to measure» (cached). */
-    private fun paragraph(text: String, size: Float, width: Float, center: Boolean, color: Int): org.jetbrains.skia.paragraph.Paragraph {
-        val shown = text.ifBlank { "♪" }
-        if (color == -1) measured[shown]?.let { return it }
-        val style = ParagraphStyle().apply { alignment = if (center) Alignment.CENTER else Alignment.LEFT }
-        val ts = TextStyle().apply {
-            fontFamilies = arrayOf("PalSerif")
-            fontSize = size
-            this.color = if (color == -1) 0xFFFFFFFF.toInt() else color
-            height = 1.05f
-            if (color != -1) addShadow(Shadow(argb(alpha(color) * 2 / 3, 0, 0, 0), 0f, 3 * unit, 4.5 * unit))
-        }
-        val p = ParagraphBuilder(style, fonts).pushStyle(ts).addText(shown).popStyle().build().layout(width)
-        if (color == -1) measured[shown] = p
-        return p
-    }
-
-    // ---- Pieces ----------------------------------------------------------------------------------
-
-    private fun cover(c: Canvas, r: Rect, radius: Float) {
-        val rr = RRect.makeLTRB(r.left, r.top, r.right, r.bottom, radius)
-        c.drawRRect(rr, Paint().apply { color = argb(255, 0, 0, 0); imageFilter = ImageFilter.makeDropShadowOnly(0f, 18 * unit, 24 * unit, 24 * unit, argb(150, 0, 0, 0)) })
-        val img = cover
-        if (img == null) { c.drawRRect(rr, Paint().apply { isAntiAlias = true; color = accent }); return }
-        c.save()
-        c.clipRRect(rr, true)
-        c.drawImageRect(img, Rect.makeWH(img.width.toFloat(), img.height.toFloat()).square(), r, SamplingMode.LINEAR, null, true)
-        c.restore()
-    }
-
-    private fun titleBlock(c: Canvas, x: Float, top: Float, width: Float, center: Boolean, small: Boolean = false) {
-        val tf = Font(serif, (if (small) 52 else 76) * unit)
-        val af = Font(sansBold, (if (small) 36 else 44) * unit)
-        val ty = top - tf.metrics.ascent
-        text(c, ellipsize(title, tf, width), x, ty, tf, argb(255, 255, 255, 255), center)
-        text(c, ellipsize(artist, af, width), x, ty + tf.metrics.descent + 14 * unit - af.metrics.ascent, af, argb(225, 255, 255, 255), center)
-    }
-
-    /** Text with a soft shadow, like good subtitles. */
-    private fun text(c: Canvas, s: String, x: Float, y: Float, f: Font, color: Int, center: Boolean, shadow: Boolean = true) {
-        val dx = if (center) -f.measureTextWidth(s) / 2 else 0f
-        if (shadow) c.drawString(s, x + dx, y + 3 * unit, f, Paint().apply { isAntiAlias = true; this.color = argb(170, 0, 0, 0); maskFilter = MaskFilter.makeBlur(FilterBlurMode.NORMAL, 4.5f * unit) })
-        c.drawString(s, x + dx, y, f, Paint().apply { isAntiAlias = true; this.color = color })
-    }
-
-    private fun ellipsize(s: String, f: Font, width: Float): String {
-        if (f.measureTextWidth(s) <= width) return s
-        var n = s.length
-        while (n > 1 && f.measureTextWidth(s.take(n) + "…") > width) n--
-        return s.take(n).trimEnd() + "…"
-    }
-
-    private fun spectrum(c: Canvas, r: Rect, levels: FloatArray) = if (viz == RenderViz.MIRROR) mirror(c, r, levels) else bars(c, r, levels)
-
-    private fun bars(c: Canvas, r: Rect, levels: FloatArray) {
-        val n = levels.size
-        val step = r.width / n
-        val gap = step * 0.28f
-        val bw = step - gap
-        val paint = Paint().apply { isAntiAlias = true; shader = linear(0f, r.top, 0f, r.bottom, accent, withAlpha(accent, 0.3f)) }
-        for (i in 0 until n) {
-            val bh = (levels[i] * r.height).coerceAtLeast(bw * 0.6f)
-            val x = r.left + i * step + gap / 2
-            c.drawRRect(RRect.makeLTRB(x, r.bottom - bh, x + bw, r.bottom, bw / 2), paint)
-        }
-    }
-
-    private fun mirror(c: Canvas, r: Rect, levels: FloatArray) {
-        val n = levels.size
-        val step = r.width / n
-        val mid = (r.top + r.bottom) / 2
-        for (i in 0 until n) {
-            val hh = (levels[i] * r.height / 2).coerceAtLeast(2f)
-            val x = r.left + i * step + step / 2
-            c.drawLine(x, mid - hh, x, mid + hh, stroke(step * 0.55f, withAlpha(accent, 0.35f + levels[i] * 0.65f)))
-        }
-    }
-
-    private fun ring(c: Canvas, cx: Float, cy: Float, r0: Float, maxLen: Float, levels: FloatArray) {
-        val n = levels.size
-        for (k in 0 until n * 2) {
-            val i = if (k < n) k else 2 * n - 1 - k
-            val a = (k.toFloat() / (n * 2)) * 2 * PI.toFloat() - PI.toFloat() / 2
-            val len = levels[i] * maxLen + 4 * unit
-            val dx = cos(a)
-            val dy = sin(a)
-            c.drawLine(cx + dx * r0, cy + dy * r0, cx + dx * (r0 + len), cy + dy * (r0 + len), stroke(7 * unit, withAlpha(accent, 0.45f + levels[i] * 0.55f)))
-        }
-    }
-
-    private fun progress(c: Canvas, left: Float, right: Float, y: Float, t: Long) {
-        val p = (t.toFloat() / durationMs).coerceIn(0f, 1f)
-        c.drawLine(left, y, right, y, stroke(6 * unit, argb(70, 255, 255, 255)))
-        c.drawLine(left, y, left + ((right - left) * p).coerceAtLeast(1f), y, stroke(6 * unit, accent))
-        val f = Font(sans, 30 * unit)
-        val grey = argb(170, 255, 255, 255)
-        text(c, time(t), left, y + 50 * unit, f, grey, center = false, shadow = false)
-        val total = time(durationMs)
-        text(c, total, right - f.measureTextWidth(total), y + 50 * unit, f, grey, center = false, shadow = false)
-    }
-
-    private fun watermark(c: Canvas) {
-        val f = Font(serif, 26 * unit)
-        c.drawString("Palimpsest", w - 40 * unit - f.measureTextWidth("Palimpsest"), h - 36 * unit, f, Paint().apply { isAntiAlias = true; color = argb(90, 255, 255, 255) })
-    }
-
-    private fun stroke(width: Float, color: Int) = Paint().apply { isAntiAlias = true; mode = PaintMode.STROKE; strokeWidth = width; strokeCap = PaintStrokeCap.ROUND; this.color = color }
-    private fun time(ms: Long): String { val sec = ms / 1000; return "%d:%02d".format(sec / 60, sec % 60) }
-    private fun smooth(x: Float) = x * x * x * (x * (x * 6 - 15) + 10)
-    private fun lerp(a: Float, b: Float, t: Float) = a + (b - a) * t
-    private fun blend(from: Int, to: Int, t: Float): Int {
-        fun ch(c: Int, s: Int) = (c shr s) and 0xFF
-        fun mix(s: Int) = lerp(ch(from, s).toFloat(), ch(to, s).toFloat(), t).toInt()
-        return (mix(24) shl 24) or (mix(16) shl 16) or (mix(8) shl 8) or mix(0)
-    }
-    private fun Rect.square(): Rect { val s = min(width, height); return Rect.makeXYWH(left + (width - s) / 2, top + (height - s) / 2, s, s) }
-
-    companion object {
-        const val TRANSITION_MS = 650f
-        private fun font(resource: String): Typeface {
-            val bytes = FrameDrawer::class.java.classLoader.getResourceAsStream(resource)!!.use { it.readBytes() }
-            return FontMgr.default.makeFromData(Data.makeFromBytes(bytes))!!
-        }
-    }
-}

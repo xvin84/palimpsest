@@ -21,6 +21,17 @@ class SpectrumTimeline(val fps: Int, val bands: Int, private val levels: Array<F
 
     fun at(timeUs: Long): FloatArray = levels.getOrNull((timeUs * fps / 1_000_000L).toInt()) ?: silent
 
+    /** «Пульт»'s waveform: the track's loudness in [n] steps, from the spectrum already sampled per frame. */
+    fun envelope(n: Int = 140): FloatArray {
+        val raw = FloatArray(n) { i ->
+            val from = i * levels.size / n
+            val to = maxOf(from + 1, (i + 1) * levels.size / n).coerceAtMost(levels.size)
+            if (from >= to) 0f else (from until to).map { levels[it].average().toFloat() }.average().toFloat()
+        }
+        val peak = raw.maxOrNull()?.takeIf { it > 0f } ?: 1f
+        return FloatArray(n) { (raw[it] / peak).coerceIn(0.04f, 1f) }
+    }
+
     companion object {
         /**
          * Decodes [file], runs it through the same EQ (+ ReplayGain gain) as playback, and samples
